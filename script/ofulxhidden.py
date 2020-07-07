@@ -1,6 +1,6 @@
 from hiddenfeat.bandits.finite_linear_bandits import make_random_hflb
 from hiddenfeat.utils import seed_all
-from hiddenfeat.algos.hidden_linear import oful, hoful, incr_hoful
+from hiddenfeat.algos.hidden_linear import oful, hoful, incr_hoful, offset_approach, ucb1
 import argparse
 
 
@@ -29,6 +29,11 @@ bandit = make_random_hflb(n_contexts=args.S, n_arms=args.A, dim=args.dim,
 if args.algo == 'oful':
     oful(bandit, args.it, reg=args.reg1, noise=args.noise, delta=args.delta, 
          param_bound=args.pb, seed=args.seed)
+elif args.algo == 'offset':
+    offset_approach(bandit, args.it, reg=args.reg1, noise=args.noise, 
+                    delta=args.delta, param_bound=args.pb, seed=args.seed)
+elif args.algo == 'ucb':
+    ucb1(bandit, args.it, seed=args.seed)
 else:
     if args.algo == 'hoful':
         algo = hoful

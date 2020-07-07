@@ -7,12 +7,12 @@ from hiddenfeat.logger import Logger
 """
 def oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, seed=0):    
     logname = 'oracle' if bandit.hidden == 0 else 'oful'
-    logger = Logger(directory='../logs', name = logname + str (seed), modes=['human', 'csv'])
+    logger = Logger(directory='../logs', name = logname + '.' + str (seed), modes=['human', 'csv'])
     log_keys = ['regret', 
                  'cumregret', 
                  'paramerror', 
                  'context', 
-                 'action', 
+                 'arm', 
                  'reward']
     log_row = dict.fromkeys(log_keys)
     logger.open(log_row.keys())
@@ -53,7 +53,7 @@ def oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, seed=0):
         log_row['cumregret'] = cum_regret
         log_row['paramerror'] = np.linalg.norm(param - bandit._param[:dim])
         log_row['context'] = s
-        log_row['action'] = a
+        log_row['arm'] = a
         log_row['reward'] = reward
         logger.write_row(log_row, t)
         
@@ -63,15 +63,14 @@ def hoful(bandit, horizon, reg1=0.1, reg2=0.1, noise=0.1, delta=0.1, param_bound
     """
     Variant of Wang et al. 2016, non-incremental version
     """
-    logger = Logger(directory='../logs', name = 'hoful%d' % seed, modes=['human', 'csv'])
+    logger = Logger(directory='../logs', name = 'hoful.%d' % seed, modes=['human', 'csv'])
     log_keys = ['regret', 
              'cumregret', 
              'paramerror', 
              'hparamerror', 
              'kparamerror', 
-             'featerror',
              'context', 
-             'action', 
+             'arm', 
              'reward']
     log_row = dict.fromkeys(log_keys)
     logger.open(log_row.keys())
@@ -159,7 +158,7 @@ def hoful(bandit, horizon, reg1=0.1, reg2=0.1, noise=0.1, delta=0.1, param_bound
         log_row['kparamerror'] = np.linalg.norm(kparam - bandit._param[:kdim])
         log_row['featerror'] = np.linalg.norm(hfeats - bandit._features[:,:,kdim:])
         log_row['context'] = s
-        log_row['action'] = a
+        log_row['arm'] = a
         log_row['reward'] = reward
         logger.write_row(log_row, t)
         
@@ -169,16 +168,15 @@ def incr_hoful(bandit, horizon, reg1=0.1, reg2=0.1, noise=0.1, delta=0.1, param_
     """
     Variant of Wang et al. 2016, incremental version
     """
-    logger = Logger(directory='../logs', name = 'ihoful%d' % seed, modes=['human', 'csv'])
+    logger = Logger(directory='../logs', name = 'ihoful.%d' % seed, modes=['human', 'csv'])
     log_keys = ['regret', 
                  'cumregret', 
                  'paramerror', 
                  'hparamerror', 
                  'kparamerror', 
-                 'hfeaterror',
                  'featerror',
                  'context', 
-                 'action', 
+                 'arm', 
                  'reward']
     log_row = dict.fromkeys(log_keys)
     logger.open(log_row.keys())
@@ -247,11 +245,131 @@ def incr_hoful(bandit, horizon, reg1=0.1, reg2=0.1, noise=0.1, delta=0.1, param_
         log_row['kparamerror'] = np.linalg.norm(kparam - bandit._param[:kdim])
         log_row['featerror'] = np.linalg.norm(hfeats - bandit._features[:,:,kdim:])
         log_row['context'] = s
-        log_row['action'] = a
+        log_row['arm'] = a
         log_row['reward'] = reward
         logger.write_row(log_row, t)
 
     return param, hfeats
+
+def offset_approach(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, feat_bound=1, seed=0):
+    """
+    Model unknown part as context-arm-dependent offset
+    """
+    logger = Logger(directory='../logs', name = 'offset.%d' % seed, modes=['human', 'csv'])
+    log_keys = ['regret', 
+                 'cumregret', 
+                 'kparamerror',
+                 'offseterror',
+                 'context', 
+                 'arm', 
+                 'reward']
+    log_row = dict.fromkeys(log_keys)
+    logger.open(log_row.keys())
+    cum_regret = 0
+    
+    dim = bandit.dim - bandit.hidden
+    A = reg * np.eye(dim)
+    b = np.random.uniform(0, 1, size=dim)
+    param = np.zeros(dim)
+    offset = np.zeros((bandit.n_contexts, bandit.n_arms))
+    counts = np.zeros((bandit.n_contexts, bandit.n_arms))
+
+    for t in range(horizon):
+        #Observe context
+        s = bandit.observe()
+    
+        #Select arm optimistically
+        best = -np.inf
+        a = 0
+        for i in range(bandit.n_arms):
+            feat = bandit.feat(s, i)
+            beta = oful_coeff(A, reg, noise, delta, param_bound)
+            offset_ucb = (offset[s, i] + np.sqrt(2 * np.log(t) / counts[s, i])
+                            if counts[s, i] > 0 else np.inf)
+            bonus = beta * inverse_norm(feat, A) + offset_ucb
+            ucb = np.dot(feat, param) + bonus
+            if ucb > best:
+                best = ucb
+                a = i
+        reward = bandit.pull(a)
+        
+        #Update parameter estimate
+        X = bandit.feat(s, a)
+        A += np.outer(X, X)
+        b += X * (reward - offset[s, a])
+        param = np.linalg.solve(A, b)
+        
+        #Update offset estimate
+        counts[s, a] += 1
+        offset[s, a] = 1 / counts[s, a] * ((counts[s, a] - 1) * offset[s, a] +
+                          reward - np.dot(param, X))
+        
+        #Keep trace of regret
+        regret = bandit._regret(s, a)
+        cum_regret += regret
+        log_row['regret'] = regret
+        log_row['cumregret'] = cum_regret
+        log_row['kparamerror'] = np.linalg.norm(param - bandit._param[:dim])
+        log_row['offseterror'] = np.linalg.norm(offset - np.dot(
+                bandit._features[:,:,dim:], bandit._param[dim:]))
+        log_row['context'] = s
+        log_row['arm'] = a
+        log_row['reward'] = reward
+        logger.write_row(log_row, t)
+
+    return param, offset
+
+def ucb1(bandit, horizon, seed=0):
+    """
+    Ignore structure
+    """
+    logger = Logger(directory='../logs', name = 'ucb.%d' % seed, modes=['human', 'csv'])
+    log_keys = ['regret', 
+                 'cumregret', 
+                 'offseterror',
+                 'context', 
+                 'arm', 
+                 'reward']
+    log_row = dict.fromkeys(log_keys)
+    logger.open(log_row.keys())
+    cum_regret = 0
+    
+    mu = np.zeros((bandit.n_contexts, bandit.n_arms))
+    counts = np.zeros((bandit.n_contexts, bandit.n_arms))
+
+    for t in range(horizon):
+        #Observe context
+        s = bandit.observe()
+    
+        #Select arm optimistically
+        best = -np.inf
+        a = 0
+        for i in range(bandit.n_arms):
+            bonus = (np.sqrt(2 * np.log(t) / counts[s, i])
+                            if counts[s, i] > 0 else np.inf)
+            ucb = mu[s, i] + bonus
+            if ucb > best:
+                best = ucb
+                a = i
+        reward = bandit.pull(a)
+        
+        #Update offset estimate
+        counts[s, a] += 1
+        mu[s, a] = 1 / counts[s, a] * ((counts[s, a] - 1) * mu[s, a] + reward)
+        
+        #Keep trace of regret
+        regret = bandit._regret(s, a)
+        cum_regret += regret
+        log_row['regret'] = regret
+        log_row['cumregret'] = cum_regret
+        log_row['offseterror'] = np.linalg.norm(mu - np.dot(
+                bandit._features, bandit._param))
+        log_row['context'] = s
+        log_row['arm'] = a
+        log_row['reward'] = reward
+        logger.write_row(log_row, t)
+
+    return mu
 
 def oful_coeff(A, reg, noise, delta, param_bound):
     dim = A.shape[0]
