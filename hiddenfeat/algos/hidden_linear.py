@@ -255,7 +255,8 @@ def offset_approach(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=
     """
     Model unknown part as context-arm-dependent offset
     """
-    logger = Logger(directory='../logs', name = 'offset.%d' % seed, modes=['human', 'csv'])
+    logname = 'offset' if alpha==1 else 'offsetx'
+    logger = Logger(directory='../logs', name = logname + '.%d' % seed, modes=['human', 'csv'])
     log_keys = ['regret', 
                  'cumregret', 
                  'kparamerror',
