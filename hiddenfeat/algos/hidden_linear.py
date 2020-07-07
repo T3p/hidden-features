@@ -251,7 +251,7 @@ def incr_hoful(bandit, horizon, reg1=0.1, reg2=0.1, noise=0.1, delta=0.1, param_
 
     return param, hfeats
 
-def offset_approach(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, feat_bound=1, seed=0):
+def offset_approach(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, alpha=1, seed=0):
     """
     Model unknown part as context-arm-dependent offset
     """
@@ -286,7 +286,7 @@ def offset_approach(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=
             beta = oful_coeff(A, reg, noise, delta, param_bound)
             offset_ucb = (offset[s, i] + np.sqrt(2 * np.log(t) / counts[s, i])
                             if counts[s, i] > 0 else np.inf)
-            bonus = beta * inverse_norm(feat, A) + offset_ucb
+            bonus = beta * inverse_norm(feat, A) + alpha * offset_ucb
             ucb = np.dot(feat, param) + bonus
             if ucb > best:
                 best = ucb

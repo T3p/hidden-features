@@ -16,6 +16,7 @@ parser.add_argument('--it', type=int, default=10000)
 parser.add_argument('--reg1', type=float, default=0.1)
 parser.add_argument('--reg2', type=float, default=0.1)
 parser.add_argument('--delta', type=float, default=0.1)
+parser.add_argument('--alpha', type=float, default=0.1)
 parser.add_argument('--pb', type=float, default=1)
 parser.add_argument('--fb', type=float, default=1)
 parser.add_argument('--seed', type=int, default=0)
@@ -31,7 +32,8 @@ if args.algo == 'oful':
          param_bound=args.pb, seed=args.seed)
 elif args.algo == 'offset':
     offset_approach(bandit, args.it, reg=args.reg1, noise=args.noise, 
-                    delta=args.delta, param_bound=args.pb, seed=args.seed)
+                    delta=args.delta, param_bound=args.pb, seed=args.seed,
+                    alpha=args.alpha)
 elif args.algo == 'ucb':
     ucb1(bandit, args.it, seed=args.seed)
 else:
