@@ -1,12 +1,14 @@
 import numpy as np
 from hiddenfeat.utils import inverse_norm
 from hiddenfeat.logger import Logger
+import scipy.sparse.linalg as sparse
 
 """
     Agnostic approach: just use apparent features (misspecified model)
 """
 def oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, seed=0):    
     logname = 'oracle' if bandit.hidden == 0 else 'oful'
+    logname = logname + '.%d.%d%d' % (bandit.hidden, bandit.n_contexts, bandit.n_arms)
     logger = Logger(directory='../logs', name = logname + '.' + str (seed), modes=['human', 'csv'])
     log_keys = ['pseudoregret',
                  'cumpseudoregret',
@@ -66,8 +68,8 @@ def oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, seed=0):
         
     return param
 
-def hoful(bandit, horizon, reg=0.5, noise=0.1, delta=0.1, off_scale=1, param_bound=1, off_bound=1, seed=0):    
-    logname = 'hoful'
+def hoful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, off_scale=1, param_bound=1, off_bound=1, seed=0):    
+    logname = 'hoful.%d.%d%d' % (bandit.hidden, bandit.n_contexts, bandit.n_arms)
     logger = Logger(directory='../logs', name = logname + '.' + str (seed), modes=['human', 'csv'])
     log_keys = ['pseudoregret',
                  'cumpseudoregret',
@@ -97,11 +99,14 @@ def hoful(bandit, horizon, reg=0.5, noise=0.1, delta=0.1, off_scale=1, param_bou
     
     #Initialization
     A = reg * np.eye(dim + n*m)
+    #A = np.diag(np.array([reg]*dim + [0.9]*(n*m))) 
     b = np.zeros(dim + n*m)
     
     for t in range(horizon):
         #Latest parameter estimate
         param_and_hid = np.linalg.solve(A, b)
+        #param_and_hid = sparse.spsolve(A, b)
+        print(np.linalg.det(A))
         
         #Observe context
         s = bandit.observe()
@@ -109,7 +114,6 @@ def hoful(bandit, horizon, reg=0.5, noise=0.1, delta=0.1, off_scale=1, param_bou
         #Select arm optimistically
         best = -np.inf
         a = 0
-        assert np.linalg.det(A) > 0
         for i in range(m):
             feat = bandit.feat(s, i)
             selector = np.zeros(n*m)
