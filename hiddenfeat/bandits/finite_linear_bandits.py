@@ -30,15 +30,25 @@ class FiniteLinearBandit:
         
         self._context = None
         return reward + np.random.normal(0, self._noise)
+
+    def _expected_reward(self, context, arm):
+        feat = self._features[context, arm]
+        return np.dot(self._param, feat)
     
     def feat(self, context, arm):
         return self._features[context, arm]
     
-    def _regret(self, context, arm):
+    def _pseudoregret(self, context, arm):
         feats = self._features[context]
         values = np.dot(feats, self._param)
         best = np.amax(values)
         return best - np.dot(feats[arm], self._param)
+    
+    def _optimal(self, context):
+        feats = self._features[context]
+        values = np.dot(feats, self._param)
+        best = np.amax(values)
+        return best
     
 class HiddenFiniteLinearBandit(FiniteLinearBandit):
     def __init__(self, n_contexts, n_arms, features, param, noise=0.1, hidden=0):
@@ -64,6 +74,7 @@ def make_random_hflb(n_contexts, n_arms, dim, noise=0.1, hidden=0):
     orthogonalizer = PCA(n_components=dim) #no dimensionality reduction
     features = orthogonalizer.fit_transform(features)
     features = np.reshape(features, (n_contexts, n_arms, dim))
+    features = np.take(features, np.random.permutation(dim), axis=2)
 
     #Normalize
     for i in range(n_contexts):
