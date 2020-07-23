@@ -156,7 +156,7 @@ def hoful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, off_scale=1, param_bou
         
     return param, np.reshape(hidden_feat, (n, m))
 
-def span_hoful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, seed=0, fulldim=None):    
+def span_hoful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, feat_bound=1, seed=0, fulldim=None):    
     #Dimensions
     dim = bandit.dim - bandit.hidden
     n = bandit.n_contexts
@@ -183,15 +183,15 @@ def span_hoful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, se
     cum_regret = 0
         
     known_basis = feature_basis(bandit.get_features())
-    assert fulldim >= known_basis.shape[-1]
+    known_rank = known_basis.shape[-1]
+    assert fulldim >= known_rank
     hidden_basis = basis_completion(known_basis, fulldim)
 
     #TODO: introduce concept of full dim
     full_features = np.dstack((known_basis, hidden_basis))
     #Normalize
-    full_features = full_features / np.linalg.norm(full_features, axis=2, keepdims=True)
-    #The new feature matrix is orthogonal
-    U = np.reshape(full_features, (n*m, fulldim))
+    full_features = full_features / np.linalg.norm(full_features, axis=2, keepdims=True) * feat_bound
+    full_param_bound = np.sqrt(n*m) * feat_bound * param_bound
 
     assert np.linalg.matrix_rank(np.reshape(full_features, (n*m, fulldim))) == full_features.shape[2]
     
@@ -211,7 +211,7 @@ def span_hoful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, se
         a = 0
         for i in range(m):
             feat = full_features[s, i]
-            beta = oful_coeff(A, reg, noise, delta, param_bound)
+            beta = oful_coeff(A, reg, noise, delta, full_param_bound)
             bonus = beta * inverse_norm(feat, A)
             ucb = np.dot(feat, full_param) + bonus
             if ucb > best:
@@ -226,7 +226,10 @@ def span_hoful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, se
         
         #Restore original param
         Phi = np.reshape(bandit.get_features(), (n*m, dim))
-        param = np.linalg.solve(U[:,:dim].T @ Phi, full_param[:dim])
+        olPhi = np.reshape(full_features, (n*m, fulldim))[:, :known_rank]
+        param = np.linalg.lstsq(olPhi.T @ Phi, 
+                                       full_param[:known_rank], 
+                                rcond=None)[0]
         pseudoregret = bandit._pseudoregret(s, a)
         cum_pseudoregret += pseudoregret
         regret = bandit._optimal(s) - reward
@@ -239,6 +242,7 @@ def span_hoful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, se
         log_row['context'] = s
         log_row['arm'] = a
         log_row['reward'] = reward
+        log_row['zeronorm'] = full_param.shape[0] - sum(np.isclose(full_param, 0))
         logger.write_row(log_row, t)
      
     return param, full_param, full_features 
