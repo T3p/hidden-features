@@ -2,13 +2,14 @@ import numpy as np
 from hiddenfeat.utils import inverse_norm
 from hiddenfeat.logger import Logger
 import scipy.sparse.linalg as sparse
+from hiddenfeat.utils import feature_basis, basis_completion
 
 """
     Agnostic approach: just use apparent features (misspecified model)
 """
 def oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, seed=0):    
     logname = 'oracle' if bandit.hidden == 0 else 'oful'
-    logname = logname + '.%d.%d%d' % (bandit.hidden, bandit.n_contexts, bandit.n_arms)
+    logname = logname + '.%d.%d.%d.%d' % (bandit.n_contexts, bandit.n_arms, bandit.dim, bandit.hidden)
     logger = Logger(directory='../logs', name = logname + '.' + str (seed), modes=['human', 'csv'])
     log_keys = ['pseudoregret',
                  'cumpseudoregret',
@@ -69,7 +70,7 @@ def oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, seed=0):
     return param
 
 def hoful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, off_scale=1, param_bound=1, off_bound=1, seed=0):    
-    logname = 'hoful.%d.%d%d' % (bandit.hidden, bandit.n_contexts, bandit.n_arms)
+    logname = 'hoful.%d.%d.%d.%d' % (bandit.n_contexts, bandit.n_arms, bandit.dim, bandit.hidden)
     logger = Logger(directory='../logs', name = logname + '.' + str (seed), modes=['human', 'csv'])
     log_keys = ['pseudoregret',
                  'cumpseudoregret',
@@ -154,6 +155,93 @@ def hoful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, off_scale=1, param_bou
         logger.write_row(log_row, t)
         
     return param, np.reshape(hidden_feat, (n, m))
+
+def span_hoful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, seed=0, fulldim=None):    
+    #Dimensions
+    dim = bandit.dim - bandit.hidden
+    n = bandit.n_contexts
+    m = bandit.n_arms
+    if fulldim is None:
+        fulldim = n*m
+    else:
+        assert fulldim <= n*m
+    
+    logname = 'span.%d.%d.%d.%d.%d' % (bandit.n_contexts, bandit.n_arms, bandit.dim, bandit.hidden, fulldim)
+    logger = Logger(directory='../logs', name = logname + '.' + str (seed), modes=['human', 'csv'])
+    log_keys = ['pseudoregret',
+                 'cumpseudoregret',
+                 'regret', 
+                 'cumregret', 
+                 'paramerror', 
+                 'context', 
+                 'arm', 
+                 'reward']
+    log_row = dict.fromkeys(log_keys)
+    logger.open(log_row.keys())
+    
+    cum_pseudoregret = 0
+    cum_regret = 0
+        
+    known_basis = feature_basis(bandit.get_features())
+    assert fulldim >= known_basis.shape[-1]
+    hidden_basis = basis_completion(known_basis, fulldim)
+
+    #TODO: introduce concept of full dim
+    full_features = np.dstack((known_basis, hidden_basis))
+    #Normalize
+    full_features = full_features / np.linalg.norm(full_features, axis=2, keepdims=True)
+    #The new feature matrix is orthogonal
+    U = np.reshape(full_features, (n*m, fulldim))
+
+    assert np.linalg.matrix_rank(np.reshape(full_features, (n*m, fulldim))) == full_features.shape[2]
+    
+    #Initialization
+    A = reg * np.eye(fulldim)
+    b = np.zeros(fulldim)
+    
+    for t in range(horizon):
+        #Latest parameter estimate
+        full_param = np.linalg.solve(A, b)
+        
+        #Observe context
+        s = bandit.observe()
+        
+        #Select arm optimistically
+        best = -np.inf
+        a = 0
+        for i in range(m):
+            feat = full_features[s, i]
+            beta = oful_coeff(A, reg, noise, delta, param_bound)
+            bonus = beta * inverse_norm(feat, A)
+            ucb = np.dot(feat, full_param) + bonus
+            if ucb > best:
+                best = ucb
+                a = i
+        reward = bandit.pull(a)
+        
+        #Update estimates
+        feat = full_features[s, a] #d
+        A += np.outer(feat, feat)
+        b += feat * reward
+        
+        #Restore original param
+        Phi = np.reshape(bandit.get_features(), (n*m, dim))
+        param = np.linalg.solve(U[:,:dim].T @ Phi, full_param[:dim])
+        pseudoregret = bandit._pseudoregret(s, a)
+        cum_pseudoregret += pseudoregret
+        regret = bandit._optimal(s) - reward
+        cum_regret += regret
+        log_row['regret'] = regret
+        log_row['pseudoregret'] = pseudoregret
+        log_row['cumregret'] = cum_regret
+        log_row['cumpseudoregret'] = cum_pseudoregret
+        log_row['paramerror'] = np.linalg.norm(param - bandit._param[:dim])
+        log_row['context'] = s
+        log_row['arm'] = a
+        log_row['reward'] = reward
+        logger.write_row(log_row, t)
+     
+    return param, full_param, full_features 
 
 def oful_coeff(A, reg, noise, delta, param_bound):
     dim = A.shape[0]

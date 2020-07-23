@@ -38,6 +38,9 @@ class FiniteLinearBandit:
     def feat(self, context, arm):
         return self._features[context, arm]
     
+    def get_features(self):
+        return self._features
+    
     def _pseudoregret(self, context, arm):
         feats = self._features[context]
         values = np.dot(feats, self._param)
@@ -60,8 +63,13 @@ class HiddenFiniteLinearBandit(FiniteLinearBandit):
         if self.hidden > 0: 
             return self._features[context, arm, :-self.hidden]
         return self._features[context, arm]
+    
+    def get_features(self):
+        if self.hidden > 0: 
+            return self._features[:, :, :-self.hidden]
+        return self._features
 
-def make_random_hflb(n_contexts, n_arms, dim, noise=0.1, hidden=0):
+def make_random_hflb(n_contexts, n_arms, dim, noise=0.1, hidden=0, orthogonalize=True):
     #Generate features
     features = np.zeros((n_contexts, n_arms, dim))
     for i in range(n_contexts):
@@ -70,11 +78,12 @@ def make_random_hflb(n_contexts, n_arms, dim, noise=0.1, hidden=0):
             features[i, j] = np.random.normal(np.zeros(dim), np.sqrt(var))
     
     #Orthogonalize features
-    features = np.reshape(features, (n_contexts * n_arms, dim))
-    orthogonalizer = PCA(n_components=dim) #no dimensionality reduction
-    features = orthogonalizer.fit_transform(features)
-    features = np.reshape(features, (n_contexts, n_arms, dim))
-    features = np.take(features, np.random.permutation(dim), axis=2)
+    if orthogonalize:
+        features = np.reshape(features, (n_contexts * n_arms, dim))
+        orthogonalizer = PCA(n_components=dim) #no dimensionality reduction
+        features = orthogonalizer.fit_transform(features)
+        features = np.reshape(features, (n_contexts, n_arms, dim))
+        features = np.take(features, np.random.permutation(dim), axis=2)
 
     #Normalize
     for i in range(n_contexts):
