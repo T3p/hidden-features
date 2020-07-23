@@ -44,15 +44,10 @@ def basis_completion(basis, fulldim=None):
     matrix = np.reshape(basis, (n*m, d))
     assert d <= n*m and np.linalg.matrix_rank(matrix) == d
     
-    if fulldim is None and d==n*m or d==fulldim:
+    if fulldim is None and d==n*m:
         return basis
-    
-    if fulldim is None or fulldim==n*m:
-        X = scipy.linalg.null_space(matrix.T)
-        return np.reshape(X, (n, m, n*m - d))
-    else:
-        assert fulldim < n*m
-        while basis.shape[-1] < fulldim:
-            x = get_orthogonal(basis)
-            basis = np.dstack((basis, x))
-        return basis[:, :,-(fulldim - d):]
+
+    X = scipy.linalg.null_space(matrix.T)
+    if fulldim is None: fulldim = n*m
+    X = X [:, :fulldim-d]
+    return np.reshape(X, (n, m, fulldim - d))

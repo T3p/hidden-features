@@ -188,6 +188,7 @@ def span_hoful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, fe
     hidden_basis = basis_completion(known_basis, fulldim)
 
     #TODO: introduce concept of full dim
+    print(hidden_basis.shape)
     full_features = np.dstack((known_basis, hidden_basis))
     #Normalize
     full_features = full_features / np.linalg.norm(full_features, axis=2, keepdims=True) * feat_bound
