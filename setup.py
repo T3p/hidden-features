@@ -17,6 +17,6 @@ setup(name='hiddenfeat',
               'pandas'],
       description="Contextual bandits with hidden features",
       author="Matteo Papini",
-      url='https://github.com/T3p/hidden-features',
+      url='https://github.com/T3p/lrcb',
       author_email="matteo.papini@polimi.it",
       version="0.1.1")
