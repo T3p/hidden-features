@@ -1,8 +1,8 @@
 import numpy as np
-from hiddenfeat.utils import inverse_norm
-from hiddenfeat.logger import Logger
+from lrcb.utils import inverse_norm
+from lrcb.logger import Logger
 import scipy.sparse.linalg as sparse
-from hiddenfeat.utils import feature_basis, basis_completion
+from lrcb.utils import feature_basis, basis_completion
 
 """
     Agnostic approach: just use apparent features (misspecified model)

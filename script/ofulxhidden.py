@@ -1,6 +1,6 @@
-from hiddenfeat.bandits.finite_linear_bandits import make_random_hflb
-from hiddenfeat.utils import seed_all
-from hiddenfeat.algos.hidden_linear import oful, hoful, span_hoful
+from lrcb.bandits.finite_linear_bandits import make_random_hflb
+from lrcb.utils import seed_all
+from lrcb.algos.hidden_linear import oful, hoful, span_hoful
 import argparse
 
 

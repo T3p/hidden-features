@@ -6,16 +6,18 @@ if sys.version_info.major != 3:
           "Python {}. The installation will likely fail.".format(sys.version_info.major))
 
 
-setup(name='hiddenfeat',
+setup(name='lrcb',
       packages=[package for package in find_packages()
-                if package.startswith('hiddenfeat')],
+                if package.startswith('lrcb')],
       install_requires=[
               'numpy',
               'scipy',
               'matplotlib',
               'jupyter',
-              'pandas'],
-      description="Contextual bandits with hidden features",
+              'pandas',
+              'scikit-learn',
+              'tensorboardx'],
+      description="Learning representations for contextual bandits",
       author="Matteo Papini",
       url='https://github.com/T3p/lrcb',
       author_email="matteo.papini@polimi.it",
