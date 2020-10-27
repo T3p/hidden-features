@@ -32,3 +32,17 @@ def compare(logdir, names, key, seeds):
     plt.ylabel(key)
     plt.legend(handles=handles)
     plt.show()
+    
+def plot_all(logdir, name, key, seeds, rows=None):
+    os.chdir(logdir)
+    dfs = [pd.read_csv(name + '.' + str(seed) + '.csv') for seed in seeds]
+    for df in dfs:
+        val = df[key]
+        if rows:
+            val = val[:rows]
+        xx = np.arange(len(val))
+        plt.plot(xx, val)
+
+    plt.xlabel('Iterations')
+    plt.ylabel(key)
+    plt.show()

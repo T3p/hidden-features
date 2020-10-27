@@ -1,76 +1,76 @@
 import numpy as np
 from lrcb.utils import inverse_norm
 from lrcb.logger import Logger
-import scipy.sparse.linalg as sparse
-from lrcb.utils import feature_basis, basis_completion
+from lrcb.algos.oful import oful_coeff
 
-"""
-    Agnostic approach: just use apparent features (misspecified model)
-"""
-def lr_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, seed=0):    
-    logname = 'oracle' if bandit.hidden == 0 else 'oful'
-    logname = logname + '.%d.%d.%d.%d' % (bandit.n_contexts, bandit.n_arms, bandit.dim, bandit.hidden)
-    logger = Logger(directory='../logs', name = logname + '.' + str (seed), modes=['human', 'csv'])
-    log_keys = ['pseudoregret',
-                 'cumpseudoregret',
-                 'regret', 
+def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, 
+         seed=0, verbose=True, logname='oful'):    
+    np.random.seed(seed)
+    log_modes = ['csv']
+    if verbose: 
+        log_modes.append('human')
+    logger = Logger(directory='../logs', name = logname + '.' + str (seed), modes=log_modes)
+    log_keys = ['regret', 
                  'cumregret', 
-                 'paramerror', 
+                 'selection', 
                  'context', 
                  'arm', 
                  'reward']
     log_row = dict.fromkeys(log_keys)
     logger.open(log_row.keys())
-    cum_pseudoregret = 0
     cum_regret = 0
     
-    dim = bandit.dim - bandit.hidden
-    A = reg * np.eye(dim)
-    b = np.zeros(dim)
-    
-    for t in range(horizon):
-        #Latest parameter estimate
-        param = np.linalg.solve(A, b)
-        
+    dims = [r.dim for r in bandit.reps]
+    A = [reg * np.eye(dim) for dim in dims]
+    b = [np.zeros(dim) for dim in dims]
+    params = [np.zeros(dim) for dim in dims]
+    for t in range(horizon):   
         #Observe context
         s = bandit.observe()
+     
         
+        #Select representation
+        min_eigs = []
+        for i, r in enumerate(bandit.reps):
+            feats = r.features
+            param = np.linalg.solve(A[i], b[i])
+            params[i] = param
+            rewards = np.matmul(feats, param)
+            xx = np.arange(bandit.n_contexts)
+            optimal_arms = np.argmax(rewards, axis=1)
+            optimal_features = feats[xx, optimal_arms, :]
+            _, sv, _ = np.linalg.svd(optimal_features)
+            min_eigs.append(sv[-1])
+        selection = np.argmax(min_eigs)
+        bandit.select_rep(selection)
+            
         #Select arm optimistically
         best = -np.inf
         a = 0
         for i in range(bandit.n_arms):
             feat = bandit.feat(s, i)
-            beta = oful_coeff(A, reg, noise, delta, param_bound)
-            bonus = beta * inverse_norm(feat, A)
-            ucb = np.dot(feat, param) + bonus
+            beta = oful_coeff(A[selection], reg, noise, delta, param_bound)
+            bonus = beta * inverse_norm(feat, A[selection])
+            ucb = np.dot(feat, params[selection]) + bonus
             if ucb > best:
                 best = ucb
                 a = i
         reward = bandit.pull(a)
         
         #Update estimates
-        feat = bandit.feat(s, a)
-        A += np.outer(feat, feat)
-        b += feat * reward
+        for i, r in enumerate(bandit.reps):
+            feat = bandit.reps[i].features[s, a, :]
+            A[i] += np.outer(feat, feat)
+            b[i] += feat * reward
         
-        pseudoregret = bandit._pseudoregret(s, a)
-        cum_pseudoregret += pseudoregret
-        regret = bandit._optimal(s) - reward
+        regret = bandit._regret(s, a)
         cum_regret += regret
         log_row['regret'] = regret
-        log_row['pseudoregret'] = pseudoregret
         log_row['cumregret'] = cum_regret
-        log_row['cumpseudoregret'] = cum_pseudoregret
-        log_row['paramerror'] = np.linalg.norm(param - bandit._param[:dim])
         log_row['context'] = s
         log_row['arm'] = a
         log_row['reward'] = reward
+        log_row['selection'] = selection
         logger.write_row(log_row, t)
         
     return param
-
-def oful_coeff(A, reg, noise, delta, param_bound):
-    dim = A.shape[0]
-    return (noise * np.sqrt(2 * np.log(np.sqrt(np.linalg.det(A)) / 
-                                              reg**(dim / 2) / delta ))
-                        + np.sqrt(reg) * param_bound)
