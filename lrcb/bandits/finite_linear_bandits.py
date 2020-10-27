@@ -41,10 +41,10 @@ class FiniteLinearBandit:
     def get_features(self):
         return self._features
     
-    def _pseudoregret(self, context, arm):
-        feats = self._features[context]
-        values = np.dot(feats, self._param)
-        best = np.amax(values)
+    def _regret(self, context, arm):
+        feats = self._features[context, :, :]
+        values = np.matmul(feats, self._param)
+        best = np.max(values)
         return best - np.dot(feats[arm], self._param)
     
     def _optimal(self, context):
