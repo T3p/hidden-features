@@ -48,3 +48,18 @@ def basis_completion(basis, fulldim=None):
     if fulldim is None: fulldim = n*m
     X = X [:, :fulldim-d]
     return np.reshape(X, (n, m, fulldim - d))
+
+def weighted_norm(v, A):
+    return np.dot(v, np.matmul(A, v))
+
+"""Computes minimum eigenvalue of AA^T"""
+def min_eig_outer(A):
+    _, sv, _ = np.linalg.svd(A)
+    return sv[-1]**2
+
+"""Computes (A + uv^T)^-1 given A^-1""" 
+def sherman_morrison(invA, u, v):
+    outer = np.outer(u, v)
+    return invA - (np.matmul(invA, np.matmul(outer, invA))) \
+            / (1 + np.dot(v, np.matmul(invA, u)))
+    

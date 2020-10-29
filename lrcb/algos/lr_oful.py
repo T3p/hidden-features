@@ -1,6 +1,7 @@
 import numpy as np
 from lrcb.logger import Logger
 from lrcb.algos.oful import oful_coeff_inv
+from lrcb.utils import min_eig_outer, sherman_morrison, weighted_norm
 
 def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, 
          seed=0, verbose=True, logname='oful'):    
@@ -29,7 +30,8 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
      
         
         #Select representation
-        min_eigs = []
+        maxmin_eig = 0
+        selection = 0
         for i, r in enumerate(bandit.reps):
             feats = r.features
             param = np.matmul(invA[i], b[i])
@@ -38,9 +40,10 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
             xx = np.arange(bandit.n_contexts)
             optimal_arms = np.argmax(rewards, axis=1)
             optimal_features = feats[xx, optimal_arms, :]
-            _, sv, _ = np.linalg.svd(optimal_features)
-            min_eigs.append(sv[-1])
-        selection = np.argmax(min_eigs)
+            min_eig = min_eig_outer(optimal_features)
+            if min_eig > maxmin_eig:
+                maxmin_eig = min_eig
+                selection = i
         bandit.select_rep(selection)
             
         #Select arm optimistically
@@ -49,7 +52,7 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         for i in range(bandit.n_arms):
             feat = bandit.feat(s, i)
             beta = oful_coeff_inv(invA[selection], reg, noise, delta, param_bound)
-            bonus = beta * np.dot(feat, np.matmul(invA[selection], feat))
+            bonus = beta * weighted_norm(feat, invA[selection])
             ucb = np.dot(feat, params[selection]) + bonus
             if ucb > best:
                 best = ucb
@@ -59,10 +62,7 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         #Update estimates
         for i, r in enumerate(bandit.reps):
             feat = bandit.reps[i].features[s, a, :]
-            outer = np.outer(feat, feat)
-            invA[i] = invA[i] - (np.matmul(invA[i], np.matmul(outer, 
-                                                              invA[i]))) \
-            / (1 + np.dot(feat, np.matmul(invA[i], feat)))
+            invA[i] = sherman_morrison(invA[i], feat, feat)
             b[i] += feat * reward
         
         regret = bandit._regret(s, a)

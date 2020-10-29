@@ -1,5 +1,5 @@
 import numpy as np
-from lrcb.utils import inverse_norm
+from lrcb.utils import inverse_norm, sherman_morrison, weighted_norm
 from lrcb.logger import Logger
 """
     Agnostic approach: just use apparent features (misspecified model)
@@ -105,7 +105,7 @@ def _oful_sm(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         for i in range(bandit.n_arms):
             feat = bandit.feat(s, i)
             beta = oful_coeff_inv(invA, reg, noise, delta, param_bound)
-            bonus = beta * np.dot(feat, np.matmul(invA, feat))
+            bonus = beta * weighted_norm(feat, invA)
             ucb = np.dot(feat, param) + bonus
             if ucb > best:
                 best = ucb
@@ -114,10 +114,7 @@ def _oful_sm(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         
         #Update estimates
         feat = bandit.feat(s, a)
-        outer = np.outer(feat, feat)
-        #Sherman-Morrison formula
-        invA = invA - (np.matmul(invA, np.matmul(outer, invA))) \
-            / (1 + np.dot(feat, np.matmul(invA, feat)))
+        invA = sherman_morrison(invA, feat, feat)
         b += feat * reward
         
         regret = bandit._regret(s, a)
