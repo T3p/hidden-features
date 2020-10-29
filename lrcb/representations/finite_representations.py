@@ -8,6 +8,7 @@ Created on Thu Oct 29 10:41:52 2020
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import normalize as normalize_matrix
+from lrcb.utils import min_eig_outer
 
 
 """Finite linear representation"""
@@ -51,6 +52,11 @@ def hls_rank(rep, tol=None):
 def is_hls(rep, tol=None):
     return hls_rank(rep, tol) == rep.dim
 
+def hls_lambda(rep):
+    mineig = min_eig_outer(rep._optimal_features)
+    if np.allclose(mineig, 0.):
+        return 0.
+    return mineig
 
 #Making representations
 def make_canon_rep(n_contexts, n_arms, normalize=True):
