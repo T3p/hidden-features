@@ -85,6 +85,36 @@ def make_random_rep(n_contexts, n_arms, dim, ortho=True, normalize=True):
         
     return r1
 
+def make_hls_rank(rewards, dim, rank, transform=True, normalize=True, eps=0.1):
+    opt_rewards = np.max(rewards, axis=1)
+    if np.allclose(np.linalg.norm(opt_rewards), 0.):
+        eps = eps / 2.
+        rewards = rewards + eps
+        opt_rewards = np.max(rewards, axis=1)
+    opt_arms = np.argmax(rewards, axis=1)
+    nc, na = rewards.shape
+    
+    param = np.zeros(dim)
+    param[0] = 1
+    sup = np.max(np.abs(opt_rewards)) + eps
+    features = make_random_rep(nc, na, dim).features
+    opt_features = np.zeros((nc, dim))
+    for i in range(1, rank):
+        opt_features[i, i] = sup
+    features[np.arange(nc), opt_arms, :] = opt_features
+    features[:, :, 0] = rewards
+    
+    r1 = LinearRepresentation(features, param)
+    
+    if transform:
+        r1 = random_transform(r1, normalize)
+    elif normalize:
+        r1 = normalize_param(r1)
+    
+    assert np.allclose(r1._rewards, rewards)
+    return r1
+
+
 #Transforming representations
 def normalize_param(rep, scale=1.):
     param = rep._param
@@ -138,35 +168,6 @@ def derank_hls(rep, newrank=1, transform=True, normalize=True):
     assert r1 == rep
     return r1
 
-"""
-def make_hls_rank(rewards, dim, rank, transform=True, eps=0.1):
-    opt_rewards = np.max(rewards, axis=1)
-    assert np.linalg.norm(opt_rewards) > 0
-    nc, na = rewards.shape 
-    
-    param = np.zeros(dim)
-    param[0] = 1
-    sup = np.max(opt_rewards) + eps
-    features = np.zeros((nc, na, dim))
-    features[:, :, 0] = rewards
-    for i in range(1, rank):
-        features[i, :, i] = sup
-    
-    if transform:
-        dim = rep.dim
-        A = np.random.normal(size=(dim, dim))
-        orthogonalizer = PCA(n_components=dim)
-        A = orthogonalizer.fit_transform(A)
-        A = normalize(A, axis=0, norm='l2')
-        f1 = np.matmul(f1, A)
-        param = np.matmul(A.T, param)
-        if normalize_param:
-            param_norm = np.linalg.norm(param)
-            param = param / param_norm
-            f1 = f1 * param_norm
-    
-    return LinearRepresentation(features, param)
-"""
 
 #Examples
 _param = np.ones(2)
