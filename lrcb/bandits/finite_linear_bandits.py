@@ -69,6 +69,9 @@ class HiddenFiniteLinearBandit(FiniteLinearBandit):
             return self._features[:, :, :-self.hidden]
         return self._features
 
+def make_random_flb(n_contexts, n_arms, dim, noise=0.1, orthogonalize=True):
+    return make_random_hflb(n_contexts, n_arms, dim, noise, 0, orthogonalize)
+
 def make_random_hflb(n_contexts, n_arms, dim, noise=0.1, hidden=0, orthogonalize=True):
     #Generate features
     features = np.zeros((n_contexts, n_arms, dim))

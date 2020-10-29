@@ -1,7 +1,6 @@
 import numpy as np
-from lrcb.utils import inverse_norm
 from lrcb.logger import Logger
-from lrcb.algos.oful import oful_coeff
+from lrcb.algos.oful import oful_coeff_inv
 
 def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, 
          seed=0, verbose=True, logname='oful'):    
@@ -21,7 +20,7 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
     cum_regret = 0
     
     dims = [r.dim for r in bandit.reps]
-    A = [reg * np.eye(dim) for dim in dims]
+    invA = [np.eye(dim) / reg for dim in dims]
     b = [np.zeros(dim) for dim in dims]
     params = [np.zeros(dim) for dim in dims]
     for t in range(horizon):   
@@ -33,7 +32,7 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         min_eigs = []
         for i, r in enumerate(bandit.reps):
             feats = r.features
-            param = np.linalg.solve(A[i], b[i])
+            param = np.matmul(invA[i], b[i])
             params[i] = param
             rewards = np.matmul(feats, param)
             xx = np.arange(bandit.n_contexts)
@@ -49,8 +48,8 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         a = 0
         for i in range(bandit.n_arms):
             feat = bandit.feat(s, i)
-            beta = oful_coeff(A[selection], reg, noise, delta, param_bound)
-            bonus = beta * inverse_norm(feat, A[selection])
+            beta = oful_coeff_inv(invA[selection], reg, noise, delta, param_bound)
+            bonus = beta * np.dot(feat, np.matmul(invA[selection], feat))
             ucb = np.dot(feat, params[selection]) + bonus
             if ucb > best:
                 best = ucb
@@ -60,7 +59,10 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         #Update estimates
         for i, r in enumerate(bandit.reps):
             feat = bandit.reps[i].features[s, a, :]
-            A[i] += np.outer(feat, feat)
+            outer = np.outer(feat, feat)
+            invA[i] = invA[i] - (np.matmul(invA[i], np.matmul(outer, 
+                                                              invA[i]))) \
+            / (1 + np.dot(feat, np.matmul(invA[i], feat)))
             b[i] += feat * reward
         
         regret = bandit._regret(s, a)
