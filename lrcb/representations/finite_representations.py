@@ -46,6 +46,17 @@ def is_cmb(rep, tol=None):
             return False
     return True
 
+def cmb_rank(rep, tol=None):
+    min_rnk = rep.dim
+    for a in range(rep.n_arms):
+        feats = rep.features[:, a, :]
+        rnk = np.linalg.matrix_rank(feats, tol)
+        if rnk == 0:
+            return 0
+        if rnk < min_rnk:
+            min_rnk = rnk
+    return min_rnk
+
 def hls_rank(rep, tol=None):
     return np.linalg.matrix_rank(rep._optimal_features, tol)
 
@@ -173,6 +184,44 @@ def derank_hls(rep, newrank=1, transform=True, normalize=True):
         
     assert r1 == rep
     return r1
+
+def derank_cmb(rep, newrank=None, arms=None, save_hls=False,
+               transform=True, normalize=True):
+    if newrank is None:
+        newrank = rep.dim - 1
+    if save_hls:
+        assert newrank > 1
+    nc = rep.n_contexts
+    na = rep.n_arms
+    f1 = np.array(rep.features)
+    param = np.array(rep._param)
+    favorable = np.argmax(rep._rewards, 0)
+    remove = min(max(nc - newrank + 1, 0), nc)
+    if arms is None:
+        arms_size = np.random.choice(na) + 1
+        arms = np.random.choice(na, size=arms_size, replace=False)
+        
+    for a in arms:
+        ii = np.arange(remove)
+        if save_hls and favorable[a] in ii:
+            ii[np.where(ii==favorable[a])] = remove
+        rews = rep._rewards[ii, a].squeeze()
+        feats = f1[ii, a, :].squeeze()
+        outer = np.outer(rews, rews)
+        xx = np.matmul(outer, feats) \
+            / np.linalg.norm(rews)**2
+        f1[ii, a] = xx
+        
+    r1 = LinearRepresentation(f1, param)
+    
+    if transform:
+        r1 = random_transform(r1, normalize=normalize_param)
+    elif normalize:
+        r1 = normalize_param(r1)
+        
+    assert r1 == rep
+    return r1
+    
 
 
 #Examples
