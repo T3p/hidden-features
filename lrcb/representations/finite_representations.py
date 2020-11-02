@@ -28,6 +28,11 @@ class LinearRepresentation:
     def __eq__(self, other):
         return np.allclose(self._rewards, other._rewards)
     
+    def feat_bound(self):
+        return np.max(np.linalg.norm(self.features, axis=2))
+    def opt_feat_bound(self):
+        return np.max(np.linalg.norm(self._optimal_features, axis=1))  
+    
 
 #Diversity properties    
 def rank(rep, tol=None):

@@ -31,7 +31,7 @@ def compare(logdir, names, key, seeds):
         
     plt.xlabel('Iterations')
     plt.ylabel(key)
-    plt.legend(handles=handles)
+    plt.legend(handles=handles, loc=(1.1, 0))
     plt.show()
 
 def plot_ci(logdir, name, key, seeds, rows=None):
