@@ -3,7 +3,8 @@ from lrcb.logger import Logger
 from lrcb.algos.oful import oful_coeff_inv
 from lrcb.utils import min_eig_outer, sherman_morrison, weighted_norm
 
-def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, 
+def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
+                rule='maxlambdamin',
          seed=0, verbose=True, logname='oful'):    
     np.random.seed(seed)
     log_modes = ['csv']
@@ -28,22 +29,45 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         #Observe context
         s = bandit.observe()
      
+        #Update parameters
+        for i in range(len(bandit.reps)):
+            params[i] = np.matmul(invA[i], b[i])
         
         #Select representation
-        maxmin_eig = 0
         selection = 0
-        for i, r in enumerate(bandit.reps):
-            feats = r.features
-            param = np.matmul(invA[i], b[i])
-            params[i] = param
-            rewards = np.matmul(feats, param)
-            xx = np.arange(bandit.n_contexts)
-            optimal_arms = np.argmax(rewards, axis=1)
-            optimal_features = feats[xx, optimal_arms, :]
-            min_eig = min_eig_outer(optimal_features)
-            if min_eig > maxmin_eig:
-                maxmin_eig = min_eig
-                selection = i
+        if rule=='maxlambdamin':
+            maxmin_eig = 0
+            for i, r in enumerate(bandit.reps):
+                feats = r.features
+                rewards = np.matmul(feats, params[i])
+                xx = np.arange(bandit.n_contexts)
+                optimal_arms = np.argmax(rewards, axis=1)
+                optimal_features = feats[xx, optimal_arms, :]
+                min_eig = min_eig_outer(optimal_features)
+                if min_eig > maxmin_eig:
+                    maxmin_eig = min_eig
+                    selection = i
+        elif rule=='minbonus':
+            minbestbonus = np.inf
+            selection = 0
+            for i, r in enumerate(bandit.reps):
+                feats = r.features
+                best = -np.inf
+                bestbonus = 0
+                for k in range(bandit.n_arms):
+                    feat = feats[s, k]
+                    beta = oful_coeff_inv(invA[i], reg, noise, delta, param_bound)
+                    bonus = beta * weighted_norm(feat, invA[i])
+                    ucb = np.dot(feat, params[i]) + bonus
+                    if ucb > best:
+                        best = ucb
+                        bestbonus = bonus
+                if bestbonus < minbestbonus:
+                    minbestbonus = bestbonus
+                    selection = i
+        else:
+            raise NotImplementedError()
+            
         bandit.select_rep(selection)
             
         #Select arm optimistically
@@ -75,4 +99,4 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         log_row['selection'] = selection
         logger.write_row(log_row, t)
         
-    return param
+    return params

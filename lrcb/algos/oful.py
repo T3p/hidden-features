@@ -5,15 +5,19 @@ from lrcb.logger import Logger
     Agnostic approach: just use apparent features (misspecified model)
 """
 def oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, 
+         adaptive = True, feature_bound=1,
          sherman=True, seed=0, verbose=True, logname='oful'): 
     if sherman and reg > 0:
         return _oful_sm(bandit, horizon, reg, noise, delta, param_bound,
-                             seed, verbose, logname)
+                        adaptive, feature_bound,
+                        seed, verbose, logname)
     else:
         return _oful_solve(bandit, horizon, reg, noise, delta, param_bound,
-                             seed, verbose, logname)
+                           adaptive, feature_bound,
+                           seed, verbose, logname)
 
-def _oful_solve(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, 
+def _oful_solve(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
+                adaptive=True, feature_bound=1,
          seed=0, verbose=True, logname='oful'):    
     np.random.seed(seed)
     log_modes = ['csv']
@@ -25,7 +29,9 @@ def _oful_solve(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
                  'paramerror', 
                  'context', 
                  'arm', 
-                 'reward']
+                 'reward',
+                 'logdet',
+                 'mineig']
     log_row = dict.fromkeys(log_keys)
     logger.open(log_row.keys())
     cum_regret = 0
@@ -46,7 +52,12 @@ def _oful_solve(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         a = 0
         for i in range(bandit.n_arms):
             feat = bandit.feat(s, i)
-            beta = oful_coeff(A, reg, noise, delta, param_bound)
+            if adaptive:
+                beta = oful_coeff(A, reg, noise, delta, param_bound)
+            else:
+                beta = (noise * np.sqrt(dim * np.log((1 + (i + 1) * 
+                        feature_bound**2 / reg) / delta)) + np.sqrt(reg) 
+                        * param_bound)
             bonus = beta * inverse_norm(feat, A)
             ucb = np.dot(feat, param) + bonus
             if ucb > best:
@@ -61,17 +72,21 @@ def _oful_solve(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         
         regret = bandit._regret(s, a)
         cum_regret += regret
+        logdet = np.log(np.linalg.det(A))
         log_row['regret'] = regret
         log_row['cumregret'] = cum_regret
         log_row['paramerror'] = np.linalg.norm(param - bandit._param[:dim])
         log_row['context'] = s
         log_row['arm'] = a
         log_row['reward'] = reward
+        log_row['logdet'] = logdet
+        log_row['mineig'] = np.min(np.linalg.eigvals(A))
         logger.write_row(log_row, t)
         
     return param
 
-def _oful_sm(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1, 
+def _oful_sm(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
+             adaptive=True, feature_bound=1,
          seed=0, verbose=True, logname='oful'):    
     np.random.seed(seed)
     log_modes = ['csv']
@@ -83,7 +98,9 @@ def _oful_sm(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
                  'paramerror', 
                  'context', 
                  'arm', 
-                 'reward']
+                 'reward',
+                 'logdet',
+                 'mineig']
     log_row = dict.fromkeys(log_keys)
     logger.open(log_row.keys())
     cum_regret = 0
@@ -91,7 +108,7 @@ def _oful_sm(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
     dim = bandit.dim
     invA = np.eye(dim) / reg
     b = np.zeros(dim)
-    
+        
     for t in range(horizon):
         #Latest parameter estimate
         param = np.matmul(invA, b)
@@ -104,7 +121,12 @@ def _oful_sm(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         a = 0
         for i in range(bandit.n_arms):
             feat = bandit.feat(s, i)
-            beta = oful_coeff_inv(invA, reg, noise, delta, param_bound)
+            if adaptive:
+                beta = oful_coeff_inv(invA, reg, noise, delta, param_bound)
+            else:
+                beta = (noise * np.sqrt(dim * np.log((1 + (i + 1) * 
+                        feature_bound**2 / reg) / delta)) + np.sqrt(reg) 
+                        * param_bound)
             bonus = beta * weighted_norm(feat, invA)
             ucb = np.dot(feat, param) + bonus
             if ucb > best:
@@ -119,12 +141,16 @@ def _oful_sm(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         
         regret = bandit._regret(s, a)
         cum_regret += regret
+        logdet = -np.log(np.linalg.det(invA))
+        min_eig = 1 / np.linalg.norm(invA, ord=2)
         log_row['regret'] = regret
         log_row['cumregret'] = cum_regret
         log_row['paramerror'] = np.linalg.norm(param - bandit._param[:dim])
         log_row['context'] = s
         log_row['arm'] = a
         log_row['reward'] = reward
+        log_row['logdet'] = logdet
+        log_row['mineig'] = min_eig
         logger.write_row(log_row, t)
         
     return param
@@ -137,6 +163,6 @@ def oful_coeff(A, reg, noise, delta, param_bound):
 
 def oful_coeff_inv(invA, reg, noise, delta, param_bound):
     dim = invA.shape[0]
-    return (noise * np.sqrt(2 * np.log(1. / (np.sqrt(np.linalg.det(invA)) *
-                                              reg**(dim / 2) * delta )))
+    return (noise * np.sqrt(-2 * np.log(np.sqrt(np.linalg.det(invA)) *
+                                              reg**(dim / 2) * delta ))
                         + np.sqrt(reg) * param_bound)

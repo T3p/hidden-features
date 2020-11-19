@@ -18,20 +18,29 @@ class LinearRepresentation:
         self.n_contexts, self.n_arms, self.dim = features.shape
         assert self.dim == len(param)
         self._param = param
-        
-        self._rewards = np.matmul(self.features, self._param)
-        self._optimal_arms = np.argmax(self._rewards, axis=1)
-        ii = np.arange(self.n_contexts)
-        self._optimal_rewards = self._rewards[ii, self._optimal_arms]
-        self._optimal_features = self.features[ii, self._optimal_arms, :]
-        
-    def __eq__(self, other):
-        return np.allclose(self._rewards, other._rewards)
+
+    def _rewards(self):
+        return np.matmul(self.features, self._param)
     
-    def feat_bound(self):
-        return np.max(np.linalg.norm(self.features, axis=2))
-    def opt_feat_bound(self):
-        return np.max(np.linalg.norm(self._optimal_features, axis=1))  
+    def _optimal_arms(self):
+        return np.argmax(self._rewards(), axis=1)
+    
+    def _optimal_rewards(self):
+        ii = np.arange(self.n_contexts)
+        return self._rewards()[ii, self._optimal_arms()]
+    
+    def _optimal_features(self):
+        ii = np.arange(self.n_contexts)
+        return self.features[ii, self._optimal_arms(), :]
+    
+    def __eq__(self, other):
+        return np.allclose(self._rewards(), other._rewards())
+    
+    def feat_bound(self, reduce=np.max):
+        return reduce(np.linalg.norm(self.features, axis=2))
+    
+    def opt_feat_bound(self, reduce=np.max):
+        return reduce(np.linalg.norm(self._optimal_features(), axis=1))  
     
 
 #Diversity properties    
@@ -63,13 +72,13 @@ def cmb_rank(rep, tol=None):
     return min_rnk
 
 def hls_rank(rep, tol=None):
-    return np.linalg.matrix_rank(rep._optimal_features, tol)
+    return np.linalg.matrix_rank(rep._optimal_features(), tol)
 
 def is_hls(rep, tol=None):
     return hls_rank(rep, tol) == rep.dim
 
 def hls_lambda(rep):
-    mineig = min_eig_outer(rep._optimal_features)
+    mineig = min_eig_outer(rep._optimal_features()) / rep.n_contexts
     if np.allclose(mineig, 0.):
         return 0.
     return mineig
@@ -133,7 +142,7 @@ def make_hls_rank(rewards, dim, rank, transform=True, normalize=True, eps=0.1):
     elif normalize:
         r1 = normalize_param(r1)
     
-    assert np.allclose(r1._rewards, rewards)
+    assert np.allclose(r1._rewards(), rewards)
     return r1
 
 
@@ -166,10 +175,10 @@ def random_transform(rep, normalize=True):
 
 def derank_hls(rep, newrank=1, transform=True, normalize=True):
     f0 = rep.features
-    opt_feats = rep._optimal_features
-    opt_arms = rep._optimal_arms
+    opt_feats = rep._optimal_features()
+    opt_arms = rep._optimal_arms()
     nc = rep.n_contexts
-    opt_rews = rep._optimal_rewards.reshape((nc, 1)) 
+    opt_rews = rep._optimal_rewards().reshape((nc, 1)) 
     remove = min(max(nc - newrank + 1, 0), nc)
     
     f1 = np.array(f0)
@@ -200,7 +209,7 @@ def derank_cmb(rep, newrank=None, arms=None, save_hls=False,
     na = rep.n_arms
     f1 = np.array(rep.features)
     param = np.array(rep._param)
-    favorable = np.argmax(rep._rewards, 0)
+    favorable = np.argmax(rep._rewards(), 0)
     remove = min(max(nc - newrank + 1, 0), nc)
     if arms is None:
         arms_size = np.random.choice(na) + 1
@@ -210,7 +219,7 @@ def derank_cmb(rep, newrank=None, arms=None, save_hls=False,
         ii = np.arange(remove)
         if save_hls and favorable[a] in ii:
             ii[np.where(ii==favorable[a])] = remove
-        rews = rep._rewards[ii, a].squeeze()
+        rews = rep._rewards()[ii, a].squeeze()
         feats = f1[ii, a, :].squeeze()
         outer = np.outer(rews, rews)
         xx = np.matmul(outer, feats) \

@@ -18,11 +18,19 @@ class FiniteMultiBandit(FiniteLinearBandit):
         self._noise = noise
         
         self._context = None
+        self._current_id = default
     
     def select_rep(self, i):
         self._features = self.reps[i].features
         self._param = self.reps[i]._param
         self.dim = self.reps[i].dim
+        self._current_id = i
+    
+    def rep(self):
+        return self.reps[self._current_id]
+    
+    def rep_id(self):
+        return self._current_id
         
 
 
