@@ -4,7 +4,7 @@ import scipy
 
 def inverse_norm(b, A):
     """Norm weighted by matrix inverse: \|b\|_{A^{-1}}"""
-    return np.dot(b, np.linalg.solve(A,b))
+    return np.sqrt(np.dot(b, np.linalg.solve(A,b)))
 
 def seed_all(seed):
     if seed is None:
@@ -50,7 +50,7 @@ def basis_completion(basis, fulldim=None):
     return np.reshape(X, (n, m, fulldim - d))
 
 def weighted_norm(v, A):
-    return np.dot(v, np.matmul(A, v))
+    return np.sqrt(np.dot(v, np.matmul(A, v)))
 
 """Computes minimum eigenvalue of AA^T"""
 def min_eig_outer(A):

@@ -2,7 +2,8 @@ import numpy as np
 from sklearn.decomposition import PCA
 
 class FiniteLinearBandit:
-    def __init__(self, n_contexts, n_arms, features, param, noise=0.1):
+    def __init__(self, n_contexts, n_arms, features, param, noise=0.1,
+                 context_probs=None):
         """
             features: n_contexts X n_arms X len(param)
         """
@@ -14,11 +15,19 @@ class FiniteLinearBandit:
         self._features = features
         self._param = param
         self._noise = noise
+        if context_probs is not None:
+            assert len(context_probs) == self.n_contexts
+            np.allclose(sum(context_probs), 1.)
+        self._cprobs = context_probs
         
         self._context = None
         
     def observe(self):
-        self._context = np.random.choice(self.n_contexts)
+        if self._cprobs is None:
+            self._context = np.random.choice(self.n_contexts)
+        else:
+            self._context = np.argmax(np.random.multinomial(1, 
+                                                            self._cprobs))
         return self._context
     
     def pull(self, arm):

@@ -4,7 +4,7 @@ from lrcb.algos.oful import oful_coeff_inv
 from lrcb.utils import min_eig_outer, sherman_morrison, weighted_norm
 
 def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
-                rule='maxlambdamin',
+                rule='maxlambdamin', uniform=True,
          seed=0, verbose=True, logname='oful'):    
     np.random.seed(seed)
     log_modes = ['csv']
@@ -21,6 +21,9 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
     logger.open(log_row.keys())
     cum_regret = 0
     
+    context_counts = np.zeros(bandit.n_contexts)
+    
+    
     dims = [r.dim for r in bandit.reps]
     invA = [np.eye(dim) / reg for dim in dims]
     b = [np.zeros(dim) for dim in dims]
@@ -28,6 +31,11 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
     for t in range(horizon):   
         #Observe context
         s = bandit.observe()
+        if uniform:
+            context_probs = np.ones(bandit.n_contexts) / bandit.n_contexts
+        else:
+            context_counts[s] += 1
+            context_probs = context_counts / (t+1)
      
         #Update parameters
         for i in range(len(bandit.reps)):
@@ -43,7 +51,7 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
                 xx = np.arange(bandit.n_contexts)
                 optimal_arms = np.argmax(rewards, axis=1)
                 optimal_features = feats[xx, optimal_arms, :]
-                min_eig = min_eig_outer(optimal_features)
+                min_eig = min_eig_outer(np.sqrt(context_probs[:, None]) * optimal_features)
                 if min_eig > maxmin_eig:
                     maxmin_eig = min_eig
                     selection = i
@@ -64,6 +72,15 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
                         bestbonus = bonus
                 if bestbonus < minbestbonus:
                     minbestbonus = bestbonus
+                    selection = i
+        elif rule=='design':
+            maxmineig = 0.
+            selection = 0
+            for i, r in enumerate(bandit.reps):
+                eigv = np.linalg.eigvals(invA[i])
+                mineig = 1. / np.max(eigv)
+                if mineig > maxmineig:
+                    maxmineig = mineig
                     selection = i
         else:
             raise NotImplementedError()

@@ -77,8 +77,13 @@ def hls_rank(rep, tol=None):
 def is_hls(rep, tol=None):
     return hls_rank(rep, tol) == rep.dim
 
-def hls_lambda(rep):
-    mineig = min_eig_outer(rep._optimal_features()) / rep.n_contexts
+def hls_lambda(rep, cprobs=None):
+    if cprobs is None:
+        mineig = min_eig_outer(rep._optimal_features()) / rep.n_contexts
+    else:
+        assert np.allclose(np.sum(cprobs), 1.)
+        mineig = min_eig_outer(np.sqrt(np.array(cprobs)[:, None]) * 
+                               rep._optimal_features())
     if np.allclose(mineig, 0.):
         return 0.
     return mineig
@@ -145,7 +150,6 @@ def make_hls_rank(rewards, dim, rank, transform=True, normalize=True, eps=0.1):
     assert np.allclose(r1._rewards(), rewards)
     return r1
 
-
 #Transforming representations
 def normalize_param(rep, scale=1.):
     param = rep._param
@@ -159,8 +163,11 @@ def normalize_param(rep, scale=1.):
 def random_transform(rep, normalize=True):
     dim = rep.dim
     A = np.random.normal(size=(dim, dim))
-    orthogonalizer = PCA(n_components=dim)
-    A = orthogonalizer.fit_transform(A)
+    
+    if np.size(A) > 1:
+        orthogonalizer = PCA(n_components=dim)
+        A = orthogonalizer.fit_transform(A)
+        
     A = normalize_matrix(A, axis=0, norm='l2')
     features = np.matmul(rep.features, A)
     param = np.matmul(A.T, rep._param)
@@ -229,14 +236,48 @@ def derank_cmb(rep, newrank=None, arms=None, save_hls=False,
     r1 = LinearRepresentation(f1, param)
     
     if transform:
-        r1 = random_transform(r1, normalize=normalize_param)
+        r1 = random_transform(r1, normalize=normalize)
     elif normalize:
         r1 = normalize_param(r1)
         
     assert r1 == rep
     return r1
-    
 
+def reduce_dim(rep, newdim, transform=True, normalize=True):
+    assert newdim <= rep.dim and newdim > 0
+    f1 = np.array(rep.features)
+    p1 = np.array(rep._param)
+    
+    for _ in range(rep.dim - newdim):
+        f1[:, :, 1] = f1[:, :, 0] * p1[0] + f1[:, :, 1] * p1[1]
+        p1[1] = 1.
+        f1 = f1[:, :, 1:]
+        p1 = p1[1:]
+    
+    r1 = LinearRepresentation(f1, p1)
+    
+    assert r1==rep
+    
+    if transform:
+        r1 = random_transform(r1, normalize=normalize)
+    elif normalize:
+        r1 = normalize_param(r1)
+        
+    assert r1 == rep
+    assert r1.dim == newdim
+    return r1
+
+def fuse_columns(rep, i, j):
+    assert i >= 0 and i < rep.dim and j >= 0 and j < rep.dim
+    f1 = np.array(rep.features)
+    p1 = np.array(rep._param)
+    
+    f1[:, :, i] = f1[:, :, i] * p1[i] + f1[:, :, j] * p1[j]
+    f1[:, :, j] = f1[:, :, i]
+    p1[i] = 0.5
+    p1[j] = 0.5
+    
+    return LinearRepresentation(f1, p1)
 
 #Examples
 _param = np.ones(2)
@@ -278,4 +319,9 @@ if __name__ == '__main__':
     
     assert not is_hls(EX4)
     assert not is_cmb(EX4)
+    
+    reduce_dim(EX1, 1)
+    
+    assert np.allclose(hls_lambda(EX1, cprobs=[0.5,0.5]),
+                       hls_lambda(EX1))
     
