@@ -64,8 +64,8 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
                 bestbonus = 0
                 for k in range(bandit.n_arms):
                     feat = feats[s, k]
-                    beta = oful_coeff_inv(invA[i], reg, noise, delta, param_bound)
-                    bonus = beta * weighted_norm(feat, invA[i])
+                    sqrtbeta = oful_coeff_inv(invA[i], reg, noise, delta, param_bound)
+                    bonus = sqrtbeta * weighted_norm(feat, invA[i])
                     ucb = np.dot(feat, params[i]) + bonus
                     if ucb > best:
                         best = ucb
@@ -92,8 +92,8 @@ def select_oful(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         a = 0
         for i in range(bandit.n_arms):
             feat = bandit.feat(s, i)
-            beta = oful_coeff_inv(invA[selection], reg, noise, delta, param_bound)
-            bonus = beta * weighted_norm(feat, invA[selection])
+            sqrtbeta = oful_coeff_inv(invA[selection], reg, noise, delta, param_bound)
+            bonus = sqrtbeta * weighted_norm(feat, invA[selection])
             ucb = np.dot(feat, params[selection]) + bonus
             if ucb > best:
                 best = ucb

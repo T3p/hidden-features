@@ -53,12 +53,12 @@ def _oful_solve(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         for i in range(bandit.n_arms):
             feat = bandit.feat(s, i)
             if adaptive:
-                beta = oful_coeff(A, reg, noise, delta, param_bound)
+                sqrtbeta = oful_coeff(A, reg, noise, delta, param_bound)
             else:
-                beta = (noise * np.sqrt(dim * np.log((1 + (i + 1) * 
+                sqrtbeta = (noise * np.sqrt(dim * np.log((1 + (i + 1) * 
                         feature_bound**2 / reg) / delta)) + np.sqrt(reg) 
                         * param_bound)
-            bonus = beta * inverse_norm(feat, A)
+            bonus = sqrtbeta * inverse_norm(feat, A)
             ucb = np.dot(feat, param) + bonus
             if ucb > best:
                 best = ucb
@@ -122,12 +122,12 @@ def _oful_sm(bandit, horizon, reg=0.1, noise=0.1, delta=0.1, param_bound=1,
         for i in range(bandit.n_arms):
             feat = bandit.feat(s, i)
             if adaptive:
-                beta = oful_coeff_inv(invA, reg, noise, delta, param_bound)
+                sqrtbeta = oful_coeff_inv(invA, reg, noise, delta, param_bound)
             else:
-                beta = (noise * np.sqrt(dim * np.log((1 + (i + 1) * 
+                sqrtbeta = (noise * np.sqrt(dim * np.log((1 + (i + 1) * 
                         feature_bound**2 / reg) / delta)) + np.sqrt(reg) 
                         * param_bound)
-            bonus = beta * weighted_norm(feat, invA)
+            bonus = sqrtbeta * weighted_norm(feat, invA)
             ucb = np.dot(feat, param) + bonus
             if ucb > best:
                 best = ucb

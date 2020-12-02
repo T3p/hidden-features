@@ -267,17 +267,25 @@ def reduce_dim(rep, newdim, transform=True, normalize=True):
     assert r1.dim == newdim
     return r1
 
-def fuse_columns(rep, i, j):
-    assert i >= 0 and i < rep.dim and j >= 0 and j < rep.dim
+def fuse_columns(rep, cols):
     f1 = np.array(rep.features)
-    p1 = np.array(rep._param)
+    for i in range(rep.dim):
+        f1[:, :, i] *= rep._param[i]
+    p1 = 1. + 0. * np.array(rep._param)
+    opt_arms = rep._optimal_arms()
+    ss = np.arange(rep.n_contexts)
     
-    f1[:, :, i] = f1[:, :, i] * p1[i] + f1[:, :, j] * p1[j]
-    f1[:, :, j] = f1[:, :, i]
-    p1[i] = 0.5
-    p1[j] = 0.5
+    v = np.zeros(rep.n_contexts)
+    for i in cols:
+        assert i >= 0 and i < rep.dim
+        v += f1[ss, opt_arms, i] / len(cols)
     
-    return LinearRepresentation(f1, p1)
+    for i in cols:
+        f1[ss, opt_arms, i] = v
+        
+    r1 = LinearRepresentation(f1, p1)
+    assert r1 == rep
+    return r1
 
 #Examples
 _param = np.ones(2)
