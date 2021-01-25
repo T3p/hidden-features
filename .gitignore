@@ -2,6 +2,9 @@
 logs/
 results/
 
+#c++ build
+cpp/build/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
