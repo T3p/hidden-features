@@ -17,16 +17,26 @@ const double EPSILON {1e-6};
 using namespace std;
 
 /**
- * Implementation of bandit model selection algorithms from
+ * Implementation of bandit model selection algorithms
+ *
+ * - EXP3.P with smoothing wrapper
+ * - Corral with smoothing wrapper
+ *
+ * from
  *
  * Aldo Pacchiano, My Phan, Yasin Abbasi-Yadkori, Anup Rao,
-   Julian Zimmert, Tor Lattimore, Csaba Szepesvari:
- * Model Selection in Contextual Stochastic Bandit Problems
- *
+ * Julian Zimmert, Tor Lattimore, Csaba Szepesvari:
+ * "Model Selection in Contextual Stochastic Bandit Problems"
  * https://arxiv.org/abs/2003.01704
+ *
+ * and EXP4.IX from
+ *
+ * Gergely Neu: "Explore No More"
+ * https://arxiv.org/abs/1506.03271
+ *
  */
 
-//Smoothing wrapper
+//Smoothing wrapper for EXP3.P and Corral
 template<typename X>
 class SmoothedAlgo: public Algo<X>
 {
@@ -139,6 +149,7 @@ public:
 
     void update(const X& context, int action, double reward)
     {
+        //Update master
         //No update AFTER step 1
         if(!pending)
         {
@@ -168,21 +179,19 @@ public:
                 //same reward for the two steps
                 probs[i] = (1-exprate)*exp(cum_gains[i]-stabilizer)/normalization + exprate/nbases;
             }
+        }
 
-            //update base(s)
-            if(update_all)
+        //update base(s)
+        if(update_all)
+        {
+            for(auto& base : base_algs)
             {
-                for(auto& base : base_algs)
-                {
-                    base->update(context, action, reward);
-                }
+                base->update(context, action, reward);
             }
-            else
-            {
-                base_algs[selection]->update(context, action, reward);
-            }
-
-            pending = false;
+        }
+        else
+        {
+            base_algs[selection]->update(context, action, reward);
         }
     }
 
@@ -212,7 +221,7 @@ private:
 };
 
 
-//log-barrier Online Mirror Descent update
+//log-barrier Online Mirror Descent update for Corral
 vector<double> log_barrier_OMD(const vector<double>& probs, const vector<double>& losses, const vector<double>& lrs)
 {
     int M = probs.size();
@@ -326,6 +335,7 @@ public:
 
     void update(const X& context, int action, double reward)
     {
+        //Update master
         //No update AFTER step 1
         if(!pending)
         {
@@ -349,21 +359,19 @@ public:
                     lrs[i] = lrs[i]*beta;
                 }
             }
+        }
 
-            //update base(s)
-            if(update_all)
+        //update base(s)
+        if(update_all)
+        {
+            for(auto& base : base_algs)
             {
-                for(auto& base : base_algs)
-                {
-                    base->update(context, action, reward);
-                }
+                base->update(context, action, reward);
             }
-            else
-            {
-                base_algs[selection]->update(context, action, reward);
-            }
-
-            pending = false;
+        }
+        else
+        {
+            base_algs[selection]->update(context, action, reward);
         }
     }
 
