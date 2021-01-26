@@ -37,7 +37,7 @@ int main()
     srand (seed);
     cout << "seed: " << seed << endl;
     // rng.seed(10000); // warm it up
-    int n_runs = 6, T = 10000;
+    int n_runs = 6, T = 100000;
     double delta = 0.01;
     double reg_val = 1.;
     double noise_std = 0.3;
@@ -51,12 +51,12 @@ int main()
         return rand();
     });
 
-    FiniteLinearRepresentation rep = make_random(50, 10, 14, true, noise_std);
+    //FiniteLinearRepresentation rep = make_random(50, 10, 14, true, noise_std);
     // rep.save("linrep.json"); // save current model
 
     //FiniteLinearRepresentation rep("/Users/pirotta/Downloads/lrcb-master/data.txt");
     // FiniteLinearRepresentation rep("data.txt");
-    // FiniteLinearRepresentation rep("linrep.json");
+    FiniteLinearRepresentation rep("../../problem_data/simple_rep.json");
 
     std::vector<FiniteLinearRepresentation> reps;
     int dim = rep.features_dim();
@@ -154,6 +154,34 @@ int main()
      }
      save_vector_csv_gzip(regrets, "Corral_regrets.csv.gz", EVERY, PREC);
      save_vector_csv_gzip(pseudo_regrets, "Corral_pseudoregrets.csv.gz", EVERY, PREC);
+
+     //EXP4.IX
+     #pragma omp parallel for
+     for (int i = 0; i < n_runs; ++i)
+     {
+         std::vector<std::shared_ptr<ContRepresentation<int>>> lreps;
+         std::vector<std::shared_ptr<Algo<int>>> base_algs;
+         for(auto& ll : reps)
+         {
+             auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
+             lreps.push_back(tmp);
+             base_algs.push_back(
+                     std::make_shared<OFUL<int>>(
+                                OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
+                            )
+             );
+         }
+         double exp4_gamma = sqrt(2*log(base_algs.size())/(rep.n_arms()*T));
+         double exp4_lr = 2*exp4_gamma;
+         EXP4dotIX<int> localg(base_algs, exp4_lr, exp4_gamma, seeds[i]);
+         ContBanditProblem<int> prb(*lreps[0], localg);
+         prb.reset();
+         prb.run(T);
+         regrets[i] = prb.instant_regret;
+         pseudo_regrets[i] = prb.exp_instant_regret;
+     }
+     save_vector_csv_gzip(regrets, "EXP4dotIX_regrets.csv.gz", EVERY, PREC);
+     save_vector_csv_gzip(pseudo_regrets, "EXP4dotIX_pseudoregrets.csv.gz", EVERY, PREC);
 
 
      // REGRET Balancing

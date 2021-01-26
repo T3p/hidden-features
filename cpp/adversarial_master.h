@@ -373,4 +373,119 @@ private:
 };
 
 
+//EXP4.IX with changing experts (heuristic)
+template<typename X>
+class EXP4dotIX: public Algo<X>
+{
+public:
+    EXP4dotIX(vector<shared_ptr<Algo<X>>>& base_algs, double lr, double gamma, long seed=0)
+        :Algo<X>("EXP4.IX"), base_algs(base_algs), lr(lr), gamma(gamma), nbases(base_algs.size())
+    {
+        rng.seed(seed);
+        expert_weights.resize(nbases);
+        cum_losses.resize(nbases);
+        advice.resize(nbases);
+        reset();
+    }
+
+    int action(const X& context)
+    {
+        vector<double> probs = action_distribution(context);
+        std::discrete_distribution<int> dist(probs.begin(), probs.end());
+        return dist(rng);
+    }
+
+    void update(const X& context, int action, double reward)
+    {
+        //arm losses
+        int narms = advice[0].size();
+        vector<double> arm_losses(narms);
+        for(int i=0; i<narms; ++i)
+        {
+            //Implicit eXploration (IX)
+            arm_losses[i] = (i==action)? -reward/(arm_probs[i]+gamma) : 0.;
+        }
+
+        //update cumulative expert losses
+        double normalization = 0.;
+        vector<double> expert_scores(nbases);
+        double stabilizer = std::numeric_limits<double>::lowest();;
+        for(int i=0; i<nbases; ++i)
+        {
+            for(int j=0; j<narms; ++j)
+            {
+                cum_losses[i] += advice[i][j] * arm_losses[i];
+            }
+            expert_scores[i] = -lr * cum_losses[i];
+            stabilizer = max(stabilizer, expert_scores[i]);
+        }
+
+        //update expert weights
+        for(int i=0; i<nbases; ++i)
+        {
+            expert_weights[i] = exp(-lr * cum_losses[i] - stabilizer);
+            normalization += expert_weights[i];
+        }
+        for(int i=0; i<nbases; ++i)
+        {
+            expert_weights[i] /= normalization;
+        }
+        assert(is_distr(expert_weights));
+
+        //update experts (NOT COVERED BY EXP4 THEORY)
+        for(auto& expert : base_algs)
+        {
+            expert->update(context, action, reward);
+        }
+    }
+
+    vector<double> action_distribution(const X& context) {
+        for(int i=0; i<nbases; ++i)
+        {
+            advice[i] = (base_algs[i]->action_distribution(context));
+        }
+
+        int narms = advice[0].size();
+        arm_probs.resize(narms);
+        double normalization = 0.;
+        for(int i=0; i<narms; ++i)
+        {
+            arm_probs[i] = 0.;
+            for(int j=0; j<nbases; ++j)
+            {
+                arm_probs[i] += expert_weights[j] * advice[j][i];
+            }
+            normalization += arm_probs[i];
+        }
+        for(int i=0; i<narms; ++i)
+        {
+            arm_probs[i] /= normalization;
+        }
+
+        assert(is_distr(arm_probs));
+        return arm_probs;
+    }
+
+    void reset()
+    {
+        for(int i=0; i<nbases; ++i)
+        {
+            cum_losses[i] = 0.;
+            expert_weights[i] = 1. / nbases;
+        }
+    }
+
+private:
+    vector<shared_ptr<Algo<X>>> base_algs;
+    double lr;
+    double gamma;
+    int nbases;
+    vector<vector<double>> advice;
+    vector<double> arm_probs;
+    vector<double> cum_losses;
+    vector<double> expert_weights;
+    std::mt19937 rng;
+};
+
+
 #endif

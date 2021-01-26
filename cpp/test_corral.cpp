@@ -28,6 +28,7 @@ int main()
     shared_ptr<SmoothedAlgo<int>> smoful1 = make_shared<SmoothedAlgo<int>>(oful1);
     shared_ptr<SmoothedAlgo<int>> smoful2 = make_shared<SmoothedAlgo<int>>(oful2);
     vector<shared_ptr<SmoothedAlgo<int>>> bases {smoful1, smoful2};
+    vector<shared_ptr<Algo<int>>> raw_bases {oful1, oful2};
 
     //Test the smoothing
     ContBanditProblem<int> prb(rep1, *smoful1);
@@ -53,5 +54,13 @@ int main()
     ContBanditProblem<int> metaprb2(rep1, corr);
     metaprb2.reset();
     metaprb2.run(horizon);
+
+    //Test EXP4.IX
+    double exp4_gamma = sqrt(2*log(raw_bases.size())/(n_arms*horizon));
+    double exp4_lr = 2*exp4_gamma;
+    EXP4dotIX<int> exp4(raw_bases, exp4_lr, exp4_gamma);
+    ContBanditProblem<int> metaprb3(rep1, exp4);
+    metaprb3.reset();
+    metaprb3.run(horizon);
 
 }
