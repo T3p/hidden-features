@@ -37,7 +37,7 @@ int main()
     //print_vector(prb.exp_instant_regret);
 
     //Test EXP3.P
-    EXP3dotP<int> exp3(bases, oful1->exp3_rate(horizon, 2));
+    EXP3dotP<int> exp3(bases, oful1->exp3_rate(horizon, 2), 0, true);
     ContBanditProblem<int> metaprb1(rep1, exp3);
     metaprb1.reset();
     metaprb1.run(horizon);
@@ -50,7 +50,7 @@ int main()
     log_barrier_OMD(probs, losses, lrs);
 
     //Test Corral
-    Corral<int> corr(bases, oful1->corral_lr(horizon, 2), horizon);
+    Corral<int> corr(bases, oful1->corral_lr(horizon, 2), horizon, 0, true);
     ContBanditProblem<int> metaprb2(rep1, corr);
     metaprb2.reset();
     metaprb2.run(horizon);

@@ -104,9 +104,11 @@ template<typename X>
 class EXP3dotP: public Algo<X>
 {
 public:
-    EXP3dotP(vector<shared_ptr<SmoothedAlgo<X>>>& base_algs, double exprate, long seed=0)
+    EXP3dotP(vector<shared_ptr<SmoothedAlgo<X>>>& base_algs, double exprate,
+        long seed=0, bool update_all=false)
     : Algo<X>("EXP3.P"),
-        base_algs(base_algs), exprate(exprate), nbases(base_algs.size())
+        base_algs(base_algs), exprate(exprate), nbases(base_algs.size()),
+        update_all(update_all)
     {
         rng.seed(seed);
         probs.resize(nbases);
@@ -167,8 +169,18 @@ public:
                 probs[i] = (1-exprate)*exp(cum_gains[i]-stabilizer)/normalization + exprate/nbases;
             }
 
-            //update base
-            base_algs[selection]->update(context, action, reward);
+            //update base(s)
+            if(update_all)
+            {
+                for(auto& base : base_algs)
+                {
+                    base->update(context, action, reward);
+                }
+            }
+            else
+            {
+                base_algs[selection]->update(context, action, reward);
+            }
 
             pending = false;
         }
@@ -196,6 +208,7 @@ private:
     int selection;
     std::mt19937 rng;
     vector<double> cum_gains;
+    const bool update_all;
 };
 
 
@@ -276,10 +289,11 @@ template<typename X>
 class Corral: public Algo<X>
 {
 public:
-    Corral(vector<shared_ptr<SmoothedAlgo<X>>>& base_algs, double lr_init, int horizon, long seed=0)
+    Corral(vector<shared_ptr<SmoothedAlgo<X>>>& base_algs, double lr_init,
+        int horizon, long seed=0, bool update_all=false)
     : Algo<X>("Corral"),
         base_algs(base_algs), lr_init(lr_init), nbases(base_algs.size()),
-        gamma(1./horizon), beta(exp(1./log(horizon)))
+        gamma(1./horizon), beta(exp(1./log(horizon))), update_all(update_all)
     {
         rng.seed(seed);
         probs.resize(nbases);
@@ -336,8 +350,18 @@ public:
                 }
             }
 
-            //update base
-            base_algs[selection]->update(context, action, reward);
+            //update base(s)
+            if(update_all)
+            {
+                for(auto& base : base_algs)
+                {
+                    base->update(context, action, reward);
+                }
+            }
+            else
+            {
+                base_algs[selection]->update(context, action, reward);
+            }
 
             pending = false;
         }
@@ -359,10 +383,10 @@ public:
 
 private:
     vector<shared_ptr<SmoothedAlgo<X>>> base_algs;
-    double lr_init;
-    double gamma;
-    double beta;
-    int nbases;
+    const double lr_init;
+    const double gamma;
+    const double beta;
+    const int nbases;
     vector<double> probs;
     bool pending;
     int selection;
@@ -370,10 +394,11 @@ private:
     vector<double> inf_probs;
     vector<double> gains;
     vector<double> lrs;
+    const bool update_all;
 };
 
 
-//EXP4.IX with changing experts (heuristic)
+//EXP4.IX with changing experts
 template<typename X>
 class EXP4dotIX: public Algo<X>
 {
@@ -432,7 +457,6 @@ public:
         }
         assert(is_distr(expert_weights));
 
-        //update experts (NOT COVERED BY EXP4 THEORY)
         for(auto& expert : base_algs)
         {
             expert->update(context, action, reward);
@@ -477,9 +501,9 @@ public:
 
 private:
     vector<shared_ptr<Algo<X>>> base_algs;
-    double lr;
-    double gamma;
-    int nbases;
+    const double lr;
+    const double gamma;
+    const int nbases;
     vector<vector<double>> advice;
     vector<double> arm_probs;
     vector<double> cum_losses;

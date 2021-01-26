@@ -37,7 +37,7 @@ int main()
     srand (seed);
     cout << "seed: " << seed << endl;
     // rng.seed(10000); // warm it up
-    int n_runs = 6, T = 1000;
+    int n_runs = 6, T = 10000;
     double delta = 0.01;
     double reg_val = 1.;
     double noise_std = 0.3;
@@ -94,128 +94,7 @@ int main()
     save_vector_csv_gzip(pseudo_regrets, "MMOFUL_pseudoregrets.csv.gz", EVERY, PREC);
 
 
-    //EXP3.P
-     #pragma omp parallel for
-     for (int i = 0; i < n_runs; ++i)
-     {
-         std::vector<std::shared_ptr<ContRepresentation<int>>> lreps;
-         std::vector<std::shared_ptr<SmoothedAlgo<int>>> base_algs;
-         for(auto& ll : reps)
-         {
-             auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
-             lreps.push_back(tmp);
-             base_algs.push_back(
-                     std::make_shared<SmoothedAlgo<int>>(
-                        SmoothedAlgo<int>(
-                            std::make_shared<OFUL<int>>(
-                                OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
-                            ), seeds[i]
-                        )
-                     )
-             );
-         }
-         EXP3dotP<int> localg(base_algs, base_algs[0]->base()->exp3_rate(T, base_algs.size()), seeds[i]);
-         ContBanditProblem<int> prb(*lreps[0], localg);
-         prb.reset();
-         prb.run(T);
-         regrets[i] = prb.instant_regret;
-         pseudo_regrets[i] = prb.exp_instant_regret;
-     }
-     save_vector_csv_gzip(regrets, "EXP3dotP_regrets.csv.gz", EVERY, PREC);
-     save_vector_csv_gzip(pseudo_regrets, "EXP3dotP_pseudoregrets.csv.gz", EVERY, PREC);
-
-
-    //EXP3.P
-     #pragma omp parallel for
-     for (int i = 0; i < n_runs; ++i)
-     {
-         std::vector<std::shared_ptr<ContRepresentation<int>>> lreps;
-         std::vector<std::shared_ptr<SmoothedAlgo<int>>> base_algs;
-         for(auto& ll : reps)
-         {
-             auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
-             lreps.push_back(tmp);
-             base_algs.push_back(
-                     std::make_shared<SmoothedAlgo<int>>(
-                        SmoothedAlgo<int>(
-                            std::make_shared<OFUL<int>>(
-                                OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
-                            ), seeds[i]
-                        )
-                     )
-             );
-         }
-         Corral<int> localg(base_algs, base_algs[0]->base()->corral_lr(T, base_algs.size()), seeds[i]);
-         ContBanditProblem<int> prb(*lreps[0], localg);
-         prb.reset();
-         prb.run(T);
-         regrets[i] = prb.instant_regret;
-         pseudo_regrets[i] = prb.exp_instant_regret;
-     }
-     save_vector_csv_gzip(regrets, "Corral_regrets.csv.gz", EVERY, PREC);
-     save_vector_csv_gzip(pseudo_regrets, "Corral_pseudoregrets.csv.gz", EVERY, PREC);
-
-
-     // REGRET Balancing
-     #pragma omp parallel for
-     for (int i = 0; i < n_runs; ++i)
-     {
-         std::vector<std::shared_ptr<ContRepresentation<int>>> lreps;
-         std::vector<std::shared_ptr<Algo<int>>> base_algs;
-         for(auto& ll : reps)
-         {
-             auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
-             lreps.push_back(tmp);
-             base_algs.push_back(
-                 std::make_shared<OFUL<int>>(
-                     OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
-                 )
-             );
-         }
-         RegretBalance<int> localg(base_algs);
-         ContBanditProblem<int> prb(*lreps[0], localg);
-         prb.reset();
-         prb.run(T);
-         regrets[i] = prb.instant_regret;
-         pseudo_regrets[i] = prb.exp_instant_regret;
-         // delete localg;
-     }
-     // save_vector_csv(regrets, "OFULBAL_regrets.csv", EVERY, PREC);
-     save_vector_csv_gzip(regrets, "OFULBAL_regrets.csv.gz", EVERY, PREC);
-     // save_vector_csv(pseudo_regrets, "OFULBAL_pseudoregrets.csv", EVERY, PREC);
-     save_vector_csv_gzip(pseudo_regrets, "OFULBAL_pseudoregrets.csv.gz", EVERY, PREC);
-
-
-     //Regret balancing with elimination
-     #pragma omp parallel for
-     for (int i = 0; i < n_runs; ++i)
-     {
-         std::vector<std::shared_ptr<ContRepresentation<int>>> lreps;
-         std::vector<std::shared_ptr<Algo<int>>> base_algs;
-         for(auto& ll : reps)
-         {
-             auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
-             lreps.push_back(tmp);
-             base_algs.push_back(
-                 std::make_shared<OFUL<int>>(
-                     OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
-                 )
-             );
-         }
-         RegretBalanceAndEliminate<int> localg(base_algs, delta);
-         ContBanditProblem<int> prb(*lreps[0], localg);
-         prb.reset();
-         prb.run(T);
-         regrets[i] = prb.instant_regret;
-         pseudo_regrets[i] = prb.exp_instant_regret;
-         // delete localg;
-     }
-     // save_vector_csv(regrets, "OFULBAL_regrets.csv", EVERY, PREC);
-     save_vector_csv_gzip(regrets, "OFULBALELIM_regrets.csv.gz", EVERY, PREC);
-     // save_vector_csv(pseudo_regrets, "OFULBAL_pseudoregrets.csv", EVERY, PREC);
-     save_vector_csv_gzip(pseudo_regrets, "OFULBALELIM_pseudoregrets.csv.gz", EVERY, PREC);
-
-
+    //just OFUL
     for(int j = 0; j < reps.size(); ++j)
     {
         vec2double regrets(n_runs), pseudo_regrets(n_runs);

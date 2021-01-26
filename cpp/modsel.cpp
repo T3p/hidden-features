@@ -43,6 +43,7 @@ int main()
     double noise_std = 0.3;
     double bonus_scale = 1.;
     bool adaptive_ci = true;
+    bool update_all = true;
     //double cor_gamma = 1./T, cor_beta = exp(1./log(T)), cor_lr0 = 20. / sqrt(T);
 
     std::vector<long> seeds(n_runs);
@@ -114,7 +115,7 @@ int main()
                      )
              );
          }
-         EXP3dotP<int> localg(base_algs, base_algs[0]->base()->exp3_rate(T, base_algs.size()), seeds[i]);
+         EXP3dotP<int> localg(base_algs, base_algs[0]->base()->exp3_rate(T, base_algs.size()), seeds[i], update_all);
          ContBanditProblem<int> prb(*lreps[0], localg);
          prb.reset();
          prb.run(T);
@@ -145,7 +146,7 @@ int main()
                      )
              );
          }
-         Corral<int> localg(base_algs, base_algs[0]->base()->corral_lr(T, base_algs.size()), seeds[i]);
+         Corral<int> localg(base_algs, base_algs[0]->base()->corral_lr(T, base_algs.size()), seeds[i], update_all);
          ContBanditProblem<int> prb(*lreps[0], localg);
          prb.reset();
          prb.run(T);
