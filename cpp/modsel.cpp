@@ -37,7 +37,7 @@ int main()
     srand (seed);
     cout << "seed: " << seed << endl;
     // rng.seed(10000); // warm it up
-    int n_runs = 6, T = 1000;
+    int n_runs = 6, T = 10000;
     double delta = 0.01;
     double reg_val = 1.;
     double noise_std = 0.3;
@@ -125,7 +125,7 @@ int main()
      save_vector_csv_gzip(pseudo_regrets, "EXP3dotP_pseudoregrets.csv.gz", EVERY, PREC);
 
 
-    //EXP3.P
+    //Corral
      #pragma omp parallel for
      for (int i = 0; i < n_runs; ++i)
      {
@@ -216,40 +216,41 @@ int main()
      save_vector_csv_gzip(pseudo_regrets, "OFULBALELIM_pseudoregrets.csv.gz", EVERY, PREC);
 
 
-    for(int j = 0; j < reps.size(); ++j)
-    {
-        vec2double regrets(n_runs), pseudo_regrets(n_runs);
-
-        #pragma omp parallel for
-        for (int i = 0; i < n_runs; ++i)
-        {
-            FiniteLinearRepresentation lrep = reps[j].copy(seeds[i]);
-            OFUL<int> localg(lrep, reg_val, noise_std, bonus_scale, delta, adaptive_ci);
-            ContBanditProblem<int> prb(lrep, localg);
-            prb.reset();
-            prb.run(T);
-            regrets[i] = prb.instant_regret;
-            pseudo_regrets[i] = prb.exp_instant_regret;
-        }
-        // save_vector_csv(regrets, "OFUL-rep"+std::to_string(j)+"_regrets.csv", EVERY, PREC);
-        save_vector_csv_gzip(regrets, "OFUL-rep"+std::to_string(j)+"_regrets.csv.gz", EVERY, PREC);
-        // save_vector_csv(pseudo_regrets, "OFUL-rep"+std::to_string(j)+"_pseudoregrets.csv", EVERY, PREC);
-        save_vector_csv_gzip(pseudo_regrets, "OFUL-rep"+std::to_string(j)+"_pseudoregrets.csv.gz", EVERY, PREC);
-
-#if 0
-        #pragma omp parallel for
-        for (int i = 0; i < n_runs; ++i)
-        {
-            std::vector<FiniteLinearRepresentation> llr{reps[j].copy(seeds[i])};
-            MMOFUL ddd(llr, reg_val, 1, delta/llr.size(), adaptive_ci);
-            LinBanditProblem prb(llr[0], ddd);
-            prb.run(T);
-            regrets[i] = prb.instant_regret;
-            pseudo_regrets[i] = prb.exp_instant_regret;
-        }
-        save_vector_csv(regrets, "MMOFUL-rep"+std::to_string(j)+"_regrets.txt");
-        save_vector_csv(pseudo_regrets, "MMOFUL-rep"+std::to_string(j)+"_pseudoregrets.txt");
-#endif
-    }
+     //just OFUL
+//    for(int j = 0; j < reps.size(); ++j)
+//    {
+//        vec2double regrets(n_runs), pseudo_regrets(n_runs);
+//
+//        #pragma omp parallel for
+//        for (int i = 0; i < n_runs; ++i)
+//        {
+//            FiniteLinearRepresentation lrep = reps[j].copy(seeds[i]);
+//            OFUL<int> localg(lrep, reg_val, noise_std, bonus_scale, delta, adaptive_ci);
+//            ContBanditProblem<int> prb(lrep, localg);
+//            prb.reset();
+//            prb.run(T);
+//            regrets[i] = prb.instant_regret;
+//            pseudo_regrets[i] = prb.exp_instant_regret;
+//        }
+//        // save_vector_csv(regrets, "OFUL-rep"+std::to_string(j)+"_regrets.csv", EVERY, PREC);
+//        save_vector_csv_gzip(regrets, "OFUL-rep"+std::to_string(j)+"_regrets.csv.gz", EVERY, PREC);
+//        // save_vector_csv(pseudo_regrets, "OFUL-rep"+std::to_string(j)+"_pseudoregrets.csv", EVERY, PREC);
+//        save_vector_csv_gzip(pseudo_regrets, "OFUL-rep"+std::to_string(j)+"_pseudoregrets.csv.gz", EVERY, PREC);
+//
+//#if 0
+//        #pragma omp parallel for
+//        for (int i = 0; i < n_runs; ++i)
+//        {
+//            std::vector<FiniteLinearRepresentation> llr{reps[j].copy(seeds[i])};
+//            MMOFUL ddd(llr, reg_val, 1, delta/llr.size(), adaptive_ci);
+//            LinBanditProblem prb(llr[0], ddd);
+//            prb.run(T);
+//            regrets[i] = prb.instant_regret;
+//            pseudo_regrets[i] = prb.exp_instant_regret;
+//        }
+//        save_vector_csv(regrets, "MMOFUL-rep"+std::to_string(j)+"_regrets.txt");
+//        save_vector_csv(pseudo_regrets, "MMOFUL-rep"+std::to_string(j)+"_pseudoregrets.txt");
+//#endif
+//    }
     return 0;
 }

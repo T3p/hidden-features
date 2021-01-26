@@ -31,7 +31,7 @@ template<typename X>
 class SmoothedAlgo: public Algo<X>
 {
 public:
-    SmoothedAlgo(shared_ptr<BaseAlgo<X>> base_alg, int seed=0): Algo<X>("Smoothed" + base_alg->name),
+    SmoothedAlgo(shared_ptr<BaseAlgo<X>> base_alg, long seed=0): Algo<X>("Smoothed" + base_alg->name),
                                         base_alg(base_alg)
     {
         rng.seed(seed);
@@ -86,6 +86,11 @@ public:
         return base_alg->upper_bound();
     }
 
+    shared_ptr<BaseAlgo<X>> base()
+    {
+        return base_alg;
+    }
+
 private:
     shared_ptr<BaseAlgo<X>> base_alg;
     vector<unique_ptr<Algo<X>>> old_policies;
@@ -99,7 +104,7 @@ template<typename X>
 class EXP3dotP: public Algo<X>
 {
 public:
-    EXP3dotP(vector<shared_ptr<SmoothedAlgo<X>>>& base_algs, double exprate, int seed=0)
+    EXP3dotP(vector<shared_ptr<SmoothedAlgo<X>>>& base_algs, double exprate, long seed=0)
     : Algo<X>("EXP3.P"),
         base_algs(base_algs), exprate(exprate), nbases(base_algs.size())
     {
@@ -176,6 +181,7 @@ public:
         pending = false;
         for(int i=0; i<nbases; ++i)
         {
+            base_algs[i]->reset();
             probs[i] = 1. / nbases;
             cum_gains[i] = 0.;
         }
@@ -231,7 +237,7 @@ vector<double> log_barrier_OMD(const vector<double>& probs, const vector<double>
                  bits
              );
     double lambda = opt.first;
-    assert(abs(normalizer(lambda)-1.)<EPSILON);
+    //assert(abs(normalizer(lambda)-1.)<EPSILON);
 
     //Compute new probs
     vector<double> newprobs(M);
@@ -240,6 +246,25 @@ vector<double> log_barrier_OMD(const vector<double>& probs, const vector<double>
         newprobs[i] = probs[i]>0? (1. / (1./probs[i] + lrs[i]*(losses[i]-lambda))) : 0;
     }
 
+    if(is_distr(newprobs, EPSILON)){
+        return newprobs;
+    }
+
+    //fix probabilities
+    std::cerr << "Fixing probabilities" << std::endl;
+    double minprob = *std::min_element(newprobs.begin(), newprobs.end());
+    if(minprob<0)
+    {
+        for(int i=0; i<M; ++i)
+        {
+            newprobs[i] = 1 + newprobs[i] / abs(minprob);
+        }
+    }
+    double normalization = std::accumulate(newprobs.begin(), newprobs.end(), 0.);
+    for(int i=0; i<M; ++i)
+    {
+        newprobs[i] /= normalization;
+    }
     assert(is_distr(newprobs, EPSILON));
     return newprobs;
 
@@ -251,7 +276,7 @@ template<typename X>
 class Corral: public Algo<X>
 {
 public:
-    Corral(vector<shared_ptr<SmoothedAlgo<X>>>& base_algs, double lr_init, int horizon, int seed=0)
+    Corral(vector<shared_ptr<SmoothedAlgo<X>>>& base_algs, double lr_init, int horizon, long seed=0)
     : Algo<X>("Corral"),
         base_algs(base_algs), lr_init(lr_init), nbases(base_algs.size()),
         gamma(1./horizon), beta(exp(1./log(horizon)))
@@ -325,6 +350,7 @@ public:
         pending = false;
         for(int i=0; i<nbases; ++i)
         {
+            base_algs[i]->reset();
             probs[i] = 1./nbases;
             inf_probs[i] = 1./(2.*nbases);
             lrs[i] = lr_init;

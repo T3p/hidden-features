@@ -111,6 +111,18 @@ public:
         return std::unique_ptr<OFUL<X>>(copied);
     }
 
+    double corral_lr(const int horizon, const int nbases) const
+    {
+        int dim=linrep.features_dim();
+        return sqrt(1.*nbases / horizon) / dim;
+    }
+
+    double exp3_rate(const int horizon, const int nbases) const
+    {
+        int dim=linrep.features_dim();
+        return pow(horizon, -1./3.) * pow(nbases, -2./3.) * pow(dim, 2./3.);
+    }
+
 public:
     ContRepresentation<X>& linrep;
     double reg_val, noise_std, bonus_scale, delta;

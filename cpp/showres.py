@@ -18,7 +18,7 @@ print("=================\n")
 # print(p)
 # exit(9)
 
-directory = 'build/'
+#directory = 'build/'
 directory = './'
 for filename in sorted(os.listdir(directory)):
     if filename.endswith("_pseudoregrets.csv.gz"):

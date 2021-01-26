@@ -46,6 +46,8 @@ class BaseAlgo: public Algo<X>
 public:
     BaseAlgo<X>(std::string name) : Algo<X>(name) {}
     virtual std::unique_ptr<BaseAlgo<X>> clone() const = 0;
+    virtual double corral_lr(const int horizon, const int nbases) const = 0;
+    virtual double exp3_rate(const int horizon, const int nbases) const = 0;
 };
 
 class RewardDistribution
