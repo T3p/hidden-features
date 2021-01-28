@@ -1,5 +1,5 @@
 #ifndef ADVERSARIAL_MASTER_H
-#define ADVERSARIAL_MASTER
+#define ADVERSARIAL_MASTER_H
 
 #include <memory>
 #include <random>
@@ -89,7 +89,9 @@ public:
         old_policies.push_back(base_alg->clone());
     }
 
-    std::vector<double> action_distribution(const X& context) {}
+    std::vector<double> action_distribution(const X& context) {
+        return std::vector<double>();
+    }
 
     double upper_bound()
     {
@@ -195,7 +197,9 @@ public:
         }
     }
 
-    std::vector<double> action_distribution(const X& context) {}
+    std::vector<double> action_distribution(const X& context) {
+        return std::vector<double>();
+    }
 
     void reset()
     {
@@ -375,7 +379,9 @@ public:
         }
     }
 
-    std::vector<double> action_distribution(const X& context) {}
+    std::vector<double> action_distribution(const X& context) {
+        return std::vector<double>();
+    }
 
     void reset()
     {
