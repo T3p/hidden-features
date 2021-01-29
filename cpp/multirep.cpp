@@ -34,10 +34,12 @@ int main()
     typedef std::vector<std::vector<double>> vec2double;
 
     int seed = time(NULL);
+    // seed= 1611835201;
+    seed=1611836268;
     srand (seed);
     cout << "seed: " << seed << endl;
     // rng.seed(10000); // warm it up
-    int n_runs = 6, T = 10000;
+    int n_runs = 5, T = 10000;
     double delta = 0.01;
     double reg_val = 1.;
     double noise_std = 0.3;
@@ -51,47 +53,56 @@ int main()
         return rand();
     });
 
-    FiniteLinearRepresentation rep = make_random(50, 10, 14, true, noise_std);
+    // FiniteLinearRepresentation rep = make_random(20, 5, 6, true, noise_std, seed);
     // rep.save("linrep.json"); // save current model
 
-    //FiniteLinearRepresentation rep("/Users/pirotta/Downloads/lrcb-master/data.txt");
-    // FiniteLinearRepresentation rep("data.txt");
-    // FiniteLinearRepresentation rep("linrep.json");
+    FiniteLinearRepresentation rep("linrep3.json");
 
     std::vector<FiniteLinearRepresentation> reps;
     int dim = rep.features_dim();
+    double MMM = rep.features_bound();
     for(int i = 1; i < dim; ++i)
     {
         FiniteLinearRepresentation rr = derank_hls(rep, i, false, true, true);
+        // cout << i << ": " << rr.features_bound() << ", " << rr.param_bound() << std::endl;
+        rr.normalize_features(MMM);
+        // cout << i << ": " << rr.features_bound() << ", " << rr.param_bound() << std::endl;
         reps.push_back(rr);
+        bool flag = rr.is_equal(rep);
+        if (!flag) {
+            std::cout << "Error: non realizable representation" << std::endl;
+            exit(1);
+        }
     }
+    assert(rep.is_equal(rep));
     reps.push_back(rep);
+    // cout << dim << ": " << rep.features_bound() << ", " << rep.param_bound() << std::endl;
     assert(reps.size() == dim);
 
 
-    //MMOFUL
-    vec2double regrets(n_runs), pseudo_regrets(n_runs);
-    #pragma omp parallel for
-    for (int i = 0; i < n_runs; ++i)
-    {
-        std::vector<std::shared_ptr<ContRepresentation<int>>> lreps;
-        for(auto& ll : reps)
-        {
-            auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
-            lreps.push_back(tmp);
-        }
-        MMOFUL<int> localg(lreps, reg_val, noise_std, bonus_scale, delta/lreps.size(), adaptive_ci);
-        ContBanditProblem<int> prb(*lreps[0], localg);
-        prb.reset();
-        prb.run(T);
-        regrets[i] = prb.instant_regret;
-        pseudo_regrets[i] = prb.exp_instant_regret;
-        // delete localg;
-    }
-    // save_vector_csv(regrets, "MMOFUL_regrets.csv", EVERY, PREC);
-    save_vector_csv_gzip(regrets, "MMOFUL_regrets.csv.gz", EVERY, PREC);
-    // save_vector_csv(pseudo_regrets, "MMOFUL_pseudoregrets.csv", EVERY, PREC);
-    save_vector_csv_gzip(pseudo_regrets, "MMOFUL_pseudoregrets.csv.gz", EVERY, PREC);
+    // //MMOFUL
+    // vec2double regrets(n_runs), pseudo_regrets(n_runs);
+    // #pragma omp parallel for
+    // for (int i = 0; i < n_runs; ++i)
+    // {
+    //     std::vector<std::shared_ptr<ContRepresentation<int>>> lreps;
+    //     for(auto& ll : reps)
+    //     {
+    //         auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
+    //         lreps.push_back(tmp);
+    //     }
+    //     MMOFUL<int> localg(lreps, reg_val, noise_std, bonus_scale, delta/lreps.size(), adaptive_ci);
+    //     ContBanditProblem<int> prb(*lreps[0], localg);
+    //     prb.reset();
+    //     prb.run(T);
+    //     regrets[i] = prb.instant_regret;
+    //     pseudo_regrets[i] = prb.exp_instant_regret;
+    //     // delete localg;
+    // }
+    // // save_vector_csv(regrets, "MMOFUL_regrets.csv", EVERY, PREC);
+    // save_vector_csv_gzip(regrets, "MMOFUL_regrets.csv.gz", EVERY, PREC);
+    // // save_vector_csv(pseudo_regrets, "MMOFUL_pseudoregrets.csv", EVERY, PREC);
+    // save_vector_csv_gzip(pseudo_regrets, "MMOFUL_pseudoregrets.csv.gz", EVERY, PREC);
 
 
     //just OFUL

@@ -255,12 +255,12 @@ public:
 #endif
     }
 
-    bool is_equal(FiniteLinearRepresentation& rep, double atol=1e-10) {
+    bool is_equal(FiniteLinearRepresentation& other, double atol=1e-10) {
         VectorXd rew = rewards();
-        VectorXd rew2 = rewards();
+        VectorXd other_rew = other.rewards();
         bool flag = true;
         for(int i=0; i < features_dim(); ++i) {
-            if (abs(rew[i] - rew2[i]) > atol) {
+            if (abs(rew[i] - other_rew[i]) > atol) {
                 flag = false;
             }
         }
