@@ -235,6 +235,38 @@ public:
         }
         return v;
     }
+
+    void normalize_features(double max_bound_features) {
+#if DEBUG
+        VectorXd rew = rewards();
+#endif
+        double MMM = features_bound();
+        for (auto& f : features) {
+            f *= max_bound_features / MMM;
+        }
+        param *= MMM / max_bound_features;
+#if DEBUG
+        assert(abs(features_bound() - max_bound_features) <= 1e-10);
+
+        VectorXd rew2 = rewards();
+        for(int i=0; i < features_dim(); ++i) {
+            assert(abs(rew[i] - rew2[i]) <= 1e-10);   
+        }
+#endif
+    }
+
+    bool is_equal(FiniteLinearRepresentation& rep, double atol=1e-10) {
+        VectorXd rew = rewards();
+        VectorXd rew2 = rewards();
+        bool flag = true;
+        for(int i=0; i < features_dim(); ++i) {
+            if (abs(rew[i] - rew2[i]) > atol) {
+                flag = false;
+            }
+        }
+        return flag;
+    }
+
 protected:
     std::vector<MatrixXd> features;
     VectorXd param;
@@ -248,8 +280,8 @@ protected:
 public:
     friend FiniteLinearRepresentation derank_hls(
         FiniteLinearRepresentation& rep, int newrank, bool random_seed,
-        bool transform, bool normalize);
-    friend FiniteLinearRepresentation random_transform(FiniteLinearRepresentation& rep, bool normalize);
+        bool transform, bool normalize, int rnd_seed);
+    friend FiniteLinearRepresentation random_transform(FiniteLinearRepresentation& rep, bool normalize, int rnd_seed);
     friend FiniteLinearRepresentation normalize_param(FiniteLinearRepresentation& rep, double scale);
 };
 
@@ -268,10 +300,10 @@ FiniteLinearRepresentation normalize_param(FiniteLinearRepresentation& rep, doub
     return FiniteLinearRepresentation(features, param, rep.noise_std, rep.seed);
 }
 
-FiniteLinearRepresentation random_transform(FiniteLinearRepresentation& rep, bool normalize=true)
+FiniteLinearRepresentation random_transform(FiniteLinearRepresentation& rep, bool normalize=true, int rnd_seed=0)
 {
     int dim = rep.features_dim();
-    static default_random_engine e(time(0));
+    static default_random_engine e(rnd_seed);
     static normal_distribution<double> n(0,1);
     MatrixXd A = MatrixXd::Zero(dim,dim).unaryExpr([](double dummy)
     {
@@ -312,9 +344,9 @@ FiniteLinearRepresentation random_transform(FiniteLinearRepresentation& rep, boo
     return r1;
 }
 
-FiniteLinearRepresentation make_random(int n_contexts, int n_arms, int dim, bool normalize=false, double noise_std=0.1, int seed = 0)
+FiniteLinearRepresentation make_random(int n_contexts, int n_arms, int dim, bool normalize=false, double noise_std=0.1, int rnd_seed = 0)
 {
-    static default_random_engine e(time(0));
+    static default_random_engine e(rnd_seed);
     static normal_distribution<double> n(0,1);
 
     std::vector<MatrixXd> features;
@@ -329,7 +361,7 @@ FiniteLinearRepresentation make_random(int n_contexts, int n_arms, int dim, bool
     VectorXd param = VectorXd::Random(dim);
     param = 2*param.array()-1.;
 
-    FiniteLinearRepresentation rep(features, param, noise_std, seed);
+    FiniteLinearRepresentation rep(features, param, noise_std, rnd_seed);
     if (normalize)
     {
         rep = normalize_param(rep);
@@ -340,7 +372,7 @@ FiniteLinearRepresentation make_random(int n_contexts, int n_arms, int dim, bool
 
 FiniteLinearRepresentation derank_hls(
     FiniteLinearRepresentation& rep, int newrank=1, bool random_seed=false,
-    bool transform=true, bool normalize=true)
+    bool transform=true, bool normalize=true, int rnd_seed=0)
 {
     int n_cont = rep.n_contexts();
     int d = rep.features_dim();
@@ -363,12 +395,12 @@ FiniteLinearRepresentation derank_hls(
     }
     VectorXd param = rep.param;
 
-    long seed = random_seed ? rand() : rep.seed;
-    FiniteLinearRepresentation rep2(f0, param, rep.noise_std, seed);
+    long new_seed = random_seed ? rand() : rep.seed;
+    FiniteLinearRepresentation rep2(f0, param, rep.noise_std, new_seed);
 
     if (transform)
     {
-        rep2 = random_transform(rep2, normalize);
+        rep2 = random_transform(rep2, normalize, rnd_seed);
     }
     else if (normalize)
     {
