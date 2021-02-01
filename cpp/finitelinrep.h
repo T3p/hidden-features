@@ -4,6 +4,8 @@
 #include <Eigen/Dense>
 #include <nlohmann/json.hpp>
 #include "abstractclasses.h"
+#include "utils.h"
+
 
 using json = nlohmann::json;
 using namespace std;
@@ -250,7 +252,7 @@ public:
 
         VectorXd rew2 = rewards();
         for(int i=0; i < features_dim(); ++i) {
-            assert(abs(rew[i] - rew2[i]) <= 1e-10);   
+            assert(abs(rew[i] - rew2[i]) <= 1e-10);
         }
 #endif
     }
@@ -259,12 +261,24 @@ public:
         VectorXd rew = rewards();
         VectorXd other_rew = other.rewards();
         bool flag = true;
-        for(int i=0; i < features_dim(); ++i) {
+        for(int i=0; i < rew.size(); ++i) {
             if (abs(rew[i] - other_rew[i]) > atol) {
                 flag = false;
             }
         }
         return flag;
+    }
+
+    //assumes full-support context distribution
+    bool is_hls()
+    {
+        MatrixXd opt_feats(n_contexts(), features_dim());
+        VectorXd opt_rews(n_contexts());
+        std::vector<int> opt_arms(n_contexts());
+        optimal_features_and_arms(opt_arms, opt_feats, opt_rews);
+        FullPivLU<MatrixXd> lu_decomp(opt_feats);
+        auto rank = lu_decomp.rank();
+        return rank == features_dim();
     }
 
 protected:
@@ -283,6 +297,8 @@ public:
         bool transform, bool normalize, int rnd_seed);
     friend FiniteLinearRepresentation random_transform(FiniteLinearRepresentation& rep, bool normalize, int rnd_seed);
     friend FiniteLinearRepresentation normalize_param(FiniteLinearRepresentation& rep, double scale);
+    friend FiniteLinearRepresentation reduce_dim(FiniteLinearRepresentation& rep, int newdim, bool random_seed,
+    bool transform, bool normalize, int rnd_seed);
 };
 
 FiniteLinearRepresentation normalize_param(FiniteLinearRepresentation& rep, double scale=1.)
@@ -407,6 +423,47 @@ FiniteLinearRepresentation derank_hls(
         rep2 = normalize_param(rep2);
     }
 
+
+    return rep2;
+}
+
+FiniteLinearRepresentation reduce_dim(FiniteLinearRepresentation& rep, int newdim, bool random_seed=false,
+    bool transform=true, bool normalize=true, int rnd_seed=0)
+{
+    int d = rep.features_dim();
+    assert(newdim<=d && newdim>0);
+
+    std::vector<MatrixXd> f0 = rep.features;
+    VectorXd param = rep.param;
+
+    std::vector<MatrixXd> f1;
+    for(int i=0,ii=rep.n_contexts();i<ii;++i)
+    {
+        for(int j=0,jj=rep.n_arms(); j<jj; ++j)
+        {
+            f0[i](j,0) = f0[i](j,0)*param[0];
+            for(int k=newdim; k<d; ++k)
+            {
+                f0[i](j,0) = f0[i](j,0) + f0[i](j,k)*param[k];
+            }
+        }
+        MatrixXd m1 = f0[i].block(0,0,rep.n_arms(),newdim);
+        f1.push_back(m1);
+    }
+    param[0] = 1.;
+    VectorXd p1 = param.head(newdim);
+
+    long new_seed = random_seed ? rand() : rep.seed;
+    FiniteLinearRepresentation rep2(f1, p1, rep.noise_std, new_seed);
+
+    if (transform)
+    {
+        rep2 = random_transform(rep2, normalize, rnd_seed);
+    }
+    else if (normalize)
+    {
+        rep2 = normalize_param(rep2);
+    }
 
     return rep2;
 }
