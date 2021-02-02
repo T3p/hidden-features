@@ -62,4 +62,18 @@ def sherman_morrison(invA, u, v):
     outer = np.outer(u, v)
     return invA - (np.matmul(invA, np.matmul(outer, invA))) \
             / (1 + np.dot(v, np.matmul(invA, u)))
+
+def check_spanrd(vectors, d):
+    """
+    Inputs:
+        - vectors (array): matrix (N, d)
+        - d (int): dimension of the space to be spanned
+    Return:
+        - True or False
+    """
+    # https://math.stackexchange.com/questions/56201/how-to-tell-if-a-set-of-vectors-spans-a-space
+    # https://stackoverflow.com/questions/15638650/is-there-a-standard-solution-for-gauss-elimination-in-python
+    pl, u = lu(vectors, permute_l=True)
+    rank = np.linalg.matrix_rank(u)
+    return d == int(rank)
     
