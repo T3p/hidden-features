@@ -13,7 +13,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${OPENMP_INCLUDES})
 link_directories(${OPENMP_LIBRARIES})
 
-set(BINF simple.cpp simple_mab.cpp multirep.cpp test_corral.cpp modsel.cpp dimensions.cpp dimensions_modsel.cpp mixing.cpp)
+set(BINF simple.cpp simple_mab.cpp multirep.cpp test_corral.cpp dimensions.cpp dimensions_modsel.cpp mixing.cpp hls.cpp)
 foreach(name ${BINF})
     get_filename_component(base_name ${name} NAME_WE)
     message(STATUS "bulding ${base_name}")
