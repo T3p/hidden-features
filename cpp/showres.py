@@ -29,7 +29,7 @@ for filename in sorted(os.listdir(directory)):
         print(filename)
         algo_name = filename.split('_')[0]
 
-        if algo_name.startswith("MMOFUL"):
+        if algo_name.startswith("LEADER"):
             kwargs = {'linestyle':'dashed', 'linewidth':3}
         elif algo_name.startswith("OFULBALELIM"):
             kwargs = {'linestyle':'dotted', 'linewidth':2}
