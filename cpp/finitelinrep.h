@@ -299,6 +299,8 @@ public:
     friend FiniteLinearRepresentation normalize_param(FiniteLinearRepresentation& rep, double scale);
     friend FiniteLinearRepresentation reduce_dim(FiniteLinearRepresentation& rep, int newdim, bool random_seed,
     bool transform, bool normalize, int rnd_seed);
+    friend FiniteLinearRepresentation fuse_columns(FiniteLinearRepresentation& rep, vector<int>& cols, bool random_seed,
+    bool transform, bool normalize, int rnd_seed);
 };
 
 FiniteLinearRepresentation normalize_param(FiniteLinearRepresentation& rep, double scale=1.)
@@ -455,6 +457,78 @@ FiniteLinearRepresentation reduce_dim(FiniteLinearRepresentation& rep, int newdi
 
     long new_seed = random_seed ? rand() : rep.seed;
     FiniteLinearRepresentation rep2(f1, p1, rep.noise_std, new_seed);
+
+    if (transform)
+    {
+        rep2 = random_transform(rep2, normalize, rnd_seed);
+    }
+    else if (normalize)
+    {
+        rep2 = normalize_param(rep2);
+    }
+
+    return rep2;
+}
+
+FiniteLinearRepresentation fuse_columns(FiniteLinearRepresentation& rep, vector<int>& cols, bool random_seed=false,
+    bool transform=true, bool normalize=true, int rnd_seed=0)
+{
+    int d = rep.features_dim();
+    int nc = rep.n_contexts();
+    int na = rep.n_arms();
+    int ncols = cols.size();
+    assert(ncols<=d);
+    for(int i: cols)
+    {
+        assert(i>=0 && i<d);
+    }
+
+    std::vector<MatrixXd> f0 = rep.features;
+    VectorXd param = rep.param;
+
+    for(int i=0; i<nc; ++i)
+    {
+        for(int j=0; j<na; ++j)
+        {
+            for(int k=0; k<d; ++k)
+            {
+                f0[i](j,k) = f0[i](j,k) * param[k];
+            }
+        }
+    }
+
+    for(int k=0; k<d; ++k)
+    {
+        param[k] = 1.;
+    }
+
+    //fin qua sono equivalenti
+
+    std::vector<int> opt_arms(nc);
+    MatrixXd opt_feats(nc, d);
+    VectorXd opt_rews(nc);
+    rep.optimal_features_and_arms(opt_arms, opt_feats, opt_rews);
+
+    vector<double> v(nc);
+
+    for(int i=0;i<nc;++i)
+    {
+        v[i] = 0.;
+        for(int k: cols)
+        {
+            v[i] += f0[i](opt_arms[i],k);
+        }
+    }
+
+    for(int i=0; i<nc; ++i)
+    {
+        for(int k: cols){
+            f0[i](opt_arms[i],k) = v[i] / ncols;
+        }
+    }
+
+    long new_seed = random_seed ? rand() : rep.seed;
+    FiniteLinearRepresentation rep2(f0, param, rep.noise_std, new_seed);
 
     if (transform)
     {

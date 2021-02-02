@@ -61,14 +61,11 @@ int main()
     std::vector<FiniteLinearRepresentation> reps;
     int dim = rep.features_dim();
     double MMM = rep.features_bound();
-    for(int i = 2; i <= dim; ++i)
+    vector<vector<int>> cols_to_fuse = {{0,1}, {1,2}, {2,3}, {3,4}, {4,5}, {5,0}};
+    for(vector<int>& cols : cols_to_fuse)
     {
-        FiniteLinearRepresentation rr = reduce_dim(rep, i, false, true, true);
-        rr = derank_hls(rr, 1, false, true, true);
-        //std::cout << rr.features_dim() << std::endl;
-        // cout << i << ": " << rr.features_bound() << ", " << rr.param_bound() << std::endl;
-        // rr.normalize_features(MMM);
-        // cout << i << ": " << rr.features_bound() << ", " << rr.param_bound() << std::endl;
+        FiniteLinearRepresentation rr = fuse_columns(rep, cols, false, true, true);
+
         reps.push_back(rr);
         bool flag = rr.is_equal(rep);
         if (!flag) {
@@ -77,13 +74,16 @@ int main()
         }
     }
     assert(rep.is_equal(rep));
-    assert(rep.is_hls());
-    reps.push_back(rep);
+    //reps.push_back(rep);
     // cout << dim << ": " << rep.features_bound() << ", " << rep.param_bound() << std::endl;
     //assert(reps.size() == dim);
+    for(int j=0; j<reps.size(); ++j)
+    {
+        assert(!reps[j].is_hls());
+    }
 
 
-     //MMOFUL
+     //LEADER
      vec2double regrets(n_runs), pseudo_regrets(n_runs);
      #pragma omp parallel for
      for (int i = 0; i < n_runs; ++i)
@@ -103,9 +103,9 @@ int main()
          // delete localg;
      }
      // save_vector_csv(regrets, "MMOFUL_regrets.csv", EVERY, PREC);
-     save_vector_csv_gzip(regrets, "MMOFUL_regrets.csv.gz", EVERY, PREC);
+     save_vector_csv_gzip(regrets, "LEADER_regrets.csv.gz", EVERY, PREC);
      // save_vector_csv(pseudo_regrets, "MMOFUL_pseudoregrets.csv", EVERY, PREC);
-     save_vector_csv_gzip(pseudo_regrets, "MMOFUL_pseudoregrets.csv.gz", EVERY, PREC);
+     save_vector_csv_gzip(pseudo_regrets, "LEADER_pseudoregrets.csv.gz", EVERY, PREC);
 
 
     //just OFUL
@@ -125,7 +125,7 @@ int main()
             pseudo_regrets[i] = prb.exp_instant_regret;
         }
         // save_vector_csv(regrets, "OFUL-rep"+std::to_string(j)+"_regrets.csv", EVERY, PREC);
-        std::string name = "OFUL-dim"+std::to_string(reps[j].features_dim()) + (reps[j].is_hls()? "(HLS)" : "");
+        std::string name = "OFUL-rep"+std::to_string(j);
         save_vector_csv_gzip(regrets, name +"_regrets.csv.gz", EVERY, PREC);
         // save_vector_csv(pseudo_regrets, "OFUL-rep"+std::to_string(j)+"_pseudoregrets.csv", EVERY, PREC);
         save_vector_csv_gzip(pseudo_regrets, name+"_pseudoregrets.csv.gz", EVERY, PREC);
