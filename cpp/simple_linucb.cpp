@@ -57,13 +57,20 @@ int main()
     });
 
     // load reference representation
+
+    auto start = TIC();
     FiniteLinearRepresentation reference_rep("linrep3.json");
+    auto tottime = TOC(start);
     int reference_rep_dim = reference_rep.features_dim();
+    cout << "Loaded in " << tottime << endl;
     cout << "Ref_rep.dim: " << reference_rep_dim << endl;
 
     // load representation for OFUL
+    start = TIC();
     FiniteLinearRepresentation oful_rep("linrep3.json");
+    tottime = TOC(start);
     int oful_rep_dim = oful_rep.features_dim();
+    cout << "Loaded in " << tottime << endl;
     cout << "OFUL_rep.dim: " << oful_rep_dim << endl;
 
 
