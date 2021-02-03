@@ -41,6 +41,7 @@ public:
         int dim = linrep.features_dim();
         inv_A = MatrixXd::Identity(dim, dim) / reg_val;
         b_vec = VectorXd::Zero(dim);
+        A_logdet = log(reg_val) * dim;
         UCBindex.resize(linrep.n_arms());
         t = 1;
     }
@@ -57,8 +58,8 @@ public:
         int action;
         if (adaptive_ci)
         {
-            double val = log(sqrt(inv_A.determinant()) * pow(reg_val, dim/2) * delta);
-            beta = noise_std * sqrt(-2 * val) + param_bound * sqrt(reg_val);
+            double val = A_logdet - dim * log(reg_val) - 2 * log(delta);
+            beta = noise_std * sqrt(val) + param_bound * sqrt(reg_val);
         }
         else
         {
@@ -91,11 +92,11 @@ public:
     {
         VectorXd v = linrep.get_features(context, action);
         // update b
-        b_vec += v * reward;
+        b_vec.noalias() += v * reward;
         // Sherman–Morrison formula
         double den = 1. + v.dot(inv_A*v);
-        MatrixXd m = (inv_A*v*v.transpose()*inv_A) / den;
-        inv_A -= m;
+        inv_A.noalias() -= (inv_A*(v*(v.transpose()*inv_A))) / den;
+        A_logdet += log(den);
     }
 
     double upper_bound()
@@ -131,5 +132,6 @@ public:
     VectorXd b_vec;
     double features_bound, param_bound, t;
     std::vector<double> UCBindex;
+    double A_logdet;
 };
 #endif

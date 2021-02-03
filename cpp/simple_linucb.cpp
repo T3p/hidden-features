@@ -21,13 +21,6 @@ using json = nlohmann::json;
 using namespace std;
 using namespace Eigen;
 
-#define TIC()                           \
-  chrono::high_resolution_clock::now();
-
-#define TOC(X)\
-chrono::duration_cast<chrono::nanoseconds>(chrono::high_resolution_clock::now() - X).count() * 1e-9;
-
-
 size_t PREC = 4;   // for saving numbers are rounded to PREC decimals
 size_t EVERY = 1;  // save EVERY round
 
@@ -43,7 +36,7 @@ int main()
     int seed = time(NULL);
     srand (seed);
     cout << "seed: " << seed << endl;
-    int n_runs = 1, T = 10000;
+    int n_runs = 1, T = 30000;
     double delta = 0.01;
     double reg_val = 1.;
     double noise_std = 0.3;
@@ -59,7 +52,7 @@ int main()
     // load reference representation
 
     auto start = TIC();
-    FiniteLinearRepresentation reference_rep("linrep3.json");
+    FiniteLinearRepresentation reference_rep("jester_post_d188_span177.json");
     auto tottime = TOC(start);
     int reference_rep_dim = reference_rep.features_dim();
     cout << "Loaded in " << tottime << endl;
@@ -67,7 +60,7 @@ int main()
 
     // load representation for OFUL
     start = TIC();
-    FiniteLinearRepresentation oful_rep("linrep3.json");
+    FiniteLinearRepresentation oful_rep("jester_post_d188_span177.json");
     tottime = TOC(start);
     int oful_rep_dim = oful_rep.features_dim();
     cout << "Loaded in " << tottime << endl;
