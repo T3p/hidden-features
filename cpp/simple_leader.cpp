@@ -58,41 +58,53 @@ int main()
 
     // load reference representation
     FiniteLinearRepresentation reference_rep("linrep3.json");
-    int reference_rep_dim = reference_rep.features_dim();
-    cout << "Ref_rep.dim: " << reference_rep_dim << endl;
+    cout << "Ref_rep.dim: " << reference_rep.features_dim() << endl;
+    cout << "Ref_rep.feat_bound=" << reference_rep.features_bound() << endl;
 
-    // load representation for OFUL
-    FiniteLinearRepresentation oful_rep("linrep3.json");
-    int oful_rep_dim = oful_rep.features_dim();
-    cout << "OFUL_rep.dim: " << oful_rep_dim << endl;
+    // other representations
+    std::vector<FiniteLinearRepresentation> reps;
+    // for (int i = 0; i < 9; ++i) {
+    //     FiniteLinearRepresentation rr("rep" + std::string(i) + ".json");
 
+    //     cout << "phi_" << i << ".dim=" << rr.features_dim() << endl;
+    //     cout << "phi_" << i << ".feat_bound=" << rr.features_bound() << endl;
+    //     bool flag = reference_rep.is_equal(rr, 1e-3);
+    //     cout << "phi_" << i << ".equal_ref=" << flag << endl;
+    //     if (!flag) {
+    //         std::cout << "Error: " << i << "is a non realizable representation" << std::endl;
+    //         exit(1);
+    //     }
+    // }
+    reps.push_back(FiniteLinearRepresentation("linrep3.json"));
 
-    cout << "Equal? " << reference_rep.is_equal(oful_rep, 1e-3) << endl;
+    // add also reference representation
+    reps.push_back(reference_rep);
 
-
-    //just OFUL
-    vec2double regrets, pseudo_regrets;
-
+    vec2double regrets(n_runs), pseudo_regrets(n_runs);
     #pragma omp parallel for
     for (int i = 0; i < n_runs; ++i)
     {
+        std::vector<std::shared_ptr<ContRepresentation<int>>> lreps;
+        for(auto& ll : reps)
+        {
+            auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
+            lreps.push_back(tmp);
+        }
+        MMOFUL<int> localg(lreps, reg_val, noise_std, bonus_scale, delta/lreps.size(), adaptive_ci);
+
         // create same representation but witth different seed
-        FiniteLinearRepresentation lrep = reference_rep.copy(seeds[i]);
-        OFUL<int> localg(lrep, reg_val, noise_std, bonus_scale, delta, adaptive_ci);
-        ContBanditProblem<int> prb(oful_rep, localg);
+        FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
+        ContBanditProblem<int> prb(cpRefRep, localg);
         prb.reset();
         auto start = TIC();
         prb.run(T);
         auto tottime = TOC(start);
         cout << "time(" << i << "): " << tottime << endl;
-
-        // store regret and pseudo regret
         regrets.push_back(prb.instant_regret);
         pseudo_regrets.push_back(prb.exp_instant_regret);
 
-        // save in compressed json
-        save_vector_csv_gzip(regrets, "OFUL-"+std::string(MY_TIME)+"_regrets.csv.gz", EVERY, PREC);
-        save_vector_csv_gzip(pseudo_regrets, "OFUL-"+std::string(MY_TIME)+"_pseudoregrets.csv.gz", EVERY, PREC);
+        save_vector_csv_gzip(regrets, "LEADER-"+std::string(MY_TIME)+"_regrets.csv.gz", EVERY, PREC);
+        save_vector_csv_gzip(pseudo_regrets, "LEADER-"+std::string(MY_TIME)+"_pseudoregrets.csv.gz", EVERY, PREC);
     }
 
     return 0;
