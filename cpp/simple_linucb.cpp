@@ -76,10 +76,10 @@ int main()
     #pragma omp parallel for
     for (int i = 0; i < n_runs; ++i)
     {
-        // create same representation but witth different seed
+        OFUL<int> localg(oful_rep, reg_val, noise_std, bonus_scale, delta, adaptive_ci);
+        // create same representation but with different seed
         FiniteLinearRepresentation lrep = reference_rep.copy(seeds[i]);
-        OFUL<int> localg(lrep, reg_val, noise_std, bonus_scale, delta, adaptive_ci);
-        ContBanditProblem<int> prb(oful_rep, localg);
+        ContBanditProblem<int> prb(lrep, localg);
         prb.reset();
         auto start = TIC();
         prb.run(T);
