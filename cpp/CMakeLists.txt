@@ -13,6 +13,18 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${OPENMP_INCLUDES})
 link_directories(${OPENMP_LIBRARIES})
 
+# For CMake < 3.9, we need to make the target ourselves
+if(NOT TARGET OpenMP::OpenMP_CXX)
+    find_package(Threads REQUIRED)
+    add_library(OpenMP::OpenMP_CXX IMPORTED INTERFACE)
+    set_property(TARGET OpenMP::OpenMP_CXX
+                 PROPERTY INTERFACE_COMPILE_OPTIONS ${OpenMP_CXX_FLAGS})
+    # Only works if the same flag is passed to the linker; use CMake 3.9+ otherwise (Intel, AppleClang)
+    set_property(TARGET OpenMP::OpenMP_CXX
+                 PROPERTY INTERFACE_LINK_LIBRARIES ${OpenMP_CXX_FLAGS} Threads::Threads)
+
+endif()
+
 set(BINF simple.cpp simple_mab.cpp simple_linucb.cpp simple_leader.cpp multirep.cpp test_corral.cpp hls.cpp vardim.cpp mixing.cpp)
 foreach(name ${BINF})
     get_filename_component(base_name ${name} NAME_WE)
@@ -21,7 +33,7 @@ foreach(name ${BINF})
     if(OpenMP_CXX_FOUND)
         target_link_libraries (${base_name} Eigen3::Eigen OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json ${Boost_LIBRARIES})
     else()
-        target_link_libraries (${base_name} Eigen3::Eigen OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json ${Boost_LIBRARIES})
+        target_link_libraries (${base_name} Eigen3::Eigen nlohmann_json::nlohmann_json ${Boost_LIBRARIES})
     endif()
 endforeach()
 
