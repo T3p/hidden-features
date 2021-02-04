@@ -100,9 +100,15 @@ public:
         A_logdet += log(den);
     }
 
+    //adaptive regret bound including problem constants
     double upper_bound()
     {
-        return -log(inv_A.determinant() * delta) * sqrt(t);
+        double logdet = -log(inv_A.determinant());
+        int dim = linrep.features_dim();
+        double val = A_logdet - dim * log(reg_val) - 2 * log(delta);
+        double beta = noise_std * sqrt(val) + param_bound * sqrt(reg_val);
+
+        return 4*sqrt(beta * t * logdet);
     }
 
     std::unique_ptr<BaseAlgo<X>> clone() const
@@ -113,16 +119,19 @@ public:
         return std::unique_ptr<OFUL<X>>(copied);
     }
 
+    //Meta-parameters computed using the leading term with its constant (hiding logarithmic terms)
     double corral_lr(const int horizon, const int nbases) const
     {
-        int dim=linrep.features_dim();
-        return sqrt(1.*nbases / horizon) / dim;
+        int d=linrep.features_dim();
+        double c=sqrt(d) * (sqrt(reg_val)*param_bound + noise_std*sqrt(d-2*log(delta)));
+        return sqrt(1.*nbases / horizon) / c;
     }
 
     double exp3_rate(const int horizon, const int nbases) const
     {
-        int dim=linrep.features_dim();
-        return pow(horizon, -1./3.) * pow(nbases, -2./3.) * pow(dim, 2./3.);
+        int d=linrep.features_dim();
+        double c=sqrt(d) * (sqrt(reg_val)*param_bound + noise_std*sqrt(d-2*log(delta)));
+        return pow(horizon, -1./3.) * pow(nbases, -2./3.) * pow(c, 2./3.);
     }
 
 public:
