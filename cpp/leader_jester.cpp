@@ -27,9 +27,12 @@ size_t EVERY = 1;  // save EVERY round
 int main()
 {
 
+    int n_derank = 0;
+    int low_rank = 15;
+
     const char *files[7] = { "../../problem_data/jester/33/1/jester_post_d33_span33.npz", "../../problem_data/jester/33/1/jester_post_d26_span26.npz", "../../problem_data/jester/33/1/jester_post_d24_span24.npz", "../../problem_data/jester/33/1/jester_post_d23_span23.npz", "../../problem_data/jester/33/1/jester_post_d20_span20.npz", "../../problem_data/jester/33/1/jester_post_d17_span17.npz", "../../problem_data/jester/33/1/jester_post_d16_span16.npz" };
 
-    const char *names[7] = {"d=33", "d=26", "d=24", "d=23", "d=20", "d=17", "d=16"};
+    const char *names[9] = {"d=33", "d=26", "d=24", "d=23", "d=20", "d=17", "d=16", "d=16 (derank)", "d=17 (derank)"};
 
     std::time_t t = std::time(nullptr);
     char MY_TIME[100];
@@ -62,8 +65,18 @@ int main()
 
     // other representations
     std::vector<FiniteLinearRepresentation> reps;
-    for (int i = 0; i < 7; ++i) {
-        FiniteLinearRepresentation rr = flr_loadnpz(files[i], noise_std, seed, "features", "theta");
+    for (int i = 0; i < 7 + n_derank; ++i) {
+
+        int l = i;
+	if(i >= 7) {
+		l = 7 + 6 - i;
+	}
+	FiniteLinearRepresentation rr = flr_loadnpz(files[l], noise_std, seed, "features", "theta");
+
+	if(i >= 7) {
+		rr = derank_hls(rr, low_rank, false, true, true);
+	}
+        rr.normalize_features(10);
 
         cout << "phi_" << i << ".dim=" << rr.features_dim() << endl;
         cout << "phi_" << i << ".feat_bound=" << rr.features_bound() << endl;
@@ -79,7 +92,7 @@ int main()
     // add also reference representation
     // reps.push_back(reference_rep);
 
-    vec2double regrets(n_runs), pseudo_regrets(n_runs);
+    vec2double regrets, pseudo_regrets;
     #pragma omp parallel for
     for (int i = 0; i < n_runs; ++i)
     {

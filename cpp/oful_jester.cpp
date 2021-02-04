@@ -24,9 +24,12 @@ size_t EVERY = 1;  // save EVERY round
 int main()
 {
 
+    int n_derank = 0;
+    int low_rank = 15;
+
     const char *files[7] = { "../../problem_data/jester/33/1/jester_post_d33_span33.npz", "../../problem_data/jester/33/1/jester_post_d26_span26.npz", "../../problem_data/jester/33/1/jester_post_d24_span24.npz", "../../problem_data/jester/33/1/jester_post_d23_span23.npz", "../../problem_data/jester/33/1/jester_post_d20_span20.npz", "../../problem_data/jester/33/1/jester_post_d17_span17.npz", "../../problem_data/jester/33/1/jester_post_d16_span16.npz" };
 
-    const char *names[7] = {"d=33", "d=26", "d=24", "d=23", "d=20", "d=17", "d=16"};
+    const char *names[9] = {"d=33", "d=26", "d=24", "d=23", "d=20", "d=17", "d=16", "d=16 (derank)", "d=17 (derank)"};
 
     std::time_t t = std::time(nullptr);
     char MY_TIME[100];
@@ -38,7 +41,7 @@ int main()
     int seed = time(NULL);
     srand (seed);
     cout << "seed: " << seed << endl;
-    int n_runs = 10, T = 1000000;
+    int n_runs = 1, T = 1000000;
     double delta = 0.01;
     double reg_val = 1.;
     double noise_std = 0.3;
@@ -51,7 +54,7 @@ int main()
         return rand();
     });
 
-    for (int j = 0; j < 7; j++) {
+    for (int j = 0; j < 7 + n_derank; j++) {
 
     // load reference representation
 
@@ -66,7 +69,18 @@ int main()
     // load representation for OFUL
     start = TIC();
     // FiniteLinearRepresentation oful_rep = flr_loadjson("A.json", noise_std, seed);
-    FiniteLinearRepresentation oful_rep = flr_loadnpz(files[j], noise_std, seed, "features", "theta");
+
+    int l = j;
+    if(j >= 7) {
+	l = 7 + 6 - j;
+    }
+    FiniteLinearRepresentation oful_rep = flr_loadnpz(files[l], noise_std, seed, "features", "theta");
+
+    if(j >= 7) {
+        oful_rep = derank_hls(oful_rep, low_rank, false, true, true);
+    }
+    oful_rep.normalize_features(10);
+
     tottime = TOC(start);
     int oful_rep_dim = oful_rep.features_dim();
     cout << "Loaded in " << tottime << endl;
