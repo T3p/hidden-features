@@ -65,15 +65,17 @@ int main()
 
     // other representations
     std::vector<FiniteLinearRepresentation> reps;
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 7; ++i)
+    {
 
-	FiniteLinearRepresentation rr = flr_loadnpz(files[i], noise_std, seed, "features", "theta");
+        FiniteLinearRepresentation rr = flr_loadnpz(files[i], noise_std, seed, "features", "theta");
 
         cout << "phi_" << i << ".dim=" << rr.features_dim() << endl;
         cout << "phi_" << i << ".feat_bound=" << rr.features_bound() << endl;
         bool flag = reference_rep.is_equal(rr, 0.05);
         cout << "phi_" << i << ".equal_ref=" << flag << endl;
-        if (!flag) {
+        if (!flag)
+        {
             std::cout << "Error: " << i << "is a non realizable representation" << std::endl;
             exit(1);
         }
@@ -126,18 +128,17 @@ int main()
             auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
             lreps.push_back(tmp);
             base_algs.push_back(
-                    std::make_shared<SmoothedAlgo<int>>(
-                        SmoothedAlgo<int>(
-                            std::make_shared<OFUL<int>>(
-                                OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
-                            ), seeds[i]
-                        )
+                std::make_shared<SmoothedAlgo<int>>(
+                    SmoothedAlgo<int>(
+                        std::make_shared<OFUL<int>>(
+                            OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
+                        ), seeds[i]
                     )
-             );
+                )
+            );
         }
         EXP3dotP<int> localg(base_algs, base_algs[0]->base()->exp3_rate(T, base_algs.size()), seeds[i], update_all);
-                FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
-
+        FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
         ContBanditProblem<int> prb(cpRefRep, localg);
         prb.reset();
         auto start = TIC();
@@ -164,17 +165,17 @@ int main()
             auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
             lreps.push_back(tmp);
             base_algs.push_back(
-                    std::make_shared<SmoothedAlgo<int>>(
-                        SmoothedAlgo<int>(
-                            std::make_shared<OFUL<int>>(
-                                OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
-                            ), seeds[i]
-                        )
+                std::make_shared<SmoothedAlgo<int>>(
+                    SmoothedAlgo<int>(
+                        std::make_shared<OFUL<int>>(
+                            OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
+                        ), seeds[i]
                     )
-             );
+                )
+            );
         }
         Corral<int> localg(base_algs, base_algs[0]->base()->corral_lr(T, base_algs.size()), seeds[i], update_all);
-                FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
+        FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
 
         ContBanditProblem<int> prb(cpRefRep, localg);
         prb.reset();
@@ -201,24 +202,24 @@ int main()
             auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
             lreps.push_back(tmp);
             base_algs.push_back(
-                    std::make_shared<OFUL<int>>(
-                            OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
-                    )
-             );
-         }
-         double exp4_gamma = sqrt(2*log(base_algs.size())/(reference_rep.n_arms()*T));
-         double exp4_lr = 2*exp4_gamma;
-         EXP4dotIX<int> localg(base_algs, exp4_lr, exp4_gamma, seeds[i]);
-                 FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
+                std::make_shared<OFUL<int>>(
+                    OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
+                )
+            );
+        }
+        double exp4_gamma = sqrt(2*log(base_algs.size())/(reference_rep.n_arms()*T));
+        double exp4_lr = 2*exp4_gamma;
+        EXP4dotIX<int> localg(base_algs, exp4_lr, exp4_gamma, seeds[i]);
+        FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
 
-         ContBanditProblem<int> prb(cpRefRep, localg);
-         prb.reset();
-         auto start = TIC();
-         prb.run(T);
-         auto tottime = TOC(start);
-         cout << "time(" << i << "): " << tottime << endl;
-         regrets[i] = prb.instant_regret;
-         pseudo_regrets[i] = prb.exp_instant_regret;
+        ContBanditProblem<int> prb(cpRefRep, localg);
+        prb.reset();
+        auto start = TIC();
+        prb.run(T);
+        auto tottime = TOC(start);
+        cout << "time(" << i << "): " << tottime << endl;
+        regrets[i] = prb.instant_regret;
+        pseudo_regrets[i] = prb.exp_instant_regret;
     }
     save_vector_csv_gzip(regrets, name +"_regrets.csv.gz", EVERY, PREC);
     save_vector_csv_gzip(pseudo_regrets, name+"_pseudoregrets.csv.gz", EVERY, PREC);
@@ -241,19 +242,19 @@ int main()
                     OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
                 )
             );
-         }
-         RegretBalance<int> localg(base_algs);
-                 FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
+        }
+        RegretBalance<int> localg(base_algs);
+        FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
 
-         ContBanditProblem<int> prb(cpRefRep, localg);
-         prb.reset();
-         auto start = TIC();
-         prb.run(T);
-         auto tottime = TOC(start);
-         cout << "time(" << i << "): " << tottime << endl;
-         regrets[i] = prb.instant_regret;
-         pseudo_regrets[i] = prb.exp_instant_regret;
-         // delete localg;
+        ContBanditProblem<int> prb(cpRefRep, localg);
+        prb.reset();
+        auto start = TIC();
+        prb.run(T);
+        auto tottime = TOC(start);
+        cout << "time(" << i << "): " << tottime << endl;
+        regrets[i] = prb.instant_regret;
+        pseudo_regrets[i] = prb.exp_instant_regret;
+        // delete localg;
     }
     save_vector_csv_gzip(regrets, name +"_regrets.csv.gz", EVERY, PREC);
     save_vector_csv_gzip(pseudo_regrets, name+"_pseudoregrets.csv.gz", EVERY, PREC);
@@ -278,8 +279,7 @@ int main()
             );
         }
         RegretBalanceAndEliminate<int> localg(base_algs, delta);
-                FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
-
+        FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
         ContBanditProblem<int> prb(cpRefRep, localg);
         prb.reset();
         auto start = TIC();
