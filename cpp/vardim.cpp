@@ -10,7 +10,7 @@
 #include "abstractclasses.h"
 #include "bandit.h"
 #include "oful.h"
-#include "mmoful.h"
+#include "leader.h"
 #include "regbalancing.h"
 #include "adversarial_master.h"
 #include "finitelinrep.h"
@@ -59,7 +59,8 @@ int main()
     // rep.save("linrep.json"); // save current model
 
     //FiniteLinearRepresentation rep("linrep3.json");
-    FiniteLinearRepresentation rep("../../problem_data/linrep3.json");
+    // FiniteLinearRepresentation rep("../../problem_data/linrep3.json");
+    FiniteLinearRepresentation rep = flr_loadjson("../../problem_data/linrep3.json", noise_std, seed);
 
     //CREATE CANDIDATE REPRESENTATIONS
     std::vector<FiniteLinearRepresentation> reps;
@@ -123,7 +124,7 @@ int main()
             auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
             lreps.push_back(tmp);
         }
-        MMOFUL<int> localg(lreps, reg_val, noise_std, bonus_scale, delta/lreps.size(), adaptive_ci);
+        LEADER<int> localg(lreps, reg_val, noise_std, bonus_scale, delta/lreps.size(), adaptive_ci);
         ContBanditProblem<int> prb(*lreps[0], localg);
         prb.reset();
         prb.run(T);

@@ -13,13 +13,6 @@
 using namespace std;
 using namespace Eigen;
 
-#define TIC()                           \
-  chrono::high_resolution_clock::now();
-
-#define TOC(X)\
-chrono::duration_cast<chrono::nanoseconds>(chrono::high_resolution_clock::now() - X).count() * 1e-9;
-
-
 int PREC = 4;
 int EVERY = 1;
 
@@ -69,6 +62,7 @@ int main()
     #pragma omp parallel for
     for (int i = 0; i < n_runs; ++i)
     {
+        auto start = TIC();
         std::vector<std::shared_ptr<RewardDistribution>> rews = make_problem(means, seeds[i]);
         UCB localg(rews.size(), rrange, bonus_scale);
         MultiArmedBandit prb(rews, localg);
@@ -76,6 +70,8 @@ int main()
         prb.run(T);
         regrets[i] = prb.instant_regret;
         pseudo_regrets[i] = prb.exp_instant_regret;
+        auto tottime = TOC(start);
+        cout << "i: " << tottime << endl;
     }
     save_vector_csv_gzip(regrets, "UCBV_regrets.csv.gz", EVERY, PREC);
     save_vector_csv_gzip(pseudo_regrets, "UCBV_pseudoregrets.csv.gz", EVERY, PREC);
