@@ -136,6 +136,7 @@ int main()
              );
         }
         EXP3dotP<int> localg(base_algs, base_algs[0]->base()->exp3_rate(T, base_algs.size()), seeds[i], update_all);
+        FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
         ContBanditProblem<int> prb(cpRefRep, localg);
         prb.reset();
         auto start = TIC();
@@ -172,6 +173,7 @@ int main()
              );
         }
         Corral<int> localg(base_algs, base_algs[0]->base()->corral_lr(T, base_algs.size()), seeds[i], update_all);
+        FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
         ContBanditProblem<int> prb(cpRefRep, localg);
         prb.reset();
         auto start = TIC();
@@ -202,9 +204,10 @@ int main()
                     )
              );
          }
-         double exp4_gamma = sqrt(2*log(base_algs.size())/(rep.n_arms()*T));
+         double exp4_gamma = sqrt(2*log(base_algs.size())/(reference_rep.n_arms()*T));
          double exp4_lr = 2*exp4_gamma;
          EXP4dotIX<int> localg(base_algs, exp4_lr, exp4_gamma, seeds[i]);
+         FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
          ContBanditProblem<int> prb(cpRefRep, localg);
          prb.reset();
          auto start = TIC();
@@ -237,6 +240,7 @@ int main()
             );
          }
          RegretBalance<int> localg(base_algs);
+         FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
          ContBanditProblem<int> prb(cpRefRep, localg);
          prb.reset();
          auto start = TIC();
@@ -270,6 +274,7 @@ int main()
             );
         }
         RegretBalanceAndEliminate<int> localg(base_algs, delta);
+        FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
         ContBanditProblem<int> prb(cpRefRep, localg);
         prb.reset();
         auto start = TIC();
