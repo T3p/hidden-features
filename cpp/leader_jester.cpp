@@ -41,7 +41,7 @@ int main()
     int seed = time(NULL);
     srand (seed);
     cout << "seed: " << seed << endl;
-    int n_runs = 1, T = 10000;
+    int n_runs = 1, T = 1000000;
     double delta = 0.01;
     double reg_val = 1.;
     double noise_std = 0.3;
@@ -56,27 +56,28 @@ int main()
 
     // load reference representation
     // FiniteLinearRepresentation reference_rep=flr_loadjson("linrep3.json", noise_std, seed);
-    FiniteLinearRepresentation reference_rep=flr_loadnpz("linrep3.npz", noise_std, seed);
+    FiniteLinearRepresentation reference_rep=flr_loadnpz("../../problem_data/jester/33/1/jester_post_d33_span33.npz", noise_std, seed, "features", "theta");
     cout << "Ref_rep.dim: " << reference_rep.features_dim() << endl;
     cout << "Ref_rep.feat_bound=" << reference_rep.features_bound() << endl;
 
     // other representations
     std::vector<FiniteLinearRepresentation> reps;
     for (int i = 0; i < 7; ++i) {
-        FiniteLinearRepresentation rr = flr_loadnpz(files[i], noise_std, seed);
+        FiniteLinearRepresentation rr = flr_loadnpz(files[i], noise_std, seed, "features", "theta");
 
         cout << "phi_" << i << ".dim=" << rr.features_dim() << endl;
         cout << "phi_" << i << ".feat_bound=" << rr.features_bound() << endl;
-        bool flag = reference_rep.is_equal(rr, 1e-3);
+        bool flag = reference_rep.is_equal(rr, 0.05);
         cout << "phi_" << i << ".equal_ref=" << flag << endl;
         if (!flag) {
             std::cout << "Error: " << i << "is a non realizable representation" << std::endl;
             exit(1);
         }
+        reps.push_back(rr);
     }
 
     // add also reference representation
-    reps.push_back(reference_rep);
+    // reps.push_back(reference_rep);
 
     vec2double regrets(n_runs), pseudo_regrets(n_runs);
     #pragma omp parallel for
