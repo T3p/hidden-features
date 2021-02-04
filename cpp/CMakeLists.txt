@@ -28,7 +28,7 @@ endif()
 add_subdirectory(cnpy)
 include_directories(${CMAKE_SOURCE_DIR}/cnpy/)
 
-set(BINF simple_continuous.cpp simple_mab.cpp simple_linucb.cpp simple_leader.cpp multirep.cpp test_corral.cpp hls.cpp vardim.cpp mixing.cpp )
+set(BINF simple_continuous.cpp simple_mab.cpp simple_linucb.cpp simple_leader.cpp multirep.cpp test_corral.cpp hls.cpp vardim.cpp mixing.cpp leader_jester.cpp oful_jester.cpp )
 foreach(name ${BINF})
     get_filename_component(base_name ${name} NAME_WE)
     message(STATUS "bulding ${base_name}")

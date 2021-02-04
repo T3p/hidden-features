@@ -63,7 +63,7 @@ int main()
     // other representations
     std::vector<FiniteLinearRepresentation> reps;
     for (int i = 0; i < 7; ++i) {
-        FiniteLinearRepresentation rr = flr_loadnpz(files[j], noise_std, seed));
+        FiniteLinearRepresentation rr = flr_loadnpz(files[i], noise_std, seed);
 
         cout << "phi_" << i << ".dim=" << rr.features_dim() << endl;
         cout << "phi_" << i << ".feat_bound=" << rr.features_bound() << endl;
