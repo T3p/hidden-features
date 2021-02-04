@@ -25,11 +25,15 @@ if(NOT TARGET OpenMP::OpenMP_CXX)
 
 endif()
 
-set(BINF simple.cpp simple_mab.cpp simple_linucb.cpp simple_leader.cpp multirep.cpp test_corral.cpp hls.cpp vardim.cpp mixing.cpp)
+add_subdirectory(cnpy)
+include_directories(${CMAKE_SOURCE_DIR}/cnpy/)
+
+set(BINF simple_continuous.cpp simple_mab.cpp simple_linucb.cpp simple_leader.cpp multirep.cpp test_corral.cpp hls.cpp vardim.cpp mixing.cpp )
 foreach(name ${BINF})
     get_filename_component(base_name ${name} NAME_WE)
     message(STATUS "bulding ${base_name}")
     add_executable(${base_name} ${name})
+    target_link_libraries(${base_name} cnpy)
     if(OpenMP_CXX_FOUND)
         target_link_libraries (${base_name} Eigen3::Eigen OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json ${Boost_LIBRARIES})
     else()

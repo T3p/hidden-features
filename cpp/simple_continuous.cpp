@@ -10,19 +10,10 @@
 #include "utils.h"
 #include "gzip.h"
 #include "bandit.h"
-#include "mmoful.h"
-#include "regbalancing.h"
 
 using json = nlohmann::json;
 using namespace std;
 using namespace Eigen;
-
-#define TIC()                           \
-  chrono::high_resolution_clock::now();
-
-#define TOC(X)\
-chrono::duration_cast<chrono::nanoseconds>(chrono::high_resolution_clock::now() - X).count() * 1e-9;
-
 
 int PREC = 4;
 int EVERY = 1;

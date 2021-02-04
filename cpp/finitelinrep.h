@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include "abstractclasses.h"
 #include "utils.h"
+#include "cnpy.h"
 
 
 using json = nlohmann::json;
@@ -29,64 +30,6 @@ public:
             assert(x.cols() == param.size());
         }
 #endif
-        uid = uniform_int_distribution<int>(0,features.size()-1);
-        nd = normal_distribution<>(0,noise_std);
-        rng.seed(seed);
-    }
-
-    FiniteLinearRepresentation(std::string json_file, double noise_std=0.1, long seed=0)
-        : noise_std(noise_std), seed(seed)
-    {
-        /*
-        Expected json format
-        {
-            "features":
-            [
-                [
-                    [0.04570723266688925, 0.05741007615948068],
-                    [0.6712536279276858, 0.6521873839500452]
-                ],
-                [
-                    [0.5151870882948832, 0.7586773652752291],
-                    [0.5365993509774891, 0.7829667875472054]
-                ],
-                [
-                    [0.17244380342440213, 0.06567624806908534],
-                    [0.012151281523658741, 0.39743985240386237]
-                ]
-            ],
-            "param": [1.57270357, 0.64796005]
-        }
-        Example generated from python as follows
-        F = (n_context, n_arm, dim)
-        F = np.random.rand(3,2,2)
-        p = np.random.randn(2)
-        data = {"features": F.tolist(), "param": p.tolist()}
-        with open('data.txt', 'w') as outfile:
-            json.dump(data, outfile)
-        */
-        std::ifstream ifile(json_file);
-        json js;
-        ifile >> js;
-        // parse features
-        std::vector<std::vector<std::vector<double>>> vect = js["features"].get<std::vector<std::vector<std::vector<double>>>>();
-        int n_context = vect.size();
-        int n_arms = vect[0].size();
-        int dim = vect[0][0].size();
-
-        for(int i = 0; i < n_context; i++)
-        {
-            MatrixXd mat(n_arms, dim);
-            for(int j = 0; j < n_arms; ++j)
-            {
-                assert(dim == vect[i][j].size());
-                mat.row(j) = Eigen::Map<VectorXd> (vect[i][j].data(), dim);
-            }
-            features.push_back(mat);
-        }
-        // parse params
-        std::vector<double> p = js["param"].get<std::vector<double>>();
-        param = Eigen::Map<VectorXd> (p.data(), dim);
         uid = uniform_int_distribution<int>(0,features.size()-1);
         nd = normal_distribution<>(0,noise_std);
         rng.seed(seed);
@@ -238,12 +181,14 @@ public:
         return v;
     }
 
-    void normalize_features(double max_bound_features) {
+    void normalize_features(double max_bound_features)
+    {
 #if DEBUG
         VectorXd rew = rewards();
 #endif
         double MMM = features_bound();
-        for (auto& f : features) {
+        for (auto& f : features)
+        {
             f *= max_bound_features / MMM;
         }
         param *= MMM / max_bound_features;
@@ -251,18 +196,23 @@ public:
         assert(abs(features_bound() - max_bound_features) <= 1e-10);
 
         VectorXd rew2 = rewards();
-        for(int i=0; i < features_dim(); ++i) {
+        for(int i=0; i < features_dim(); ++i)
+        {
             assert(abs(rew[i] - rew2[i]) <= 1e-10);
         }
 #endif
     }
 
-    bool is_equal(FiniteLinearRepresentation& other, double atol=1e-10) {
+    bool is_equal(FiniteLinearRepresentation& other, double atol=1e-10)
+    {
         VectorXd rew = rewards();
         VectorXd other_rew = other.rewards();
         bool flag = true;
-        for(int i=0; i < rew.size(); ++i) {
-            if (abs(rew[i] - other_rew[i]) > atol) {
+        if (rew.size() != other_rew.size()) {return false;}
+        for(int i=0; i < rew.size(); ++i)
+        {
+            if (abs(rew[i] - other_rew[i]) > atol)
+            {
                 flag = false;
             }
         }
@@ -298,9 +248,9 @@ public:
     friend FiniteLinearRepresentation random_transform(FiniteLinearRepresentation& rep, bool normalize, int rnd_seed);
     friend FiniteLinearRepresentation normalize_param(FiniteLinearRepresentation& rep, double scale);
     friend FiniteLinearRepresentation reduce_dim(FiniteLinearRepresentation& rep, int newdim, bool random_seed,
-    bool transform, bool normalize, int rnd_seed);
+            bool transform, bool normalize, int rnd_seed);
     friend FiniteLinearRepresentation fuse_columns(FiniteLinearRepresentation& rep, vector<int>& cols, bool random_seed,
-    bool transform, bool normalize, int rnd_seed);
+            bool transform, bool normalize, int rnd_seed);
 };
 
 FiniteLinearRepresentation normalize_param(FiniteLinearRepresentation& rep, double scale=1.)
@@ -430,7 +380,7 @@ FiniteLinearRepresentation derank_hls(
 }
 
 FiniteLinearRepresentation reduce_dim(FiniteLinearRepresentation& rep, int newdim, bool random_seed=false,
-    bool transform=true, bool normalize=true, int rnd_seed=0)
+                                      bool transform=true, bool normalize=true, int rnd_seed=0)
 {
     int d = rep.features_dim();
     assert(newdim<=d && newdim>0);
@@ -439,7 +389,7 @@ FiniteLinearRepresentation reduce_dim(FiniteLinearRepresentation& rep, int newdi
     VectorXd param = rep.param;
 
     std::vector<MatrixXd> f1;
-    for(int i=0,ii=rep.n_contexts();i<ii;++i)
+    for(int i=0,ii=rep.n_contexts(); i<ii; ++i)
     {
         for(int j=0,jj=rep.n_arms(); j<jj; ++j)
         {
@@ -471,7 +421,7 @@ FiniteLinearRepresentation reduce_dim(FiniteLinearRepresentation& rep, int newdi
 }
 
 FiniteLinearRepresentation fuse_columns(FiniteLinearRepresentation& rep, vector<int>& cols, bool random_seed=false,
-    bool transform=true, bool normalize=true, int rnd_seed=0)
+                                        bool transform=true, bool normalize=true, int rnd_seed=0)
 {
     int d = rep.features_dim();
     int nc = rep.n_contexts();
@@ -511,7 +461,7 @@ FiniteLinearRepresentation fuse_columns(FiniteLinearRepresentation& rep, vector<
 
     vector<double> v(nc);
 
-    for(int i=0;i<nc;++i)
+    for(int i=0; i<nc; ++i)
     {
         v[i] = 0.;
         for(int k: cols)
@@ -522,7 +472,8 @@ FiniteLinearRepresentation fuse_columns(FiniteLinearRepresentation& rep, vector<
 
     for(int i=0; i<nc; ++i)
     {
-        for(int k: cols){
+        for(int k: cols)
+        {
             f0[i](opt_arms[i],k) = v[i] / ncols;
         }
     }
@@ -540,6 +491,155 @@ FiniteLinearRepresentation fuse_columns(FiniteLinearRepresentation& rep, vector<
     }
 
     return rep2;
+}
+
+
+FiniteLinearRepresentation flr_loadnpz(std::string filename, double noise_std=0.1, long seed=0,
+std::string features_name="features", std::string param_name="param")
+{
+
+    cnpy::npz_t my_npz = cnpy::npz_load(filename);
+    cnpy::NpyArray arr_mv1 = my_npz[features_name];
+
+    std::cout << "npy: " << arr_mv1.word_size << std::endl;
+    std::cout << "double: " <<sizeof(double) << std::endl;
+    std::cout << "float: " <<sizeof(float) << std::endl;
+    std::cout << "int: " <<sizeof(int) << std::endl;
+    // assert(arr.word_size == sizeof(std::complex<double>));
+    int dim = arr_mv1.shape.size();
+    std::cout << dim << std::endl;
+    assert(dim == 3);
+    //Original[H, W, D]
+    int H = arr_mv1.shape[0];
+    int W = arr_mv1.shape[1];
+    int D = arr_mv1.shape[2];
+    std::cout << H << " " << W << " " << D << std::endl;
+    //Flat[z + D * (y + W * x)] = M[x,y,z]
+    std::vector<MatrixXd> features;
+    if (arr_mv1.word_size == sizeof(double))
+    {
+        double* mv1 = arr_mv1.data<double>();
+        for (int x =0; x < H; ++x)
+        {
+            MatrixXd mat(W,D);
+            for (int y =0; y < W; ++y)
+            {
+                for (int z =0; z < D; ++z)
+                {
+                    int idx = z + D * (y + W * x);
+                    // std::cout << mv1[idx] << " ";
+                    mat(y,z) = mv1[idx];
+                }
+                // std::cout << std::endl;
+            }
+            // std::cout << std::endl;
+            // std::cout << mat << endl << endl;
+            features.push_back(mat);
+        }
+    }
+    else if (arr_mv1.word_size == sizeof(float))
+    {
+        float* mv1 = arr_mv1.data<float>();
+        for (int x =0; x < H; ++x)
+        {
+            MatrixXd mat(W,D);
+            for (int y =0; y < W; ++y)
+            {
+                for (int z =0; z < D; ++z)
+                {
+                    int idx = z + D * (y + W * x);
+                    // std::cout << mv1[idx] << " ";
+                    mat(y,z) = mv1[idx];
+                }
+                // std::cout << std::endl;
+            }
+            // std::cout << std::endl;
+            // std::cout << mat << endl << endl;
+            features.push_back(mat);
+        }
+    }
+    
+    cnpy::NpyArray arr_mv2 = my_npz[param_name];
+    dim = arr_mv2.shape.size();
+    assert(dim == 1 || dim == 2);
+        H = arr_mv2.shape[0];
+    if (dim == 1) {
+        assert(H == D);
+    } else {
+        W = arr_mv2.shape[1];
+        assert((H == D  && W == 1) or (H == 1 && W == D));
+    }
+    VectorXd param(D);
+    if (arr_mv1.word_size == sizeof(double))
+    {
+        double* mv2 = arr_mv2.data<double>();
+        for (int x =0; x < D; ++x) {param[x] = mv2[x];}
+    }
+    else if (arr_mv1.word_size == sizeof(float))
+    {
+        float* mv2 = arr_mv2.data<float>();
+        for (int x =0; x < D; ++x) {param[x] = mv2[x];}
+    }
+    // std::cout << param << endl << endl;
+
+    return FiniteLinearRepresentation(features, param, noise_std, seed);
+}
+
+FiniteLinearRepresentation flr_loadjson(std::string json_file, double noise_std=0.1, long seed=0)
+{
+    /*
+    Expected json format
+    {
+        "features":
+        [
+            [
+                [0.04570723266688925, 0.05741007615948068],
+                [0.6712536279276858, 0.6521873839500452]
+            ],
+            [
+                [0.5151870882948832, 0.7586773652752291],
+                [0.5365993509774891, 0.7829667875472054]
+            ],
+            [
+                [0.17244380342440213, 0.06567624806908534],
+                [0.012151281523658741, 0.39743985240386237]
+            ]
+        ],
+        "param": [1.57270357, 0.64796005]
+    }
+    Example generated from python as follows
+    F = (n_context, n_arm, dim)
+    F = np.random.rand(3,2,2)
+    p = np.random.randn(2)
+    data = {"features": F.tolist(), "param": p.tolist()}
+    with open('data.txt', 'w') as outfile:
+        json.dump(data, outfile)
+    */
+    std::ifstream ifile(json_file);
+    json js;
+    ifile >> js;
+    // parse features
+    std::vector<std::vector<std::vector<double>>> vect = js["features"].get<std::vector<std::vector<std::vector<double>>>>();
+    int n_context = vect.size();
+    int n_arms = vect[0].size();
+    int dim = vect[0][0].size();
+
+    std::vector<MatrixXd> features;
+    for(int i = 0; i < n_context; i++)
+    {
+        MatrixXd mat(n_arms, dim);
+        for(int j = 0; j < n_arms; ++j)
+        {
+            assert(dim == vect[i][j].size());
+            mat.row(j) = Eigen::Map<VectorXd> (vect[i][j].data(), dim);
+        }
+        features.push_back(mat);
+    }
+    // parse params
+    std::vector<double> p = js["param"].get<std::vector<double>>();
+    VectorXd param = Eigen::Map<VectorXd> (p.data(), dim);
+
+    return FiniteLinearRepresentation(features, param, noise_std, seed);
 }
 
 #endif

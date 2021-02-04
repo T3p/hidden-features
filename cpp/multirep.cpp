@@ -10,7 +10,7 @@
 #include "abstractclasses.h"
 #include "bandit.h"
 #include "oful.h"
-#include "mmoful.h"
+#include "leader.h"
 #include "regbalancing.h"
 #include "adversarial_master.h"
 #include "finitelinrep.h"
@@ -56,10 +56,11 @@ int main()
     // FiniteLinearRepresentation rep = make_random(20, 5, 6, true, noise_std, seed);
     // rep.save("linrep.json"); // save current model
 
-    FiniteLinearRepresentation rep("linrep3.json");
+    FiniteLinearRepresentation rep = flr_loadjson("linrep3.json", noise_std, seed);
+    int dim = rep.features_dim();
+    cout << "Dimension: " << dim << endl;
 
     std::vector<FiniteLinearRepresentation> reps;
-    int dim = rep.features_dim();
     double MMM = rep.features_bound();
     for(int i = 1; i < dim; ++i)
     {
@@ -80,7 +81,7 @@ int main()
     assert(reps.size() == dim);
 
 
-    // //MMOFUL
+    // //LEADER
     // vec2double regrets(n_runs), pseudo_regrets(n_runs);
     // #pragma omp parallel for
     // for (int i = 0; i < n_runs; ++i)
@@ -91,7 +92,7 @@ int main()
     //         auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
     //         lreps.push_back(tmp);
     //     }
-    //     MMOFUL<int> localg(lreps, reg_val, noise_std, bonus_scale, delta/lreps.size(), adaptive_ci);
+    //     LEADER<int> localg(lreps, reg_val, noise_std, bonus_scale, delta/lreps.size(), adaptive_ci);
     //     ContBanditProblem<int> prb(*lreps[0], localg);
     //     prb.reset();
     //     prb.run(T);
@@ -99,10 +100,10 @@ int main()
     //     pseudo_regrets[i] = prb.exp_instant_regret;
     //     // delete localg;
     // }
-    // // save_vector_csv(regrets, "MMOFUL_regrets.csv", EVERY, PREC);
-    // save_vector_csv_gzip(regrets, "MMOFUL_regrets.csv.gz", EVERY, PREC);
-    // // save_vector_csv(pseudo_regrets, "MMOFUL_pseudoregrets.csv", EVERY, PREC);
-    // save_vector_csv_gzip(pseudo_regrets, "MMOFUL_pseudoregrets.csv.gz", EVERY, PREC);
+    // // save_vector_csv(regrets, "LEADER_regrets.csv", EVERY, PREC);
+    // save_vector_csv_gzip(regrets, "LEADER_regrets.csv.gz", EVERY, PREC);
+    // // save_vector_csv(pseudo_regrets, "LEADER_pseudoregrets.csv", EVERY, PREC);
+    // save_vector_csv_gzip(pseudo_regrets, "LEADER_pseudoregrets.csv.gz", EVERY, PREC);
 
 
     //just OFUL
@@ -131,14 +132,14 @@ int main()
         for (int i = 0; i < n_runs; ++i)
         {
             std::vector<FiniteLinearRepresentation> llr{reps[j].copy(seeds[i])};
-            MMOFUL ddd(llr, reg_val, 1, delta/llr.size(), adaptive_ci);
+            LEADER ddd(llr, reg_val, 1, delta/llr.size(), adaptive_ci);
             LinBanditProblem prb(llr[0], ddd);
             prb.run(T);
             regrets[i] = prb.instant_regret;
             pseudo_regrets[i] = prb.exp_instant_regret;
         }
-        save_vector_csv(regrets, "MMOFUL-rep"+std::to_string(j)+"_regrets.txt");
-        save_vector_csv(pseudo_regrets, "MMOFUL-rep"+std::to_string(j)+"_pseudoregrets.txt");
+        save_vector_csv(regrets, "LEADER-rep"+std::to_string(j)+"_regrets.txt");
+        save_vector_csv(pseudo_regrets, "LEADER-rep"+std::to_string(j)+"_pseudoregrets.txt");
 #endif
     }
     return 0;

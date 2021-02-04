@@ -68,7 +68,8 @@ public:
         for (int a = 0; a < n_arms; ++a)
         {
             VectorXd v = linrep.get_features(context, a);
-            UCBindex[a] = v.dot(theta) + bonus_scale * beta * sqrt(v.dot(inv_A * v));
+            double yyy = ((double) rand() / (RAND_MAX)) * 1e-15;
+            UCBindex[a] = v.dot(theta) + bonus_scale * beta * sqrt(v.dot(inv_A * v)) + yyy;
 
             if (a ==0 || max_ucb < UCBindex[a])
             {

@@ -9,16 +9,16 @@ using namespace std;
 using namespace Eigen;
 
 template<typename X>
-class MMOFUL : public Algo<X>
+class LEADER : public Algo<X>
 {
 public:
 
-    MMOFUL(
+    LEADER(
         std::vector<std::shared_ptr<ContRepresentation<X>>>& linrep,
         double reg_val, double noise_std,
         double bonus_scale=1., double delta=0.01, bool adaptive_ci=true
     )
-        : Algo<X>("MMOFUL"), linrep(linrep),
+        : Algo<X>("LEADER"), linrep(linrep),
           reg_val(reg_val), noise_std(noise_std),
           bonus_scale(bonus_scale), delta(delta), adaptive_ci(adaptive_ci)
     {
@@ -28,7 +28,7 @@ public:
         }
         reset();
     }
-    ~MMOFUL() {}
+    ~LEADER() {}
 
     void reset()
     {

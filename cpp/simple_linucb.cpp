@@ -10,9 +10,6 @@
 #include "abstractclasses.h"
 #include "bandit.h"
 #include "oful.h"
-#include "mmoful.h"
-#include "regbalancing.h"
-#include "adversarial_master.h"
 #include "finitelinrep.h"
 #include "utils.h"
 #include "gzip.h"
@@ -36,7 +33,7 @@ int main()
     int seed = time(NULL);
     srand (seed);
     cout << "seed: " << seed << endl;
-    int n_runs = 1, T = 30000;
+    int n_runs = 1, T = 1000;
     double delta = 0.01;
     double reg_val = 1.;
     double noise_std = 0.3;
@@ -52,7 +49,8 @@ int main()
     // load reference representation
 
     auto start = TIC();
-    FiniteLinearRepresentation reference_rep("jester_post_d188_span177.json");
+    // FiniteLinearRepresentation reference_rep=flr_loadjson("jester_post_d33_span33.json", noise_std, seed);
+    FiniteLinearRepresentation reference_rep=flr_loadnpz("jester_post_d33_span33.npz", noise_std, seed,"features", "theta");
     auto tottime = TOC(start);
     int reference_rep_dim = reference_rep.features_dim();
     cout << "Loaded in " << tottime << endl;
@@ -60,7 +58,8 @@ int main()
 
     // load representation for OFUL
     start = TIC();
-    FiniteLinearRepresentation oful_rep("jester_post_d188_span177.json");
+    // FiniteLinearRepresentation oful_rep = flr_loadjson("A.json", noise_std, seed);
+    FiniteLinearRepresentation oful_rep = flr_loadnpz("jester_post_d33_span33.npz", noise_std, seed, "features", "theta");
     tottime = TOC(start);
     int oful_rep_dim = oful_rep.features_dim();
     cout << "Loaded in " << tottime << endl;
@@ -68,7 +67,6 @@ int main()
 
 
     cout << "Equal? " << reference_rep.is_equal(oful_rep, 1e-3) << endl;
-
 
     //just OFUL
     vec2double regrets, pseudo_regrets;

@@ -10,7 +10,7 @@
 #include "abstractclasses.h"
 #include "bandit.h"
 #include "oful.h"
-#include "mmoful.h"
+#include "leader.h"
 #include "regbalancing.h"
 #include "adversarial_master.h"
 #include "finitelinrep.h"
@@ -20,13 +20,6 @@
 using json = nlohmann::json;
 using namespace std;
 using namespace Eigen;
-
-#define TIC()                           \
-  chrono::high_resolution_clock::now();
-
-#define TOC(X)\
-chrono::duration_cast<chrono::nanoseconds>(chrono::high_resolution_clock::now() - X).count() * 1e-9;
-
 
 size_t PREC = 4;   // for saving numbers are rounded to PREC decimals
 size_t EVERY = 1;  // save EVERY round
@@ -57,7 +50,8 @@ int main()
     });
 
     // load reference representation
-    FiniteLinearRepresentation reference_rep("linrep3.json");
+    // FiniteLinearRepresentation reference_rep=flr_loadjson("linrep3.json", noise_std, seed);
+    FiniteLinearRepresentation reference_rep=flr_loadnpz("linrep3.npz", noise_std, seed);
     cout << "Ref_rep.dim: " << reference_rep.features_dim() << endl;
     cout << "Ref_rep.feat_bound=" << reference_rep.features_bound() << endl;
 
@@ -75,7 +69,7 @@ int main()
     //         exit(1);
     //     }
     // }
-    reps.push_back(FiniteLinearRepresentation("linrep3.json"));
+    reps.push_back(flr_loadnpz("linrep3.npz", noise_std, seed));
 
     // add also reference representation
     reps.push_back(reference_rep);
@@ -90,7 +84,7 @@ int main()
             auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
             lreps.push_back(tmp);
         }
-        MMOFUL<int> localg(lreps, reg_val, noise_std, bonus_scale, delta/lreps.size(), adaptive_ci);
+        LEADER<int> localg(lreps, reg_val, noise_std, bonus_scale, delta/lreps.size(), adaptive_ci);
 
         // create same representation but witth different seed
         FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
