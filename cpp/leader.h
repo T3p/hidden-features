@@ -96,6 +96,6 @@ public:
     std::vector<VectorXd> b_vec;
     std::vector<double> features_bound;
     std::vector<double> param_bound;
-    double t;
+    int t;
 };
 #endif
