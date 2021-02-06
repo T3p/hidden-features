@@ -58,14 +58,16 @@ int main()
 
     // other representations
     std::vector<FiniteLinearRepresentation> reps;
-    for (int i = 0; i < reference_rep.features_dim(); ++i) {
+    for (int i = 0; i < reference_rep.features_dim(); ++i)
+    {
         FiniteLinearRepresentation rr = derank_hls(reference_rep, i, false, true, true);
 
         cout << "phi_" << i << ".dim=" << rr.features_dim() << endl;
         cout << "phi_" << i << ".feat_bound=" << rr.features_bound() << endl;
         bool flag = reference_rep.is_equal(rr, 1e-3);
         cout << "phi_" << i << ".equal_ref=" << flag << endl;
-        if (!flag) {
+        if (!flag)
+        {
             std::cout << "Error: " << i << "is a non realizable representation" << std::endl;
             exit(1);
         }
