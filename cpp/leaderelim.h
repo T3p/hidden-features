@@ -142,9 +142,9 @@ public:
                 double L = model.features_bound;
                 double S = model.param_bound;
                 int d = model.linrep.features_dim();
-                int hlen = this->t -1;
+                int tt = this->t -1;
                 // assert (hlen == context_history.size());
-                double offset = (d *log((M * S * hlen)/(this->delta)) + 4 * L + this->reg_val * S *S) / hlen;
+                double offset = (24 * log(2 * tt) + 8* log(M * M / this->delta) + 8 * d * log(12 * L * S * tt) + 1) / tt;
 
                 VectorXd theta = model.inv_A * model.b_vec;
 
@@ -161,14 +161,14 @@ public:
                 }
 
                 // mse[i] = 0.;
-                // for (int k=0; k < hlen; ++k) {
+                // for (int k=0; k < tt; ++k) {
                 //     auto v = this->linrep[i]->get_features(context_history[k], action_history[k]);
                 //     double yhat = theta.dot(v);
                 //     mse[i] += (yhat - reward_history[k])*(yhat - reward_history[k]);
                 // }
                 // std::cout << "i: " << i <<" " << mse[i] << "  " << sse << endl;
                 // assert(fabs(mse[i] - sse) <= 1e-4);
-                mse[i] = sse / hlen;
+                mse[i] = sse / tt;
                 // std::cout << min_val << " " << mse[i] << " " << offset << std::endl;
                 min_val = min(min_val, mse[i] + offset);
             }
