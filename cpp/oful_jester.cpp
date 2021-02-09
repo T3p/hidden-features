@@ -41,10 +41,10 @@ int main()
     int seed = time(NULL);
     srand (seed);
     cout << "seed: " << seed << endl;
-    int n_runs = 1, T = 1000000;
+    int n_runs = 50, T = 1000000;
     double delta = 0.01;
     double reg_val = 1.;
-    double noise_std = 0.3;
+    double noise_std = 1.0;
     double bonus_scale = 1.;
     bool adaptive_ci = true;
 
@@ -79,7 +79,7 @@ int main()
     if(j >= 7) {
         oful_rep = derank_hls(oful_rep, low_rank, false, true, true);
     }
-    oful_rep.normalize_features(10);
+    //oful_rep.normalize_features(10);
 
     tottime = TOC(start);
     int oful_rep_dim = oful_rep.features_dim();

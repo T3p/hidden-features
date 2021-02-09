@@ -41,7 +41,7 @@ int main()
     int seed = time(NULL);
     srand (seed);
     cout << "seed: " << seed << endl;
-    int n_runs = 1, T = 100;
+    int n_runs = 10, T = 100000;
     double delta = 0.01;
     double reg_val = 1.;
     double noise_std = 0.3;
@@ -105,8 +105,8 @@ int main()
         regrets[i] = prb.instant_regret;
         pseudo_regrets[i] = prb.exp_instant_regret;
     }
-    save_vector_csv_gzip(regrets, path + name +"_regrets.csv.gz", EVERY, PREC);
-    save_vector_csv_gzip(pseudo_regrets, path + name+"_pseudoregrets.csv.gz", EVERY, PREC);
+    save_vector_csv_gzip(regrets, name +"_regrets.csv.gz", EVERY, PREC);
+    save_vector_csv_gzip(pseudo_regrets, name+"_pseudoregrets.csv.gz", EVERY, PREC);
 
 
 

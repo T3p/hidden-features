@@ -44,10 +44,10 @@ int main()
     int seed = time(NULL);
     srand (seed);
     cout << "seed: " << seed << endl;
-    int n_runs = 1, T = 1000000;
+    int n_runs = 50, T = 1000000;
     double delta = 0.01;
     double reg_val = 1.;
-    double noise_std = 0.3;
+    double noise_std = 1.0;
     double bonus_scale = 1.;
     bool adaptive_ci = true;
 
@@ -76,7 +76,7 @@ int main()
 	if(i >= 7) {
 		rr = derank_hls(rr, low_rank, false, true, true);
 	}
-        rr.normalize_features(10);
+        //rr.normalize_features(10);
 
         cout << "phi_" << i << ".dim=" << rr.features_dim() << endl;
         cout << "phi_" << i << ".feat_bound=" << rr.features_bound() << endl;
