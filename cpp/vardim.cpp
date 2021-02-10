@@ -39,7 +39,7 @@ int main()
     srand (seed);
     cout << "seed: " << seed << endl;
     // rng.seed(10000); // warm it up
-    int n_runs = 5, T = 10000;
+    int n_runs = 20, T = 10000;
     double delta = 0.01;
     double reg_val = 1.;
     double noise_std = 0.3;
