@@ -168,8 +168,8 @@ int main()
         pseudo_regrets[i] = prb.exp_instant_regret;
         // delete localg;
     }
-    save_vector_csv_gzip(regrets, name +"_regrets.csv.gz", EVERY, PREC);
-    save_vector_csv_gzip(pseudo_regrets, name+"_pseudoregrets.csv.gz", EVERY, PREC);
+    save_vector_csv_gzip(regrets, name+std::string(MY_TIME) +"_regrets.csv.gz", EVERY, PREC);
+    save_vector_csv_gzip(pseudo_regrets, name+std::string(MY_TIME)+"_pseudoregrets.csv.gz", EVERY, PREC);
 
     return 0;
 }

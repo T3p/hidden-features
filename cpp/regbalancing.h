@@ -44,6 +44,9 @@ public:
         num_selection.resize(base_algs.size());
         std::fill(num_selection.begin(), num_selection.end(), 0);
         t = 1;
+        // all the representations are active [0, M]
+        active_reps.resize(this->base_algs.size());
+        std::iota(active_reps.begin(), active_reps.end(), 0);
     }
 
     double _upper_bound(int i)
@@ -57,12 +60,12 @@ public:
 
     int action(const X& context)
     {
-        int M = base_algs.size();
+        // int M = base_algs.size();
 
         // compute empirical regret
         int opt_base = 0;
         double opt_value = 0;
-        for (int i = 0; i < M; ++i)
+        for (int i : active_reps)
         {
             double ub = _upper_bound(i);
             double u = (cum_rewards[i] + ub) / num_selection[i];
@@ -74,7 +77,7 @@ public:
         }
 
         double min_empreg;
-        for (int i = 0; i < M; ++i)
+        for (int i : active_reps)
         {
             double emp_regret = num_selection[i] * opt_value - cum_rewards[i];
             if (i == 0 || emp_regret < min_empreg)
@@ -89,7 +92,8 @@ public:
         return action;
     }
 
-    std::vector<double> action_distribution(const X& context) {
+    std::vector<double> action_distribution(const X& context)
+    {
         int n_arms = base_algs.size();
         std::vector<double> proba(n_arms);
         proba[action(context)] = 1;
@@ -109,6 +113,7 @@ public:
     std::vector<int> num_selection;
     double t;
     int last_selected_rep;
+    std::vector<int> active_reps;
 };
 
 /**
@@ -132,24 +137,15 @@ public:
     )
         : RegretBalance<X>(base_algs), delta(delta)
     {
-        reset();
         this->name = "RegretBalanceAndEliminate";
     }
     ~RegretBalanceAndEliminate() {}
-
-    void reset()
-    {
-        RegretBalance<X>::reset();
-        // all the representations are active [0, M]
-        active_reps.resize(this->base_algs.size());
-        std::iota(active_reps.begin(), active_reps.end(), 0);
-    }
 
     int action(const X& context)
     {
         //select base learner
         double max_ub;
-        for(int i : active_reps)
+        for(int i : this->active_reps)
         {
             double ub = this->_upper_bound(i);
             if ((i == 0) || (ub < max_ub))
@@ -171,7 +167,7 @@ public:
         double XXX = 2, M = this->base_algs.size();
         //eliminate representation
         double max_value = -1;
-        for(int i : active_reps)
+        for(int i : this->active_reps)
         {
             double N = max(1, this->num_selection[i]);
             double value = this->cum_rewards[i] / N - XXX * sqrt(log(M * log(N/delta))/ N);
@@ -181,7 +177,7 @@ public:
             }
         }
         std::vector<int> new_active_reps;
-        for(int i : active_reps)
+        for(int i : this->active_reps)
         {
             double N = max(1, this->num_selection[i]);
             double ub = this->_upper_bound(i);
@@ -192,14 +188,13 @@ public:
             }
             else
             {
-                cout << "eliminated " << i << endl;
+                cout << "t" << this->t <<": eliminated " << i << " since " << lhs << " < " << max_value << endl;
             }
         }
-        active_reps = new_active_reps;
+        this->active_reps = new_active_reps;
     }
 
 public:
-    std::vector<int> active_reps;
     double delta;
 };
 #endif
