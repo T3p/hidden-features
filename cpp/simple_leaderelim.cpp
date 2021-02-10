@@ -58,30 +58,31 @@ int main()
 
     // other representations
     std::vector<FiniteLinearRepresentation> reps;
-    for (int i = 0; i < reference_rep.features_dim(); ++i)
-    {
-        FiniteLinearRepresentation rr = derank_hls(reference_rep, i, false, true, true);
+    // for (int i = 0; i < reference_rep.features_dim(); ++i)
+    // {
+    //     FiniteLinearRepresentation rr = derank_hls(reference_rep, i, false, true, true);
 
-        cout << "phi_" << i << ".dim=" << rr.features_dim() << endl;
-        cout << "phi_" << i << ".feat_bound=" << rr.features_bound() << endl;
-        bool flag = reference_rep.is_equal(rr, 1e-3);
-        cout << "phi_" << i << ".equal_ref=" << flag << endl;
-        if (!flag)
-        {
-            std::cout << "Error: " << i << "is a non realizable representation" << std::endl;
-            exit(1);
-        }
-        reps.push_back(rr);
-    }
+    //     cout << "phi_" << i << ".dim=" << rr.features_dim() << endl;
+    //     cout << "phi_" << i << ".feat_bound=" << rr.features_bound() << endl;
+    //     bool flag = reference_rep.is_equal(rr, 1e-3);
+    //     cout << "phi_" << i << ".equal_ref=" << flag << endl;
+    //     if (!flag)
+    //     {
+    //         std::cout << "Error: " << i << "is a non realizable representation" << std::endl;
+    //         exit(1);
+    //     }
+    //     reps.push_back(rr);
+    // }
 
-    // add also reference representation
-    reps.push_back(make_random(20, 5, 5, true, noise_std, rand()));
-    reps.push_back(make_random(20, 5, 5, true, noise_std, rand()));
-    // reps.push_back(reference_rep);
-    reps.push_back(make_random(20, 5, 4, true, noise_std, rand()));
-    reps.push_back(make_random(20, 5, 9, true, noise_std, rand()));
-    reps.push_back(make_random(20, 5, 3, true, noise_std, rand()));
-    reps.push_back(make_random(20, 5, 10, true, noise_std, rand()));
+    // reps.push_back(make_random(20, 5, 5, true, noise_std, rand()));
+    // reps.push_back(make_random(20, 5, 5, true, noise_std, rand()));
+    reps.push_back(reference_rep);
+    // reps.push_back(make_random(20, 5, 4, true, noise_std, rand()));
+    // reps.push_back(make_random(20, 5, 9, true, noise_std, rand()));
+    // reps.push_back(make_random(20, 5, 3, true, noise_std, rand()));
+    // reps.push_back(make_random(20, 5, 10, true, noise_std, rand()));
+    reps.push_back(make_reshaped_linrep(reference_rep, 3, rand()));
+    reps.push_back(make_reshaped_linrep(reference_rep, 9, rand()));
 
     vec2double regrets, pseudo_regrets;
     #pragma omp parallel for
@@ -110,31 +111,65 @@ int main()
         save_vector_csv_gzip(pseudo_regrets, "LEADER-"+std::string(MY_TIME)+"_pseudoregrets.csv.gz", EVERY, PREC);
     }
 
-    //just OFUL
-    for(int j = 0; j < reps.size(); ++j)
-    {
-        vec2double regrets(n_runs), pseudo_regrets(n_runs);
+    // //just OFUL
+    // for(int j = 0; j < reps.size(); ++j)
+    // {
+    //     vec2double regrets(n_runs), pseudo_regrets(n_runs);
 
-        #pragma omp parallel for
-        for (int i = 0; i < n_runs; ++i)
+    //     #pragma omp parallel for
+    //     for (int i = 0; i < n_runs; ++i)
+    //     {
+    //         FiniteLinearRepresentation lrep = reps[j].copy(seeds[i]);
+    //         OFUL<int> localg(lrep, reg_val, noise_std, bonus_scale, delta, adaptive_ci);
+    //         // create same representation but witth different seed
+    //         FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
+    //         ContBanditProblem<int> prb(cpRefRep, localg);
+    //         prb.reset();
+    //         auto start = TIC();
+    //         prb.run(T);
+    //         auto tottime = TOC(start);
+    //         regrets[i] = prb.instant_regret;
+    //         pseudo_regrets[i] = prb.exp_instant_regret;
+    //     }
+    //     // save_vector_csv(regrets, "OFUL-rep"+std::to_string(j)+"_regrets.csv", EVERY, PREC);
+    //     save_vector_csv_gzip(regrets, "OFUL-rep"+std::to_string(j)+"_regrets.csv.gz", EVERY, PREC);
+    //     // save_vector_csv(pseudo_regrets, "OFUL-rep"+std::to_string(j)+"_pseudoregrets.csv", EVERY, PREC);
+    //     save_vector_csv_gzip(pseudo_regrets, "OFUL-rep"+std::to_string(j)+"_pseudoregrets.csv.gz", EVERY, PREC);
+    // }
+
+
+    //Regret balancing with elimination
+    std::string name = "OFULBALELIM";
+    std::cout << name << std::endl;
+    #pragma omp parallel for
+    for (int i = 0; i < n_runs; ++i)
+    {
+        std::vector<std::shared_ptr<ContRepresentation<int>>> lreps;
+        std::vector<std::shared_ptr<Algo<int>>> base_algs;
+        for(auto& ll : reps)
         {
-            FiniteLinearRepresentation lrep = reps[j].copy(seeds[i]);
-            OFUL<int> localg(lrep, reg_val, noise_std, bonus_scale, delta, adaptive_ci);
-            // create same representation but witth different seed
-            FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
-            ContBanditProblem<int> prb(cpRefRep, localg);
-            prb.reset();
-            auto start = TIC();
-            prb.run(T);
-            auto tottime = TOC(start);
-            regrets[i] = prb.instant_regret;
-            pseudo_regrets[i] = prb.exp_instant_regret;
+            auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
+            lreps.push_back(tmp);
+            base_algs.push_back(
+                std::make_shared<OFUL<int>>(
+                    OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
+                )
+            );
         }
-        // save_vector_csv(regrets, "OFUL-rep"+std::to_string(j)+"_regrets.csv", EVERY, PREC);
-        save_vector_csv_gzip(regrets, "OFUL-rep"+std::to_string(j)+"_regrets.csv.gz", EVERY, PREC);
-        // save_vector_csv(pseudo_regrets, "OFUL-rep"+std::to_string(j)+"_pseudoregrets.csv", EVERY, PREC);
-        save_vector_csv_gzip(pseudo_regrets, "OFUL-rep"+std::to_string(j)+"_pseudoregrets.csv.gz", EVERY, PREC);
+        RegretBalanceAndEliminate<int> localg(base_algs, delta);
+        FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
+        ContBanditProblem<int> prb(cpRefRep, localg);
+        prb.reset();
+        auto start = TIC();
+        prb.run(T);
+        auto tottime = TOC(start);
+        cout << "time(" << i << "): " << tottime << endl;
+        regrets[i] = prb.instant_regret;
+        pseudo_regrets[i] = prb.exp_instant_regret;
+        // delete localg;
     }
+    save_vector_csv_gzip(regrets, name +"_regrets.csv.gz", EVERY, PREC);
+    save_vector_csv_gzip(pseudo_regrets, name+"_pseudoregrets.csv.gz", EVERY, PREC);
 
     return 0;
 }
