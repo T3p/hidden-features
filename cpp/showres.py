@@ -20,7 +20,7 @@ print("=================\n")
 # print(p)
 # exit(9)
 
-EVERY = 100
+EVERY = 50
 
 #directory = 'build/'
 directory = './'
@@ -48,6 +48,7 @@ for filename in sorted(os.listdir(directory)):
         x = np.arange(A.shape[0])
         plt.plot(x[::EVERY], A[::EVERY], label=algo_name, **kwargs)
         plt.fill_between(x[::EVERY], A[::EVERY] - 2*std[::EVERY], A[::EVERY]+2*std[::EVERY], alpha=0.2)
+#plt.xscale("log")
 plt.legend()
 plt.savefig('fig2.png')
 tikzplotlib.save("fig2.tex")
