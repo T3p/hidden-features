@@ -178,9 +178,9 @@ public:
         RegretBalance<X>::update(context, action, reward);
         double delta = this->delta;
 
-        double XXX = 2, M = this->base_algs.size();
+        double XXX = 1., M = this->base_algs.size();
         //eliminate representation
-        double max_value = -1;
+        double max_value = std::numeric_limits<double>::min();
         for(int i : this->active_reps)
         {
             double N = max(1, this->num_selection[i]);
