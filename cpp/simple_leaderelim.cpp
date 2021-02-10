@@ -139,6 +139,7 @@ int main()
 
 
     //Regret balancing with elimination
+    bool update_all = true;
     std::string name = "OFULBALELIM";
     std::cout << name << std::endl;
     #pragma omp parallel for
@@ -156,7 +157,7 @@ int main()
                 )
             );
         }
-        RegretBalanceAndEliminate<int> localg(base_algs, delta);
+        RegretBalanceAndEliminate<int> localg(base_algs, delta, update_all);
         FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
         ContBanditProblem<int> prb(cpRefRep, localg);
         prb.reset();

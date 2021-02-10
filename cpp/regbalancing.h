@@ -24,9 +24,10 @@ class RegretBalance : public Algo<X>
 public:
 
     RegretBalance(
-        std::vector<std::shared_ptr<Algo<X>>>& base_algs
+        std::vector<std::shared_ptr<Algo<X>>>& base_algs,
+        bool update_all=false
     )
-        : Algo<X>("RegretBalance"), base_algs(base_algs)
+        : Algo<X>("RegretBalance"), base_algs(base_algs), update_all(update_all)
     {
         reset();
     }
@@ -82,12 +83,12 @@ public:
             double emp_regret = num_selection[i] * opt_value - cum_rewards[i];
             if (i == 0 || emp_regret < min_empreg)
             {
-                last_selected_rep = i;
+                last_selected_algo = i;
                 min_empreg = emp_regret;
             }
         }
 
-        double action = base_algs[last_selected_rep]->action(context);
+        double action = base_algs[last_selected_algo]->action(context);
         t++;
         return action;
     }
@@ -102,9 +103,21 @@ public:
 
     void update(const X& context, int action, double reward)
     {
-        base_algs[last_selected_rep]->update(context, action, reward);
-        num_selection[last_selected_rep]++;
-        cum_rewards[last_selected_rep] += reward;
+        if (update_all)
+        {
+            for (int i : active_reps)
+            {
+                base_algs[i]->update(context, action, reward);
+            }
+        }
+        else
+        {
+            base_algs[last_selected_algo]->update(context, action, reward);
+        }
+        // we update number of selection and cumulative rewards only
+        // for the selected algorithm
+        num_selection[last_selected_algo]++;
+        cum_rewards[last_selected_algo] += reward;
     }
 
 public:
@@ -112,8 +125,9 @@ public:
     std::vector<double> cum_rewards;
     std::vector<int> num_selection;
     double t;
-    int last_selected_rep;
+    int last_selected_algo;
     std::vector<int> active_reps;
+    bool update_all;
 };
 
 /**
@@ -133,9 +147,9 @@ class RegretBalanceAndEliminate : public RegretBalance<X>
 public:
     RegretBalanceAndEliminate(
         std::vector<std::shared_ptr<Algo<X>>>& base_algs,
-        double delta
+        double delta, bool update_all=false
     )
-        : RegretBalance<X>(base_algs), delta(delta)
+        : RegretBalance<X>(base_algs, update_all), delta(delta)
     {
         this->name = "RegretBalanceAndEliminate";
     }
@@ -150,11 +164,11 @@ public:
             double ub = this->_upper_bound(i);
             if ((i == 0) || (ub < max_ub))
             {
-                this->last_selected_rep = i;
+                this->last_selected_algo = i;
                 max_ub = ub;
             }
         }
-        double action = this->base_algs[this->last_selected_rep]->action(context);
+        double action = this->base_algs[this->last_selected_algo]->action(context);
         this->t++;
         return action;
     }

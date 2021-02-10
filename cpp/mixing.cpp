@@ -73,7 +73,8 @@ int main()
 
         reps.push_back(rr);
         bool flag = rr.is_equal(rep);
-        if (!flag) {
+        if (!flag)
+        {
             std::cout << "Error: non realizable representation" << std::endl;
             exit(1);
         }
@@ -160,14 +161,14 @@ int main()
             auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
             lreps.push_back(tmp);
             base_algs.push_back(
-                    std::make_shared<SmoothedAlgo<int>>(
-                        SmoothedAlgo<int>(
-                            std::make_shared<OFUL<int>>(
-                                OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
-                            ), seeds[i]
-                        )
+                std::make_shared<SmoothedAlgo<int>>(
+                    SmoothedAlgo<int>(
+                        std::make_shared<OFUL<int>>(
+                            OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
+                        ), seeds[i]
                     )
-             );
+                )
+            );
         }
         EXP3dotP<int> localg(base_algs, base_algs[0]->base()->exp3_rate(T, base_algs.size()), seeds[i], update_all);
         ContBanditProblem<int> prb(*lreps[0], localg);
@@ -193,14 +194,14 @@ int main()
             auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
             lreps.push_back(tmp);
             base_algs.push_back(
-                    std::make_shared<SmoothedAlgo<int>>(
-                        SmoothedAlgo<int>(
-                            std::make_shared<OFUL<int>>(
-                                OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
-                            ), seeds[i]
-                        )
+                std::make_shared<SmoothedAlgo<int>>(
+                    SmoothedAlgo<int>(
+                        std::make_shared<OFUL<int>>(
+                            OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
+                        ), seeds[i]
                     )
-             );
+                )
+            );
         }
         Corral<int> localg(base_algs, base_algs[0]->base()->corral_lr(T, base_algs.size()), seeds[i], update_all);
         ContBanditProblem<int> prb(*lreps[0], localg);
@@ -225,19 +226,19 @@ int main()
             auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
             lreps.push_back(tmp);
             base_algs.push_back(
-                    std::make_shared<OFUL<int>>(
-                            OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
-                    )
-             );
-         }
-         double exp4_gamma = sqrt(2*log(base_algs.size())/(rep.n_arms()*T));
-         double exp4_lr = 2*exp4_gamma;
-         EXP4dotIX<int> localg(base_algs, exp4_lr, exp4_gamma, seeds[i]);
-         ContBanditProblem<int> prb(*lreps[0], localg);
-         prb.reset();
-         prb.run(T);
-         regrets[i] = prb.instant_regret;
-         pseudo_regrets[i] = prb.exp_instant_regret;
+                std::make_shared<OFUL<int>>(
+                    OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
+                )
+            );
+        }
+        double exp4_gamma = sqrt(2*log(base_algs.size())/(rep.n_arms()*T));
+        double exp4_lr = 2*exp4_gamma;
+        EXP4dotIX<int> localg(base_algs, exp4_lr, exp4_gamma, seeds[i]);
+        ContBanditProblem<int> prb(*lreps[0], localg);
+        prb.reset();
+        prb.run(T);
+        regrets[i] = prb.instant_regret;
+        pseudo_regrets[i] = prb.exp_instant_regret;
     }
     save_vector_csv_gzip(regrets, path + name +"_regrets.csv.gz", EVERY, PREC);
     save_vector_csv_gzip(pseudo_regrets, path + name+"_pseudoregrets.csv.gz", EVERY, PREC);
@@ -260,14 +261,14 @@ int main()
                     OFUL<int>(*tmp, reg_val,noise_std,bonus_scale,delta,adaptive_ci)
                 )
             );
-         }
-         RegretBalance<int> localg(base_algs);
-         ContBanditProblem<int> prb(*lreps[0], localg);
-         prb.reset();
-         prb.run(T);
-         regrets[i] = prb.instant_regret;
-         pseudo_regrets[i] = prb.exp_instant_regret;
-         // delete localg;
+        }
+        RegretBalance<int> localg(base_algs, update_all);
+        ContBanditProblem<int> prb(*lreps[0], localg);
+        prb.reset();
+        prb.run(T);
+        regrets[i] = prb.instant_regret;
+        pseudo_regrets[i] = prb.exp_instant_regret;
+        // delete localg;
     }
     save_vector_csv_gzip(regrets, path + name +"_regrets.csv.gz", EVERY, PREC);
     save_vector_csv_gzip(pseudo_regrets, path + name+"_pseudoregrets.csv.gz", EVERY, PREC);
@@ -291,7 +292,7 @@ int main()
                 )
             );
         }
-        RegretBalanceAndEliminate<int> localg(base_algs, delta);
+        RegretBalanceAndEliminate<int> localg(base_algs, delta, update_all);
         ContBanditProblem<int> prb(*lreps[0], localg);
         prb.reset();
         prb.run(T);
