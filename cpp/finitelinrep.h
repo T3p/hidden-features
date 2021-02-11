@@ -546,7 +546,7 @@ std::string features_name="features", std::string param_name="param")
     // std::cout << "double: " <<sizeof(double) << std::endl;
     // std::cout << "float: " <<sizeof(float) << std::endl;
     // std::cout << "int: " <<sizeof(int) << std::endl;
-    // assert(arr.word_size == sizeof(std::complex<double>));
+    // // assert(arr.word_size == sizeof(std::complex<double>));
     int dim = arr_mv1.shape.size();
     std::cout << dim << std::endl;
     assert(dim == 3);
@@ -602,8 +602,9 @@ std::string features_name="features", std::string param_name="param")
     
     cnpy::NpyArray arr_mv2 = my_npz[param_name];
     dim = arr_mv2.shape.size();
+    // std::cout << dim << std::endl;
     assert(dim == 1 || dim == 2);
-        H = arr_mv2.shape[0];
+    H = arr_mv2.shape[0];
     if (dim == 1) {
         assert(H == D);
     } else {

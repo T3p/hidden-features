@@ -62,6 +62,10 @@ public:
     int action(const X& context)
     {
         // int M = base_algs.size();
+        if (this->active_reps.size() == 0) {
+            std::cout << "!!! No active representation" << std::endl;
+            throw(this->active_reps.size());
+        }
 
         // compute empirical regret
         int opt_base = 0;
@@ -204,6 +208,15 @@ public:
             {
                 cout << "t" << this->t <<": eliminated " << i << " since " << lhs << " < " << max_value << endl;
             }
+        }
+        if (new_active_reps.size() != this->active_reps.size())
+        {
+            std::cout << "new active set: [ ";
+            for(auto& u : new_active_reps)
+            {
+                std::cout << u << " ";
+            }
+            std::cout << " ]\n" << std::endl;
         }
         this->active_reps = new_active_reps;
     }
