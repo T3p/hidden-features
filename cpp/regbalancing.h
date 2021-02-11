@@ -72,9 +72,14 @@ public:
         double opt_value = std::numeric_limits<double>::min();
         for (int i : active_reps)
         {
+            if (num_selection[i] == 0) {
+                last_selected_algo = i;
+                t++;
+                return base_algs[last_selected_algo]->action(context);
+            }
+
             double ub = _upper_bound(i);
-            double N = max(1, this->num_selection[i]);
-            double u = (cum_rewards[i] + ub) / N;
+            double u = (cum_rewards[i] + ub) / num_selection[i];
             if (u > opt_value)
             {
                 opt_value = u;
@@ -188,7 +193,10 @@ public:
         double max_value = std::numeric_limits<double>::min();
         for(int i : this->active_reps)
         {
-            double N = max(1, this->num_selection[i]);
+            // wait until all the base algorithms have been pulled at least once
+            if (this->num_selection[i] == 0) {return;}
+            
+            double N = this->num_selection[i];
             double value = this->cum_rewards[i] / N - XXX * sqrt(log(M * log(N/delta))/ N);
             if (max_value < value)
             {
@@ -198,7 +206,7 @@ public:
         std::vector<int> new_active_reps;
         for(int i : this->active_reps)
         {
-            double N = max(1, this->num_selection[i]);
+            double N = this->num_selection[i];
             double ub = this->_upper_bound(i);
             double lhs = this->cum_rewards[i] / N + XXX * sqrt(log(M * log(N/delta))/ N) + ub / N;
             if (lhs >= max_value)
