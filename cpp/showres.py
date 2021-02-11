@@ -4,6 +4,7 @@ import os
 import json
 import pandas as pd
 import tikzplotlib
+import sys
 
 print("\n=================")
 print(" running showres ")
@@ -19,10 +20,11 @@ print("=================\n")
 # print(p)
 # exit(9)
 
-EVERY = 50
+EVERY = 100
 MARKEVERY = 10
+MARKSIZE = 4
 
-markers=['o', 's', 'x', (5, 1), '^', 'D', '*', 'v', 'h']
+markers=['o', 's', 'x', '*', '^', 'D', '|', 'v', 'h']
 i = 0
 
 #directory = 'build/'
@@ -36,7 +38,9 @@ for filename in sorted(os.listdir(directory)):
         if algo_name.startswith(r"\algo"):
             kwargs = {'linestyle':'dashed', 'linewidth':3}
         else:
-            kwargs = {'linestyle':'solid', 'linewidth':2, 'marker':markers[i], 'markevery':MARKEVERY, 'markerfacecolor':'none'}
+            kwargs = {'linestyle':'solid', 'linewidth':2, 'marker':markers[i%len(markers)], 
+                      'markevery':MARKEVERY, 'markerfacecolor':'none',
+                      'markersize':MARKSIZE}
             i+=1
 
         # A = np.genfromtxt(os.path.join(directory, filename), delimiter=',')
@@ -56,6 +60,11 @@ plt.legend()
 plt.xlabel(r'Rounds $n$')
 plt.ylabel(r'\emph{Pseudo} Regret')
 
-plt.savefig('fig2.png')
-tikzplotlib.save("fig2.tex")
+if len(sys.argv)>1:    
+    figname = sys.argv[1]
+else:
+    figname = 'fig2'
+print(figname)
+plt.savefig(figname+'.png')
+tikzplotlib.save(figname+".tex")
 plt.show()
