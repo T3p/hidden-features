@@ -103,12 +103,12 @@ public:
     //adaptive regret bound including problem constants
     double upper_bound()
     {
-        double logdet = -log(inv_A.determinant());
+        //double logdet = -log(inv_A.determinant());//replaced with A_logdet
         int dim = linrep.features_dim();
         double val = A_logdet - dim * log(reg_val) - 2 * log(delta);
         double beta = noise_std * sqrt(val) + param_bound * sqrt(reg_val);
 
-        return 4*sqrt(beta * t * logdet);
+        return 4*beta*sqrt(t * A_logdet);
     }
 
     std::unique_ptr<BaseAlgo<X>> clone() const

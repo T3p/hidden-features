@@ -5,7 +5,6 @@ import json
 import pandas as pd
 import tikzplotlib
 
-
 print("\n=================")
 print(" running showres ")
 print("=================\n")
@@ -21,6 +20,10 @@ print("=================\n")
 # exit(9)
 
 EVERY = 50
+MARKEVERY = 10
+
+markers=['o', 's', 'x', (5, 1), '^', 'D', '*', 'v', 'h']
+i = 0
 
 #directory = 'build/'
 directory = './'
@@ -28,15 +31,13 @@ for filename in sorted(os.listdir(directory)):
     if filename.endswith("_pseudoregrets.csv.gz"):
         print(filename)
         algo_name = filename.split('_')[0]
+        algo_name = algo_name.replace('#', '_')
 
-        if algo_name.startswith("LEADER"):
+        if algo_name.startswith(r"\algo"):
             kwargs = {'linestyle':'dashed', 'linewidth':3}
-        elif algo_name.startswith("OFULBALELIM"):
-            kwargs = {'linestyle':'dotted', 'linewidth':2}
-        elif algo_name.startswith("OFULBAL"):
-            kwargs = {'linestyle': (0, (1, 10)), 'linewidth':2} # loosely dotted
         else:
-            kwargs = {'linestyle':'solid', 'linewidth':2}
+            kwargs = {'linestyle':'solid', 'linewidth':2, 'marker':markers[i], 'markevery':MARKEVERY, 'markerfacecolor':'none'}
+            i+=1
 
         # A = np.genfromtxt(os.path.join(directory, filename), delimiter=',')
         A = pd.read_csv(filename, compression='gzip',  header=None).values
@@ -50,6 +51,11 @@ for filename in sorted(os.listdir(directory)):
         plt.fill_between(x[::EVERY], A[::EVERY] - 2*std[::EVERY], A[::EVERY]+2*std[::EVERY], alpha=0.2)
 #plt.xscale("log")
 plt.legend()
+
+#Style
+plt.xlabel(r'Rounds $n$')
+plt.ylabel(r'\emph{Pseudo} Regret')
+
 plt.savefig('fig2.png')
 tikzplotlib.save("fig2.tex")
 plt.show()
