@@ -107,14 +107,14 @@ int main()
             regrets[i] = prb.instant_regret;
             pseudo_regrets[i] = prb.exp_instant_regret;
         }
-        name = "OFUL-rep"+std::to_string(j);
+        name = "$\\phi#"+std::to_string(j)+"$";
         std::cout << name << std::endl;
         save_vector_csv_gzip(regrets, path + name +"_regrets.csv.gz", EVERY, PREC);
         save_vector_csv_gzip(pseudo_regrets, path + name+"_pseudoregrets.csv.gz", EVERY, PREC);
     }
 
     //LEADER
-    name = "LEADER";
+    name = "\\algo";
     std::cout << name << std::endl;
     vec2double regrets(n_runs), pseudo_regrets(n_runs);
     #pragma omp parallel for
@@ -149,7 +149,7 @@ int main()
     save_vector_csv_gzip(pseudo_regrets, path + name+"_pseudoregrets.csv.gz", EVERY, PREC);
 
     //EXP3.P
-    name = "EXP3dotP";
+    name = "\\expthree";
     std::cout << name << std::endl;
     #pragma omp parallel for
     for (int i = 0; i < n_runs; ++i)
@@ -182,7 +182,7 @@ int main()
 
 
     //Corral
-    name = "Corral";
+    name = "\\corral";
     std::cout << name << std::endl;
     #pragma omp parallel for
     for (int i = 0; i < n_runs; ++i)
@@ -214,7 +214,7 @@ int main()
     save_vector_csv_gzip(pseudo_regrets, path + name+"_pseudoregrets.csv.gz", EVERY, PREC);
 
     //EXP4.IX
-    name = "EXP4dotIX";
+    name = "\\expfour";
     std::cout << name << std::endl;
     #pragma omp parallel for
     for (int i = 0; i < n_runs; ++i)
@@ -245,7 +245,7 @@ int main()
 
 
     //REGRET Balancing
-    name = "OFULBAL";
+    name = "\\regbal";
     std::cout << name << std::endl;
     #pragma omp parallel for
     for (int i = 0; i < n_runs; ++i)
@@ -275,7 +275,7 @@ int main()
 
 
     //Regret balancing with elimination
-    name = "OFULBALELIM";
+    name = "\\regbalelim";
     std::cout << name << std::endl;
     #pragma omp parallel for
     for (int i = 0; i < n_runs; ++i)
