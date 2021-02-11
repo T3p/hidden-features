@@ -186,7 +186,8 @@ int main()
                 )
             );
         }
-        RegretBalanceAndEliminate<int> localg(base_algs, delta, update_all);
+        // RegretBalanceAndEliminate<int> localg(base_algs, delta, update_all);
+        RegretBalance<int> localg(base_algs, update_all);
         FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);
         ContBanditProblem<int> prb(cpRefRep, localg);
         prb.reset();

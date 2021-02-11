@@ -36,7 +36,7 @@ public:
     void reset()
     {
         // reset all base algs
-        for(auto ba : base_algs)
+        for(auto& ba : base_algs)
         {
             ba->reset();
         }
@@ -67,25 +67,31 @@ public:
             throw(this->active_reps.size());
         }
 
-        // compute empirical regret
+        // compute optimistic base algorithm
         int opt_base = 0;
-        double opt_value = 0;
+        double opt_value = std::numeric_limits<double>::min();
         for (int i : active_reps)
         {
+            if (num_selection[i] == 0) {
+                last_selected_algo = i;
+                t++;
+                return base_algs[last_selected_algo]->action(context);
+            }
+
             double ub = _upper_bound(i);
             double u = (cum_rewards[i] + ub) / num_selection[i];
-            if (i == 0 || u > opt_value)
+            if (u > opt_value)
             {
                 opt_value = u;
                 opt_base = i;
             }
         }
 
-        double min_empreg;
+        double min_empreg = std::numeric_limits<double>::max();
         for (int i : active_reps)
         {
             double emp_regret = num_selection[i] * opt_value - cum_rewards[i];
-            if (i == 0 || emp_regret < min_empreg)
+            if (emp_regret < min_empreg)
             {
                 last_selected_algo = i;
                 min_empreg = emp_regret;
@@ -162,14 +168,14 @@ public:
     int action(const X& context)
     {
         //select base learner
-        double max_ub;
+        double min_ub = std::numeric_limits<double>::max();
         for(int i : this->active_reps)
         {
             double ub = this->_upper_bound(i);
-            if ((i == 0) || (ub < max_ub))
+            if (ub < min_ub)
             {
                 this->last_selected_algo = i;
-                max_ub = ub;
+                min_ub = ub;
             }
         }
         double action = this->base_algs[this->last_selected_algo]->action(context);
@@ -187,7 +193,10 @@ public:
         double max_value = std::numeric_limits<double>::min();
         for(int i : this->active_reps)
         {
-            double N = max(1, this->num_selection[i]);
+            // wait until all the base algorithms have been pulled at least once
+            if (this->num_selection[i] == 0) {return;}
+            
+            double N = this->num_selection[i];
             double value = this->cum_rewards[i] / N - XXX * sqrt(log(M * log(N/delta))/ N);
             if (max_value < value)
             {
@@ -197,7 +206,7 @@ public:
         std::vector<int> new_active_reps;
         for(int i : this->active_reps)
         {
-            double N = max(1, this->num_selection[i]);
+            double N = this->num_selection[i];
             double ub = this->_upper_bound(i);
             double lhs = this->cum_rewards[i] / N + XXX * sqrt(log(M * log(N/delta))/ N) + ub / N;
             if (lhs >= max_value)
