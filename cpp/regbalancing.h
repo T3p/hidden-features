@@ -24,9 +24,10 @@ class RegretBalance : public Algo<X>
 public:
 
     RegretBalance(
-        std::vector<std::shared_ptr<Algo<X>>>& base_algs
+        std::vector<std::shared_ptr<Algo<X>>>& base_algs,
+        bool update_all=false
     )
-        : Algo<X>("RegretBalance"), base_algs(base_algs)
+        : Algo<X>("RegretBalance"), base_algs(base_algs), update_all(update_all)
     {
         reset();
     }
@@ -44,6 +45,9 @@ public:
         num_selection.resize(base_algs.size());
         std::fill(num_selection.begin(), num_selection.end(), 0);
         t = 1;
+        // all the representations are active [0, M]
+        active_reps.resize(this->base_algs.size());
+        std::iota(active_reps.begin(), active_reps.end(), 0);
     }
 
     double _upper_bound(int i)
@@ -57,12 +61,16 @@ public:
 
     int action(const X& context)
     {
-        int M = base_algs.size();
+        // int M = base_algs.size();
+        if (this->active_reps.size() == 0) {
+            std::cout << "!!! No active representation" << std::endl;
+            throw(this->active_reps.size());
+        }
 
         // compute empirical regret
         int opt_base = 0;
         double opt_value = 0;
-        for (int i = 0; i < M; ++i)
+        for (int i : active_reps)
         {
             double ub = _upper_bound(i);
             double u = (cum_rewards[i] + ub) / num_selection[i];
@@ -74,22 +82,23 @@ public:
         }
 
         double min_empreg;
-        for (int i = 0; i < M; ++i)
+        for (int i : active_reps)
         {
             double emp_regret = num_selection[i] * opt_value - cum_rewards[i];
             if (i == 0 || emp_regret < min_empreg)
             {
-                last_selected_rep = i;
+                last_selected_algo = i;
                 min_empreg = emp_regret;
             }
         }
 
-        double action = base_algs[last_selected_rep]->action(context);
+        double action = base_algs[last_selected_algo]->action(context);
         t++;
         return action;
     }
 
-    std::vector<double> action_distribution(const X& context) {
+    std::vector<double> action_distribution(const X& context)
+    {
         int n_arms = base_algs.size();
         std::vector<double> proba(n_arms);
         proba[action(context)] = 1;
@@ -98,9 +107,21 @@ public:
 
     void update(const X& context, int action, double reward)
     {
-        base_algs[last_selected_rep]->update(context, action, reward);
-        num_selection[last_selected_rep]++;
-        cum_rewards[last_selected_rep] += reward;
+        if (update_all)
+        {
+            for (int i : active_reps)
+            {
+                base_algs[i]->update(context, action, reward);
+            }
+        }
+        else
+        {
+            base_algs[last_selected_algo]->update(context, action, reward);
+        }
+        // we update number of selection and cumulative rewards only
+        // for the selected algorithm
+        num_selection[last_selected_algo]++;
+        cum_rewards[last_selected_algo] += reward;
     }
 
 public:
@@ -108,7 +129,9 @@ public:
     std::vector<double> cum_rewards;
     std::vector<int> num_selection;
     double t;
-    int last_selected_rep;
+    int last_selected_algo;
+    std::vector<int> active_reps;
+    bool update_all;
 };
 
 /**
@@ -128,37 +151,28 @@ class RegretBalanceAndEliminate : public RegretBalance<X>
 public:
     RegretBalanceAndEliminate(
         std::vector<std::shared_ptr<Algo<X>>>& base_algs,
-        double delta
+        double delta, bool update_all=false
     )
-        : RegretBalance<X>(base_algs), delta(delta)
+        : RegretBalance<X>(base_algs, update_all), delta(delta)
     {
-        reset();
         this->name = "RegretBalanceAndEliminate";
     }
     ~RegretBalanceAndEliminate() {}
-
-    void reset()
-    {
-        RegretBalance<X>::reset();
-        // all the representations are active [0, M]
-        active_reps.resize(this->base_algs.size());
-        std::iota(active_reps.begin(), active_reps.end(), 0);
-    }
 
     int action(const X& context)
     {
         //select base learner
         double max_ub;
-        for(int i : active_reps)
+        for(int i : this->active_reps)
         {
             double ub = this->_upper_bound(i);
             if ((i == 0) || (ub < max_ub))
             {
-                this->last_selected_rep = i;
+                this->last_selected_algo = i;
                 max_ub = ub;
             }
         }
-        double action = this->base_algs[this->last_selected_rep]->action(context);
+        double action = this->base_algs[this->last_selected_algo]->action(context);
         this->t++;
         return action;
     }
@@ -168,10 +182,10 @@ public:
         RegretBalance<X>::update(context, action, reward);
         double delta = this->delta;
 
-        double XXX = 2, M = this->base_algs.size();
+        double XXX = 1., M = this->base_algs.size();
         //eliminate representation
-        double max_value = -1;
-        for(int i : active_reps)
+        double max_value = std::numeric_limits<double>::min();
+        for(int i : this->active_reps)
         {
             double N = max(1, this->num_selection[i]);
             double value = this->cum_rewards[i] / N - XXX * sqrt(log(M * log(N/delta))/ N);
@@ -181,7 +195,7 @@ public:
             }
         }
         std::vector<int> new_active_reps;
-        for(int i : active_reps)
+        for(int i : this->active_reps)
         {
             double N = max(1, this->num_selection[i]);
             double ub = this->_upper_bound(i);
@@ -192,14 +206,22 @@ public:
             }
             else
             {
-                cout << "eliminated " << i << endl;
+                cout << "t" << this->t <<": eliminated " << i << " since " << lhs << " < " << max_value << endl;
             }
         }
-        active_reps = new_active_reps;
+        if (new_active_reps.size() != this->active_reps.size())
+        {
+            std::cout << "new active set: [ ";
+            for(auto& u : new_active_reps)
+            {
+                std::cout << u << " ";
+            }
+            std::cout << " ]\n" << std::endl;
+        }
+        this->active_reps = new_active_reps;
     }
 
 public:
-    std::vector<int> active_reps;
     double delta;
 };
 #endif

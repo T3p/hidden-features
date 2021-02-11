@@ -251,6 +251,7 @@ public:
             bool transform, bool normalize, int rnd_seed);
     friend FiniteLinearRepresentation fuse_columns(FiniteLinearRepresentation& rep, vector<int>& cols, bool random_seed,
             bool transform, bool normalize, int rnd_seed);
+    friend FiniteLinearRepresentation make_reshaped_linrep(FiniteLinearRepresentation& orig, int new_dim, long seed);
 };
 
 FiniteLinearRepresentation normalize_param(FiniteLinearRepresentation& rep, double scale=1.)
@@ -493,6 +494,46 @@ FiniteLinearRepresentation fuse_columns(FiniteLinearRepresentation& rep, vector<
     return rep2;
 }
 
+FiniteLinearRepresentation make_reshaped_linrep(FiniteLinearRepresentation& orig, int new_dim, long rnd_seed=0) {
+    int nc = orig.n_contexts();
+    int na = orig.n_arms();
+    int nd = orig.features_dim();
+
+    static default_random_engine e(rnd_seed);
+    static normal_distribution<double> n(0,1);
+
+    std::vector<MatrixXd> new_feat;
+    VectorXd new_param;
+    if (new_dim > nd){
+        for (auto& el : orig.features) {
+            MatrixXd m = MatrixXd::Zero(na,new_dim).unaryExpr([](double dummy)
+            {
+                return n(e);
+            });
+            m.block(0,0, na, nd) = el;
+            new_feat.push_back(m);
+        }
+        new_param = VectorXd::Random(new_dim);
+        new_param = 2*new_param.array()-1.;
+        new_param.head(nd) = orig.param;
+    }else if (new_dim < nd) {
+        for (auto& m : orig.features) {
+            new_feat.push_back(m.block(0, 0, na, new_dim));
+        }
+        new_param = orig.param.head(new_dim);
+    } else{
+        new_feat = orig.features;
+        new_param = orig.param;
+    }
+    // assert (nc, na, new_dim) == new_feat.shape
+    assert(nc == new_feat.size());
+    for (auto& el : new_feat) {
+        assert(el.rows() == na);
+        assert(el.cols() == new_dim);
+    }
+    assert(new_dim == new_param.size());
+    return FiniteLinearRepresentation(new_feat, new_param, orig.seed);
+}
 
 FiniteLinearRepresentation flr_loadnpz(std::string filename, double noise_std=0.1, long seed=0,
 std::string features_name="features", std::string param_name="param")
@@ -501,11 +542,11 @@ std::string features_name="features", std::string param_name="param")
     cnpy::npz_t my_npz = cnpy::npz_load(filename);
     cnpy::NpyArray arr_mv1 = my_npz[features_name];
 
-    std::cout << "npy: " << arr_mv1.word_size << std::endl;
-    std::cout << "double: " <<sizeof(double) << std::endl;
-    std::cout << "float: " <<sizeof(float) << std::endl;
-    std::cout << "int: " <<sizeof(int) << std::endl;
-    // assert(arr.word_size == sizeof(std::complex<double>));
+    // std::cout << "npy: " << arr_mv1.word_size << std::endl;
+    // std::cout << "double: " <<sizeof(double) << std::endl;
+    // std::cout << "float: " <<sizeof(float) << std::endl;
+    // std::cout << "int: " <<sizeof(int) << std::endl;
+    // // assert(arr.word_size == sizeof(std::complex<double>));
     int dim = arr_mv1.shape.size();
     std::cout << dim << std::endl;
     assert(dim == 3);
@@ -561,8 +602,9 @@ std::string features_name="features", std::string param_name="param")
     
     cnpy::NpyArray arr_mv2 = my_npz[param_name];
     dim = arr_mv2.shape.size();
+    // std::cout << dim << std::endl;
     assert(dim == 1 || dim == 2);
-        H = arr_mv2.shape[0];
+    H = arr_mv2.shape[0];
     if (dim == 1) {
         assert(H == D);
     } else {
