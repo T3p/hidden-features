@@ -18,6 +18,15 @@ public:
         nd = normal_distribution<double>(0,1.);
         urd = std::uniform_real_distribution<double>(0,1.);
         rng.seed(seed);
+
+        feats = [](const std::vector<double>& context, int action){
+            std::vector<std::vector<double>> localactions{{0,0}, {0,1}, {1,0}, {1,1}};
+            Eigen::VectorXd f(2);
+            std::vector<double>& a = localactions[action];
+            f(0) = context[0] * a[0];
+            f(1) = context[1] * a[1];
+            return f;
+        };
     }
 
     ContToy1_phi1(const ContToy1_phi1& other)
@@ -71,11 +80,7 @@ public:
 
     Eigen::VectorXd get_features(const std::vector<double>& context, int action)
     {
-        Eigen::VectorXd f(2);
-        std::vector<double>& a = actions[action];
-        f(0) = context[0] * a[0];
-        f(1) = context[1] * a[1];
-        return f;
+        return feats(context, action);
     }
 
     double optimal_reward(const std::vector<double>& context)
@@ -101,6 +106,7 @@ protected:
     std::normal_distribution<double> nd;
     std::uniform_real_distribution<double> urd;
     std::mt19937 rng;
+    std::function<Eigen::VectorXd(const std::vector<double>&, int)> feats;
 };
 
 class ContToy1_phi2 : public ContToy1_phi1
@@ -111,18 +117,17 @@ public:
     {
         feature_bound = 1 + sqrt(2);
         param = VectorXd::Ones(3);
-    }
 
-    Eigen::VectorXd get_features(const std::vector<double>& context, int action)
-    {
-        Eigen::VectorXd f(3);
-        std::vector<double>& a = actions[action];
-        f(0) = context[0] * a[0] - context[0];
-        f(1) = context[1] * a[1] - context[1];
-        f(2) = context[0] + context[1];
-        return f;
+        feats = [](const std::vector<double>& context, int action){
+            Eigen::VectorXd f(3);
+            std::vector<std::vector<double>> localactions{{0,0}, {0,1}, {1,0}, {1,1}};
+            std::vector<double>& a = localactions[action];
+            f(0) = context[0] * a[0] - context[0];
+            f(1) = context[1] * a[1] - context[1];
+            f(2) = context[0] + context[1];
+            return f;
+        };
     }
-
 };
 
 
