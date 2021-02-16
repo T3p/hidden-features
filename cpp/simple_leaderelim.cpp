@@ -94,7 +94,7 @@ int main()
             auto tmp = std::make_shared<FiniteLinearRepresentation>(ll.copy(seeds[i]));
             lreps.push_back(tmp);
         }
-        LEADER_MSEELIM<int> localg(lreps, reg_val, noise_std, bonus_scale, delta/lreps.size(), adaptive_ci);
+        ElimLEADER<int> localg(lreps, reg_val, noise_std, bonus_scale, delta/lreps.size(), adaptive_ci);
 
         // create same representation but witth different seed
         FiniteLinearRepresentation cpRefRep = reference_rep.copy(seeds[i]);

@@ -8,11 +8,11 @@ using namespace std;
 using namespace Eigen;
 
 template<typename X>
-class LEADER_MSEELIM : public LEADER<X>
+class ElimLEADER : public LEADER<X>
 {
 public:
 
-    LEADER_MSEELIM(
+    ElimLEADER(
         std::vector<std::shared_ptr<ContRepresentation<X>>>& linrep,
         double reg_val, double noise_std,
         double bonus_scale=1., double delta=0.01, bool adaptive_ci=true
@@ -21,7 +21,7 @@ public:
     {
         reset();
     }
-    ~LEADER_MSEELIM() {}
+    ~ElimLEADER() {}
 
     void reset()
     {
