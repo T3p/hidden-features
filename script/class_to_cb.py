@@ -122,7 +122,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=
                                  argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--mode', type=str, default='regression')
-    parser.add_argument('--hidden', type=list, default=[32,32])
+    parser.add_argument('--hidden', type=int, default=32)
+    parser.add_argument('--dim', type=int, default=0)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--max_iter', type=int, default=1000)
     parser.add_argument('--test_size', type=float, default=0.25)
@@ -133,7 +134,7 @@ if __name__ == '__main__':
     
     random.seed(args.seed)
     np.random.seed(args.seed)
-    hidden=tuple(args.hidden)
+    hidden =  (args.hidden, args.dim) if args.dim else (args.hidden, args.hidden)
 
     count = 0
     for id in ids[:args.n_datasets]:
