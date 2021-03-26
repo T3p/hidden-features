@@ -124,7 +124,7 @@ if __name__ == '__main__':
     parser.add_argument('--mode', type=str, default='regression')
     parser.add_argument('--hidden', type=list, default=[32,32])
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--max_iter', type=int, default=500)
+    parser.add_argument('--max_iter', type=int, default=1000)
     parser.add_argument('--test_size', type=float, default=0.25)
     parser.add_argument('--n_datasets', type=int, default=len(ids))
     parser.add_argument('--path', type=str, default='../problem_data/openml/')
