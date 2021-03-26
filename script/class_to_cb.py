@@ -93,7 +93,8 @@ def learn_representation(X, y, test_size=0.25, hidden=(32,32), max_iter=500,
         else: raise ValueError
         
         net.fit(X_train, y_train)
-        score = net.score(X_test, y_test)
+        test_score = net.score(X_test, y_test)
+        train_score = net.score(X_train, y_train)
         
         #Build representation
         phi, theta = build_model(net, X_rep, n_contexts, n_actions)
@@ -111,11 +112,11 @@ def learn_representation(X, y, test_size=0.25, hidden=(32,32), max_iter=500,
         if mode=='classification':
             model = LogisticRegression(random_state=0).fit(X_train, y_train)
             theta = np.concatenate((model.coef_.squeeze(), model.intercept_))
-    test_score = model.score(X_test, y_test)
-    train_score = model.score(X_train, y_train)
+        test_score = model.score(X_test, y_test)
+        train_score = model.score(X_train, y_train)
     
     assert(phi.shape[-1]==len(theta))
-    return phi, theta, score, test_score, train_score
+    return phi, theta, test_score, train_score
 
 if __name__ == '__main__':    
     ids = list(np.load('ids.npy'))
