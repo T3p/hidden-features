@@ -111,10 +111,11 @@ def learn_representation(X, y, test_size=0.25, hidden=(32,32), max_iter=500,
         if mode=='classification':
             model = LogisticRegression(random_state=0).fit(X_train, y_train)
             theta = np.concatenate((model.coef_.squeeze(), model.intercept_))
-        score = model.score(X_test, y_test)
+        test_score = model.score(X_test, y_test)
+        train_score = model.score(X_train, y_train)
     
     assert(phi.shape[-1]==len(theta))
-    return phi, theta, score
+    return phi, theta, score, test_score, train_score
 
 if __name__ == '__main__':    
     ids = list(np.load('ids.npy'))
@@ -141,8 +142,8 @@ if __name__ == '__main__':
         i = int(id)
         count += 1
         X, y = fetch_dataset(i)
-        phi, theta, score = learn_representation(X, y, args.test_size, hidden, args.max_iter, mode=args.mode)
-        print('%d/%d (ID=%d): score=%f' % (count, args.n_datasets, i , score))
+        phi, theta, test_score, train_score = learn_representation(X, y, args.test_size, hidden, args.max_iter, mode=args.mode)
+        print('%d/%d (ID=%d): test score=%f, train_score=%f' % (count, args.n_datasets, i , test_score, train_score))
         np.savez_compressed(args.path+'openml_{0}_id{1}_dim{2}_hid{3}_seed{4}.npz'.format(args.mode,
                                 i, hidden[1]+1, hidden[0], args.seed), 
-                        features=phi, theta=theta, score=score)
+                        features=phi, theta=theta, score=test_score, train_score=train_score, score=test_score)
