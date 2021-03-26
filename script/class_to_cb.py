@@ -3,6 +3,8 @@ import numpy as np
 import random
 from sklearn import preprocessing
 from sklearn.neural_network import MLPClassifier, MLPRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 import argparse
 
@@ -80,20 +82,38 @@ def learn_representation(X, y, test_size=0.25, hidden=(32,32), max_iter=500,
     X_rep, y_rep = representation_dataset(X, y)
     X_train, X_test, y_train, y_test = train_test_split(X_rep, y_rep, test_size=test_size)
     
-    #Fit NN
-    if mode=='regression':
-        net = MLPRegressor(hidden_layer_sizes=hidden, max_iter=max_iter,
-                           verbose=False)
-    elif mode=='classification':
-        net = MLPClassifier(hidden_layer_sizes=hidden, max_iter=max_iter, 
-                           verbose=False)
-    else: raise ValueError
+    if hidden:
+        #Fit NN
+        if mode=='regression':
+            net = MLPRegressor(hidden_layer_sizes=hidden, max_iter=max_iter,
+                               verbose=False)
+        elif mode=='classification':
+            net = MLPClassifier(hidden_layer_sizes=hidden, max_iter=max_iter, 
+                               verbose=False)
+        else: raise ValueError
+        
+        net.fit(X_train, y_train)
+        score = net.score(X_test, y_test)
+        
+        #Build representation
+        phi, theta = build_model(net, X_rep, n_contexts, n_actions)
+    else:
+        phi = np.empty((n_contexts, n_actions, X_rep.shape[1]+1), dtype=np.float32)
+        idx = 0
+        for t in range(n_contexts):
+            for z in range(n_actions):
+                phi[t, z, :] = np.concatenate((X_rep[idx, :], np.ones(1))) 
+                idx += 1
+        #linear/logistic regression
+        if mode=='regression':
+            model = LinearRegression().fit(X_train, y_train)
+            theta = np.concatenate((model.coef_, np.array([model.intercept_])))
+        if mode=='classification':
+            model = LogisticRegression(random_state=0).fit(X_train, y_train)
+            theta = np.concatenate((model.coef_.squeeze(), model.intercept_))
+        score = model.score(X_test, y_test)
     
-    net.fit(X_train, y_train)
-    score = net.score(X_test, y_test)
-    
-    #Build representation
-    phi, theta = build_model(net, X_rep, n_contexts, n_actions)
+    assert(phi.shape[-1]==len(theta))
     return phi, theta, score
 
 if __name__ == '__main__':    
@@ -102,7 +122,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=
                                  argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--mode', type=str, default='regression')
-    parser.add_argument('--hidden', type=int, default=32)
+    parser.add_argument('--hidden', type=list, default=[32,32])
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--max_iter', type=int, default=500)
     parser.add_argument('--test_size', type=float, default=0.25)
@@ -113,7 +133,7 @@ if __name__ == '__main__':
     
     random.seed(args.seed)
     np.random.seed(args.seed)
-    hidden=(args.hidden, args.hidden)
+    hidden=tuple(args.hidden)
 
     count = 0
     for id in ids[:args.n_datasets]:
@@ -122,6 +142,6 @@ if __name__ == '__main__':
         X, y = fetch_dataset(i)
         phi, theta, score = learn_representation(X, y, args.test_size, hidden, args.max_iter, mode=args.mode)
         print('%d/%d (ID=%d): score=%f' % (count, args.n_datasets, i , score))
-        np.savez_compressed(args.path+'openml_{0}_id{1}_dim{2}_seed{3}.npz'.format(args.mode,
-                                i, args.hidden+1, args.seed), 
+        np.savez_compressed(args.path+'openml_{0}_id{1}_dim{2}_hid{3}_seed{4}.npz'.format(args.mode,
+                                i, hidden[1]+1, hidden[0], args.seed), 
                         features=phi, theta=theta, score=score)
