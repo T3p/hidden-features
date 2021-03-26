@@ -146,4 +146,4 @@ if __name__ == '__main__':
         print('%d/%d (ID=%d): test score=%f, train_score=%f' % (count, args.n_datasets, i , test_score, train_score))
         np.savez_compressed(args.path+'openml_{0}_id{1}_dim{2}_hid{3}_seed{4}.npz'.format(args.mode,
                                 i, hidden[1]+1, hidden[0], args.seed), 
-                        features=phi, theta=theta, score=test_score, train_score=train_score, score=test_score)
+                        features=phi, theta=theta, test_score=test_score, train_score=train_score, score=test_score)
