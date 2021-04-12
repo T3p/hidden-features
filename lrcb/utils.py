@@ -2,6 +2,8 @@ import numpy as np
 import random
 import scipy
 
+EPS = 1e-8
+
 def inverse_norm(b, A):
     """Norm weighted by matrix inverse: \|b\|_{A^{-1}}"""
     return np.sqrt(np.dot(b, np.linalg.solve(A,b)))
@@ -53,9 +55,14 @@ def weighted_norm(v, A):
     return np.sqrt(np.dot(v, np.matmul(A, v)))
 
 """Computes minimum eigenvalue of AA^T"""
-def min_eig_outer(A):
+def min_eig_outer(A, weak=False):
     _, sv, _ = np.linalg.svd(A)
-    return sv[-1]**2
+    i = 0
+    if weak:
+        while abs(sv[len(sv)-1-i])<EPS and i<len(sv):
+            i += 1
+            
+    return sv[len(sv)-1-i]**2
 
 """Computes (A + uv^T)^-1 given A^-1""" 
 def sherman_morrison(invA, u, v):

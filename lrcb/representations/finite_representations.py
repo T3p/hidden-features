@@ -77,13 +77,13 @@ def hls_rank(rep, tol=None):
 def is_hls(rep, tol=None):
     return hls_rank(rep, tol) == rep.dim
 
-def hls_lambda(rep, cprobs=None):
+def hls_lambda(rep, cprobs=None, weak=False):
     if cprobs is None:
-        mineig = min_eig_outer(rep._optimal_features()) / rep.n_contexts
+        mineig = min_eig_outer(rep._optimal_features(), weak) / rep.n_contexts
     else:
         assert np.allclose(np.sum(cprobs), 1.)
         mineig = min_eig_outer(np.sqrt(np.array(cprobs)[:, None]) * 
-                               rep._optimal_features())
+                               rep._optimal_features(), weak)
     if np.allclose(mineig, 0.):
         return 0.
     return mineig
