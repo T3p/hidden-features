@@ -1,0 +1,2 @@
+# PROJECT XB
+Bandit library
