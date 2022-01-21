@@ -1,4 +1,3 @@
-from examples.finite_representations import is_hls
 import numpy as np
 import xb
 from xb.envs.contextualfinite import ContextualFinite
