@@ -36,19 +36,10 @@ def random_transform(features, param, normalize=True, seed=0):
     dim = len(param)
     A = rng.normal(size=(dim, dim))
 
-    A = rng.normal(size=(dim, dim))
-    q, r = np.linalg.qr(A)
+    q, r = np.linalg.qr(A) #q is an orthogonal matrix
     
     new_features = features @ q
     new_param = q.T @ param
-    
-    # if np.size(A) > 1:
-    #     orthogonalizer = PCA(n_components=dim, random_state=seed)
-    #     A = orthogonalizer.fit_transform(A)
-        
-    # A = normalize_matrix(A, axis=0, norm='l2')
-    # new_features = np.matmul(features, A)
-    # new_param = np.matmul(A.T, param)
         
     if normalize:
         new_features, new_param = normalize_linrep(new_features, new_param)
