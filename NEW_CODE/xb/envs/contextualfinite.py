@@ -11,12 +11,16 @@ class ContextualFinite():
         
         def get_features(self, context, action):
             return self.features[context['id'], action['id']]
+        
+        def feature_bound(self):
+            np.amax(np.linalg.norm(self.features, axis=-1))
 
-    def __init__(self, features, labels, random_state=0) -> None:
+    def __init__(self, features, labels, random_state=0, noise_std=0.3) -> None:
         self.features = features
         self.labels = labels
         self.random_state = random_state
         self.rng = np.random.RandomState(random_state)
+        self.noise_std = noise_std
 
         self.n_contexts, self.n_actions, self.feat_dim = self.features.shape
 
@@ -40,10 +44,13 @@ class ContextualFinite():
         return state
 
     def step(self, action):
-        return self.labels[self.idx, action['id']]
+        return self.labels[self.idx, action['id']] + self.rng.randn() * self.noise_std
 
     def best_reward(self):
         return self.labels[self.idx].max()
+    
+    def expected_reward(self, action):
+        return self.labels[self.idx][action["id"]]
 
     def get_default_representation(self):
         return ContextualFinite._rep(self.features)
