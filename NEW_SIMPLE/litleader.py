@@ -6,6 +6,8 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split, TensorDataset
 
+#https://pytorch-lightning.readthedocs.io/en/stable/notebooks/lightning_examples/mnist-hello-world.html
+#https://pytorch-lightning.readthedocs.io/en/stable/common/early_stopping.html#:~:text=Stopping%20an%20epoch%20early,will%20stop%20your%20entire%20run.
 
 class LitTorchTrain(LightningModule):
 
