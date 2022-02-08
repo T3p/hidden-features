@@ -74,7 +74,7 @@ def make_random_linrep(
     return features, param
 
 
-def derank_hls(features, param, newrank=1, transform=True, normalize=True):
+def derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=0):
     nc = features.shape[0]
 
     rewards = features @ param
@@ -94,9 +94,88 @@ def derank_hls(features, param, newrank=1, transform=True, normalize=True):
     new_param = param.copy()
     
     if transform:
-        new_features, new_param = random_transform(new_features, new_param, normalize=normalize)
+        new_features, new_param = random_transform(new_features, new_param, normalize=normalize, seed=seed)
     elif normalize:
         new_features, new_param = normalize_linrep(new_features, new_param)
         
     assert np.allclose(features @ param, new_features @ new_param)
     return new_features, new_param
+
+def reduce_dim(features, param, newdim=2, transform=True, normalize=True, seed=0):
+    dim = features.shape[-1]
+    assert newdim <= dim and newdim > 0
+    f1 = np.array(features)
+    p1 = np.array(param)
+    
+    for _ in range(dim - newdim):
+        f1[:, :, 1] = f1[:, :, 0] * p1[0] + f1[:, :, 1] * p1[1]
+        p1[1] = 1.
+        f1 = f1[:, :, 1:]
+        p1 = p1[1:]
+        
+    if transform:
+        f2, p2 = random_transform(f1, p1, normalize=normalize, seed=seed)
+    elif normalize:
+        f2, p2 = normalize_linrep(f1, p1)
+    else: 
+        f2, p2 = f1, p1
+    
+    assert f2.shape[-1] == newdim
+    return f2, p2
+
+def fuse_columns(features, param, cols, transform=True, normalize=True, seed=0):
+    dim = features.shape[-1]
+    n_contexts = features.shape[0]
+    rewards = features @ param
+    opt_arms = np.argmax(rewards, axis=1)
+    f1 = np.array(features)
+    for i in range(dim):
+        f1[:, :, i] *= param[i]
+    p1 = 1.0 + 0.0 * np.array(param)
+    ss = np.arange(n_contexts)
+
+    v = np.zeros(n_contexts)
+    for i in cols:
+        assert i >= 0 and i < dim
+        v += f1[ss, opt_arms, i] / len(cols)
+
+    for i in cols:
+        f1[ss, opt_arms, i] = v
+        
+    if transform:
+        f2, p2 = random_transform(f1, p1, normalize=normalize, seed=seed)
+    elif normalize:
+        f2, p2 = normalize_linrep(f1, p1)
+    else: 
+        f2, p2 = f1, p1
+
+    return f2, p2
+
+def make_hls_rank(rewards, dim, rank, transform=True, normalize=True, eps=0.1, seed=0):
+    opt_rewards = np.max(rewards, axis=1)
+    if np.allclose(np.linalg.norm(opt_rewards), 0.):
+        eps = eps / 2.
+        rewards = rewards + eps
+        opt_rewards = np.max(rewards, axis=1)
+    opt_arms = np.argmax(rewards, axis=1)
+    nc, na = rewards.shape
+    
+    param = np.zeros(dim)
+    param[0] = 1
+    sup = np.max(np.abs(opt_rewards)) + eps
+    features, _ = make_random_linrep(nc, na, dim)
+    opt_features = np.zeros((nc, dim))
+    for i in range(1, rank):
+        opt_features[i, i] = sup
+    features[np.arange(nc), opt_arms, :] = opt_features
+    features[:, :, 0] = rewards
+    
+    if transform:
+        f1, p1 = random_transform(features, param, normalize=normalize, seed=seed)
+    elif normalize:
+        f1, p1 = normalize_linrep(features, param)
+    else:
+        f1, p1 = features, param
+    
+    assert np.allclose(f1 @ p1, rewards)
+    return f1, p1

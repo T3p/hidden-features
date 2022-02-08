@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Jan 21 14:31:16 2022
-Figure 1 from http://proceedings.mlr.press/v139/papini21a.html 
-'Motivating example'
+Figure 8 from http://proceedings.mlr.press/v139/papini21a.html
+'Mixing representations'
 """
 import numpy as np
 from xb.envs.contextualfinite import ContextualFinite
 from xb.envs.synthetic import LinearRandom
-from xb.envs.synthetic.linutils import is_hls, random_transform, derank_hls, hls_rank
+from xb.envs.synthetic.linutils import is_hls, random_transform, fuse_columns
 from xb.algorithms import LinUCB, LinLEADER, LinLeaderSelect
 from xb.runner import Runner
 from copy import deepcopy
@@ -24,7 +24,6 @@ std = 0.3
 n_runs = 20
 delta = 0.01
 
-
 env = LinearRandom(n_contexts=20, 
                    n_actions=5, 
                    feature_dim=6, 
@@ -35,18 +34,13 @@ assert is_hls(env.features, env.param)
 
 hls_features, hls_param = random_transform(env.features, env.param, normalize=True, seed=SEED)
 
+col_pairs = [(0,1), (1,2), (2,3), (3,4), (4,5), (5,0)]
 reps = []
 
-for i in range(1, env.feat_dim):
-    new_features, new_param =  derank_hls(hls_features, hls_param, newrank=i, 
-                                          normalize=True, 
-                                          transform=True, 
-                                          seed=SEED)
-    assert hls_rank(new_features, new_param) == i
+for cp in col_pairs:
+    new_features, new_param = fuse_columns(hls_features, hls_param, cols=cp, transform=True, normalize=True, seed=SEED)
+    assert not is_hls(new_features, new_param)
     reps.append(ContextualFinite._rep(new_features))
-
-reps.append(ContextualFinite._rep(hls_features))
-
 
 algs = [LinUCB(rep=r, 
                reg_val=1., 

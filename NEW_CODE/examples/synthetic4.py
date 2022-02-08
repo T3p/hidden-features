@@ -2,13 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Jan 21 14:31:16 2022
-Figure 1 from http://proceedings.mlr.press/v139/papini21a.html 
-'Motivating example'
+Based on the contruction in app. B.2 from http://proceedings.mlr.press/v139/papini21a.html
 """
 import numpy as np
 from xb.envs.contextualfinite import ContextualFinite
 from xb.envs.synthetic import LinearRandom
-from xb.envs.synthetic.linutils import is_hls, random_transform, derank_hls, hls_rank
+from xb.envs.synthetic.linutils import is_hls, make_hls_rank, hls_rank
 from xb.algorithms import LinUCB, LinLEADER, LinLeaderSelect
 from xb.runner import Runner
 from copy import deepcopy
@@ -24,29 +23,26 @@ std = 0.3
 n_runs = 20
 delta = 0.01
 
-
 env = LinearRandom(n_contexts=20, 
                    n_actions=5, 
                    feature_dim=6, 
                    random_state=SEED,
                    noise_std=std)
 assert is_hls(env.features, env.param)
-
-
-hls_features, hls_param = random_transform(env.features, env.param, normalize=True, seed=SEED)
+rewards = env.labels
 
 reps = []
-
-for i in range(1, env.feat_dim):
-    new_features, new_param =  derank_hls(hls_features, hls_param, newrank=i, 
-                                          normalize=True, 
-                                          transform=True, 
-                                          seed=SEED)
+for i in range(1, env.feat_dim+1):
+    new_features, new_param = make_hls_rank(rewards, 
+                                            dim=env.feat_dim, 
+                                            rank=i,
+                                            transform=True, 
+                                            normalize=True, 
+                                            seed=SEED)
     assert hls_rank(new_features, new_param) == i
+    assert new_features.shape[-1] == env.feat_dim
     reps.append(ContextualFinite._rep(new_features))
-
-reps.append(ContextualFinite._rep(hls_features))
-
+assert is_hls(new_features, new_param)
 
 algs = [LinUCB(rep=r, 
                reg_val=1., 
@@ -79,7 +75,10 @@ algs.append(LinLeaderSelect(reps=reps,
 ))
 
 for i, algo in enumerate(algs):
-    name = type(algo).__name__
+    if i < len(reps):
+        name = type(algo).__name__ + ' hls rank=' + str(i+1)
+    else:
+        name = type(algo).__name__
     print(f"Running {name}...")
     regrets = np.zeros((n_runs, T))
     for j in range(n_runs):
