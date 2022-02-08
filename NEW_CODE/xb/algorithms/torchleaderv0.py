@@ -9,13 +9,15 @@ class TorchLeader:
         features_bound: float,
         param_bound: float, delta:float=0.01, random_state:int=0,
         device: str="cpu", batch_size:int=256, epochs:int=1,
-        reg_mse: float=1, reg_spectral:float=1, reg_norm:float=1
+        reg_mse: float=1, reg_spectral:float=1, reg_norm:float=1,
+        bonus_scale:float=1, adaptive_ci:bool=False
     ) -> None:
         self.env = env
         self.rep = representation
         self.reg_val = reg_val
         self.noise_std = noise_std
         self.features_bound = features_bound
+        self.bonus_scale = bonus_scale
         self.param_bound=param_bound
         self.delta = delta
         self.random_state = random_state
@@ -26,6 +28,7 @@ class TorchLeader:
         self.reg_mse = reg_mse
         self.reg_spectral = reg_spectral
         self.reg_norm = reg_norm
+        self.adaptive_ci = adaptive_ci
     
     def reset(self, horizon: int):
         self.t = 1

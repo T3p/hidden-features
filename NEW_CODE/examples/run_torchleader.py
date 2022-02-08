@@ -37,12 +37,13 @@ true_rewards = features @ param
 
 env = LinearCB(features=features, rewards=true_rewards, param=param, random_state=SEED)
 algo = TorchLeader(
-    rep=env.get_default_representation(), reg_val=1., noise_std=1., features_bound=2, param_bound= 2, bonus_scale=.1, delta= 0.01, adaptive_ci=True, random_state=0,
+    env=env,
+    representation=env.get_default_representation(), reg_val=1., noise_std=1., features_bound=2, param_bound= 2, bonus_scale=.1, delta= 0.01, adaptive_ci=True, random_state=0,
     reg_mse=1, reg_spectral=1, reg_norm=1
 )
 
 runner = Runner(env=env, algo=algo, T_max=T)
 runner.reset()
-out = runner()
+out = runner(T)
 plt.plot(out['regret'])
 plt.show()
