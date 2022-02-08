@@ -32,8 +32,8 @@ if __name__ == "__main__":
         delta=0.01,
         random_state=SEED, device="cpu", batch_size=64, max_epochs=3,
         weight_l2param=1.,
-        weight_mse=0.3, weight_spectral=1, weight_l2features=0,
-        buffer_capacity=T, update_every_n_steps=1,
+        weight_mse=1, weight_spectral=0.2, weight_l2features=0,
+        buffer_capacity=int(T/2), update_every_n_steps=10,
         learning_rate=0.01
     )
     algo.reset()

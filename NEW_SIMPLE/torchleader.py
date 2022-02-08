@@ -118,7 +118,9 @@ class TorchLeader:
         if len(self.buffer) >= self.batch_size:
             prediction = self.net(ref_feats).detach().numpy().ravel()
             net_features = self.net.features(ref_feats).detach().numpy()
-            ucb = np.einsum('...i,...i->...', net_features @ self.inv_A, net_features)
+            #https://stackoverflow.com/questions/18541851/calculate-vt-a-v-for-a-matrix-of-vectors-v/18542314#18542314
+            ucb = (net_features.dot(self.inv_A)*net_features).sum(axis=1)
+            assert np.all(ucb > 0)
             ucb = np.sqrt(ucb)
             ucb = prediction + self.bonus_scale * beta * ucb
             action = np.argmax(ucb)
@@ -174,6 +176,22 @@ class TorchLeader:
                     self.writer.flush()
                     self.batch_counter += 1
             self.net.eval()
+            
+            # compute design matrix
+            with torch.no_grad():
+                X, _ = self.buffer.get_all()
+                phi = self.net.features(X.to(self.device)).detach().numpy()
+                #phi: n_samples x d
+                A = np.sum(phi[...,None]*phi[:,None], axis=0)
+                A = A + self.weight_l2param * np.eye(phi.shape[1])
+                self.inv_A = np.linalg.inv(A)
+                
+                # #Sherman–Morrison formula
+                # self.inv_A = np.eye(phi.shape[1]) / self.weight_l2param
+                # for v in phi:
+                #     den = 1. + v.dot(self.inv_A.dot(v))
+                #     outp = np.outer(v,v)
+                #     self.inv_A -= self.inv_A.dot(outp.dot(self.inv_A)) / den
 
     def _continue(self, horizon: int) -> None:
         """Continue learning from the point where we stopped

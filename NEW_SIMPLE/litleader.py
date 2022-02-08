@@ -187,6 +187,7 @@ class LitLeader:
             prediction = self.net.predict(ref_feats).detach().numpy().ravel()
             net_features = self.net.features(ref_feats).detach().numpy()
             ucb = np.einsum('...i,...i->...', net_features @ self.inv_A, net_features)
+            assert np.all(ucb > 0)
             ucb = np.sqrt(ucb)
             ucb = prediction + self.bonus_scale * beta * ucb
             action = np.argmax(ucb)
@@ -228,7 +229,7 @@ class LitLeader:
                 X, _ = self.buffer.get_all()
                 phi = self.net.features(X.to(self.device)).detach().numpy()
                 A = np.sum(phi[...,None]*phi[:,None], axis=0)
-                self.A = A + self.reg_val * np.eye(dim)
+                A = A + self.reg_val * np.eye(dim)
                 self.inv_A = np.linalg.inv(A)
 
 
