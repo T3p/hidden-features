@@ -98,7 +98,3 @@ class Leader:
             self.best_reward[self.t] = self.env.best_reward()
         
         return {"regret": np.cumsum(self.best_reward - self.instant_reward)}
-
-
-
-class LeaderSelect(Leader):
