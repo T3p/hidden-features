@@ -254,5 +254,7 @@ class LitLeader:
             # regret computation
             self.instant_reward[self.t] = self.env.expected_reward(action)
             self.best_reward[self.t] = self.env.best_reward()
+
+            self.t += 1
         
         return {"regret": np.cumsum(self.best_reward - self.instant_reward)}

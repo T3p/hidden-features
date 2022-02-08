@@ -41,5 +41,3 @@ if __name__ == "__main__":
     plt.plot(output['regret'])
     plt.show()
 
-
-
