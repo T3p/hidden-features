@@ -108,8 +108,8 @@ class TorchLeader:
         if len(self.buffer) >= self.batch_size:
             X, _ = self.buffer.get_all()
             phi = self.net.features(X.to(self.device)).detach().numpy()
-            A = phi[...,None]*phi[:,None]
-            A = np.sum(A, axis=0) + self.reg_val * np.eye(dim)
+            A = np.sum(phi[...,None]*phi[:,None], axis=0)
+            A = A + self.reg_val * np.eye(dim)
             inv_A = np.linalg.inv(A)
 
             val = self.net.predict(ref_feats).detach().numpy().ravel()
