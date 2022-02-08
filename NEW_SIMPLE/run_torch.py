@@ -3,8 +3,8 @@
 
 from utils_linear import make_random_linrep
 from linearenv import LinearEnv, LinearRepresentation
-from torchleaderv0 import TorchLeader, XNet
-from litleader import LitLeader
+from torchleader import TorchLeader, XNet
+# from litleader import LitLeader, XNet
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -26,18 +26,18 @@ if __name__ == "__main__":
     rep = LinearRepresentation(env.features)
     net = XNet(dim_input=dim)
     T=10000
-    algo = LitLeader(
+    algo = TorchLeader(
         env=env, net=net, representation=rep, noise_std=NOISE,
         param_bound=np.linalg.norm(env.param,2), features_bound=np.linalg.norm(env.features,2, axis=-1).max(),
         delta=0.01,
         random_state=SEED, device="cpu", batch_size=64, max_epochs=3,
         weight_l2param=1.,
-        weight_mse=1, weight_spectral=1, weight_l2features=1,
-        buffer_capacity=T, update_every_n_steps=1
+        weight_mse=0.3, weight_spectral=1, weight_l2features=0,
+        buffer_capacity=T, update_every_n_steps=1,
+        learning_rate=0.01
     )
     algo.reset()
     output = algo.run(horizon=T)
 
     plt.plot(output['regret'])
     plt.show()
-
