@@ -19,9 +19,9 @@ linecycler = cycle(lines)
 T = 10000
 SEED = 0#97764652
 np.random.seed(SEED)
-std = 0.3
 n_runs = 20
-
+env_seeds = [np.random.randint(99999) for _ in range(n_runs)]
+std = 0.3
 
 env = LinearRandom(n_contexts=20, 
                    n_actions=5, 
@@ -29,7 +29,6 @@ env = LinearRandom(n_contexts=20,
                    random_state=SEED,
                    noise_std=std)
 assert is_hls(env.features, env.param)
-
 
 hls_features, hls_param = random_transform(env.features, env.param, normalize=True)
 
@@ -75,16 +74,18 @@ algs.append(LinLeaderSelect(reps=reps,
 ))
 
 for i, algo in enumerate(algs):
+    regrets = np.zeros((n_runs, T))
     name = type(algo).__name__
     print(f"Running {name}...")
-    regrets = np.zeros((n_runs, T))
-    for j in range(n_runs):
+
+    for j in range(n_runs):    
         env_copy = deepcopy(env)
-        env_copy.rng = np.random.RandomState(np.random.randint(99999))
+        env_copy.rng = np.random.RandomState(env_seeds[j])
         runner = Runner(env=env_copy, algo=algo, T_max=T)
         runner.reset()
         out = runner()
         regrets[j] = out['expected_regret']
+
     mean = np.mean(regrets, axis=0)
     plt.plot(mean, next(linecycler), label=name)
     if n_runs > 1:
