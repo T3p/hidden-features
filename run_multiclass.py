@@ -1,14 +1,38 @@
 import numpy as np
-from multiclass import MulticlassToBandit
+from multiclass import MulticlassToBandit, DiscreteFix
 from sklearn.datasets import load_wine
+from sklearn.preprocessing import OneHotEncoder
 from torchleader_discrete import TorchLeaderDiscrete, Critic, TorchLinUCBDiscrete
 import matplotlib.pyplot as plt
+import openml
 
-Xx, Yy = load_wine(return_X_y=True)
+# example: https://openml.github.io/openml-python/develop/examples/30_extended/datasets_tutorial.html
+# This is done based on the dataset ID.
+dataset = openml.datasets.get_dataset(1471)
 
-env = MulticlassToBandit(X=Xx, y=Yy, dataset_name="wine", seed=0, noise="gaussian", noise_param=0.1)
+# Print a summary
+print(
+    f"This is dataset '{dataset.name}', the target feature is "
+    f"'{dataset.default_target_attribute}'"
+)
+print(f"URL: {dataset.url}")
+print(dataset.description[:500])
 
-net = Critic(dim_context=Xx.shape[1], dim_actions=env.action_space.n)
+Xx, yy, categorical_indicator, attribute_names = dataset.get_data(
+    dataset_format="array", target=dataset.default_target_attribute
+)
+
+
+# Xx, yy = load_wine(return_X_y=True)
+
+env = MulticlassToBandit(X=Xx, y=yy, dataset_name="wine", seed=0, noise="gaussian", noise_param=0.1)
+
+assert isinstance(env.action_space, DiscreteFix)
+
+enc = OneHotEncoder(sparse=False)
+enc.fit(np.arange(env.action_space.n).reshape(-1,1))
+dim_actions = enc.transform(np.arange(env.action_space.n).reshape(-1,1)).shape[1]
+net = Critic(dim_context=Xx.shape[1], dim_actions=dim_actions)
 agent = TorchLinUCBDiscrete(
     env=env,
     net=net,
