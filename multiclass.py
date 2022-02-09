@@ -88,7 +88,7 @@ class MulticlassToBandit:
     def step(self, action: int) -> float:
         """ Return a realization of the reward in the context for the selected action
         """
-        assert self.action_space.contains(action)
+        assert self.action_space.contains(action), action
         reward = self.y[self.idx] != action
         if self.noise is not None:
             if self.noise == "bernoulli":

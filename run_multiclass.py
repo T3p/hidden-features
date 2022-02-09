@@ -25,14 +25,17 @@ Xx, yy, categorical_indicator, attribute_names = dataset.get_data(
 
 # Xx, yy = load_wine(return_X_y=True)
 
-env = MulticlassToBandit(X=Xx, y=yy, dataset_name="wine", seed=0, noise="gaussian", noise_param=0.1)
+env = MulticlassToBandit(X=Xx, y=yy, dataset_name=None, seed=0, noise="gaussian", noise_param=0.1)
 
 assert isinstance(env.action_space, DiscreteFix)
 
-enc = OneHotEncoder(sparse=False)
-enc.fit(np.arange(env.action_space.n).reshape(-1,1))
-dim_actions = enc.transform(np.arange(env.action_space.n).reshape(-1,1)).shape[1]
-net = Critic(dim_context=Xx.shape[1], dim_actions=dim_actions)
+# enc = OneHotEncoder(sparse=False)
+# enc.fit(np.arange(env.action_space.n).reshape(-1,1))
+# dim_actions = enc.transform(np.arange(env.action_space.n).reshape(-1,1)).shape[1]
+# print(Xx.shape[1], dim_actions)
+net = Critic(dim_context=Xx.shape[1], dim_actions=env.action_space.n)
+
+
 agent = TorchLinUCBDiscrete(
     env=env,
     net=net,
@@ -45,6 +48,7 @@ agent = TorchLinUCBDiscrete(
     weight_mse=1,
     weight_spectral=0,
     bonus_scale=1,
+    use_onehotencoding=True
     )
 
 agent.reset()

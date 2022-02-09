@@ -15,16 +15,16 @@ class Critic(nn.Module):
         super().__init__()
         self.embedding_dim = 32
         self.features_net = nn.Sequential(
-            nn.Linear(dim_actions, dim_context+dim_actions),
+            nn.Linear(dim_context+dim_actions, 256),
             nn.ReLU(),
-            nn.Linear(dim_actions, self.embedding_dim),
+            nn.Linear(256, self.embedding_dim),
             nn.ReLU(),
             )
         self.reward_net = torch.nn.Linear(self.embedding_dim, 1, bias=False)
 
     def features(self, x, a):
-        x = torch.cat((x,a),1)
-        return self.features_net(x)
+        emb = torch.cat((x,a),1)
+        return self.features_net(emb)
 
     def forward(self, x, a):
         """
@@ -58,7 +58,7 @@ class SimpleBuffer:
         return (
             np.array(contexts),
             np.array(actions),
-            np.array(rewards, dtype=float),
+            np.array(rewards),
         )
 
 @dataclass
@@ -98,16 +98,16 @@ class XBTorchDiscrete:
 
     def update(self, context: np.ndarray, action: int, reward: float):
         if self.enc:
-            action = self.enc.transform(action)
+            action = self.enc.transform(np.array([action]).reshape(-1,1)).ravel()
         exp = Experience(context, action, reward)
         self.buffer.append(exp)
 
         if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
             contexts, actions, rewards = self.buffer.get_all()
             torch_dataset = torch.utils.data.TensorDataset(
-                torch.tensor(contexts, dtype=float, device=self.device), 
-                torch.tensor(actions, dtype=float, device=self.device),
-                torch.tensor(rewards, dtype=float, device=self.device)
+                torch.tensor(contexts, dtype=torch.float, device=self.device), 
+                torch.tensor(actions, dtype=torch.float, device=self.device),
+                torch.tensor(rewards, dtype=torch.float, device=self.device)
                 )
 
             loader = torch.utils.data.DataLoader(
@@ -167,6 +167,9 @@ class TorchLeaderDiscrete(XBTorchDiscrete):
     weight_l2features: Optional[float]=1
     bonus_scale: Optional[float]=1.
 
+    def __post_init__(self):
+        self.inv_A = torch.eye(self.net.embedding_dim) / self.weight_l2param
+
     @torch.no_grad()
     def action(self, context: np.ndarray):
         dim = self.net.embedding_dim
@@ -182,12 +185,13 @@ class TorchLeaderDiscrete(XBTorchDiscrete):
                 actions = self.enc.transform(actions)
             actions = torch.FloatTensor(actions).to(self.device)
 
-            prediction = self.net(contexts, actions).detach().numpy().ravel()
-            net_features = self.net.features(contexts, actions).detach().numpy()
-            ucb = np.einsum('...i,...i->...', net_features @ self.inv_A, net_features)
-            ucb = np.sqrt(ucb)
+            prediction = self.net(contexts, actions).ravel()
+            net_features = self.net.features(contexts, actions)
+            #https://stackoverflow.com/questions/18541851/calculate-vt-a-v-for-a-matrix-of-vectors-v/18542314#18542314
+            ucb = ((net_features @ self.inv_A)*net_features).sum(axis=1)
+            ucb = torch.sqrt(ucb)
             ucb = prediction + self.bonus_scale * beta * ucb
-            action = np.argmax(ucb)
+            action = torch.argmax(ucb).item()
             assert 0 <= action < na, ucb
         else:
             action = np.random.randint(0, na, 1).item()
@@ -221,11 +225,12 @@ class TorchLeaderDiscrete(XBTorchDiscrete):
     def _post_update(self, loader):
         with torch.no_grad():
             dim = self.net.embedding_dim
-            A = torch.eye(dim) * self.weight_l2param
+            A = np.eye(dim) * self.weight_l2param
             for b_context, b_actions, b_rewards in loader:
-                phi = self.net.features(b_context, b_actions)
-                A = A + torch.sum(phi[...,None]*phi[:,None], axis=0)
-            self.inv_A = torch.linalg.inv(A)
+                phi = self.net.features(b_context, b_actions).cpu().detach().numpy()
+                A = A + np.sum(phi[...,None]*phi[:,None], axis=0)
+            # strange issue with making operations directly in pytorch
+            self.inv_A = torch.tensor(np.linalg.inv(A), dtype=torch.float)
             
 @dataclass
 class TorchLinUCBDiscrete(TorchLeaderDiscrete):
