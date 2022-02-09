@@ -1,9 +1,11 @@
+from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union, Tuple
 import numpy as np
 
 from sklearn.utils import check_X_y
 from scipy.stats import rankdata
+from sklearn.model_selection import train_test_split
 
 @dataclass
 class DiscreteFix:
@@ -39,6 +41,46 @@ class MulticlassToBandit:
         self.np_random = np.random.RandomState(seed=self.seed)
         assert self.noise in [None, "bernoulli", "gaussian"]
 
+    def split_pretrain_test(
+        self,
+        test_size: Union[int, float] = 0.75,
+        random_state: Optional[int] = None,
+    ) -> Tuple[MulticlassToBandit]:
+        """Split the original data into the pretraining (used for hyperparameter optimization) and test (used for online test) sets.
+        Parameters
+        ----------
+        test_size: float or int, default=0.75
+            If float, should be between 0.0 and 1.0 and represent the proportion of the data to include in the test split.
+            If int, represents the absolute number of test samples.
+        random_state: int, default=None
+            Controls the random seed in pretrain-test split.
+
+        Returns
+        -------
+        xb_pretraining: MulticlassToBandit
+            Instance constructed using pretraining samples
+        xb_test: MulticlassToBandit
+            Instance constructed using test samples
+        """
+        (
+            X_pre,
+            X_test,
+            y_pre,
+            y_test
+        ) = train_test_split(
+            self.X, self.y, test_size=test_size, random_state=random_state
+        )
+
+        return MulticlassToBandit(
+                X=X_pre, y=y_pre, 
+                dataset_name=f'{self.dataset_name}_pretraining' if self.dataset_name else None,
+                noise=self.noise, noise_param=self.noise_param, seed=self.seed
+            ), MulticlassToBandit(
+                X=X_test, y=y_test, 
+                dataset_name=f'{self.dataset_name}_test' if self.dataset_name else None,
+                noise=self.noise, noise_param=self.noise_param, seed=self.seed
+            ), 
+
     def sample_context(self) -> np.ndarray:
         self.idx = self.np_random.randint(0, self.n_samples, 1).item()
         return self.X[self.idx]
@@ -68,3 +110,4 @@ class MulticlassToBandit:
     @property
     def n_samples(self) -> int:
         return self.y.shape[0]
+        
