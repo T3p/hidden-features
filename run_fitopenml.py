@@ -24,7 +24,8 @@ class LitOpenML(LightningModule):
         weight_mse: float=1, 
         weight_spectral:float=1, 
         weight_l2features:float=1,
-        weight_l2param:float=1.
+        weight_l2param:float=1.,
+        test_size=0.75
     ):
 
         super().__init__()
@@ -38,6 +39,7 @@ class LitOpenML(LightningModule):
         self.weight_spectral = weight_spectral
         self.weight_l2features = weight_l2features
         self.weight_l2param = weight_l2param
+        self.test_size = test_size
 
     def forward(self, x):
         x = self.model(x)
@@ -68,28 +70,65 @@ class LitOpenML(LightningModule):
         self.log("train_loss", loss, prog_bar=True)
         return loss
     
-    # def validation_step(self, batch, batch_idx):
-    #     x, y = batch
-    #     logits = self(x)
-    #     loss = F.mse_loss(logits, y)
-    #     preds = torch.argmax(logits, dim=1)
-    #     self.accuracy(preds, y)
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        prediction = self(x)
+        loss = F.mse_loss(prediction, y)
 
-    #     # Calling self.log will surface up scalars for you in TensorBoard
-    #     self.log("val_loss", loss, prog_bar=True)
-    #     self.log("val_acc", self.accuracy, prog_bar=True)
-    #     return loss
+        # Calling self.log will surface up scalars for you in TensorBoard
+        self.log("val_loss", loss, prog_bar=True)
+        return loss
 
-    # def test_step(self, batch, batch_idx):
-    #     # Here we just reuse the validation_step for testing
-    #     return self.validation_step(batch, batch_idx)
+    def test_step(self, batch, batch_idx):
+        # Here we just reuse the validation_step for testing
+        return self.validation_step(batch, batch_idx)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_l2param)
         return optimizer
 
+    def setup(self, stage=None):
+        
+        dataset = openml.datasets.get_dataset(self.ID)
+        Xx, yy, categorical_indicator, attribute_names = dataset.get_data(
+            dataset_format="array", target=dataset.default_target_attribute
+        )
+        X, y = check_X_y(X=Xx, y=yy, ensure_2d=True, multi_output=False)
+        # re-index actions from 0 to n_classes
+        y = (rankdata(y, "dense") - 1).astype(int)
+
+        (
+            X_pre,
+            X_test,
+            y_pre,
+            y_test
+        ) = train_test_split(
+            X, y, test_size=self.test_size, random_state=0
+        )
+    
+        # Assign train/val datasets for use in dataloaders
+        if stage == "fit" or stage is None:
+            new_X, new_Y = generate_bandit_dataset(X_pre, y_pre, standardize=True)
+            self.train_data = TensorDataset(
+                torch.tensor(new_X, dtype=float),
+                torch.tensor(new_Y, dtype=float)
+            )
+        # Assign test dataset for use in dataloader(s)
+        if stage == "test" or stage is None:
+            new_X, new_Y = generate_bandit_dataset(X_test, y_test, standardize=True)
+            self.test_data = TensorDataset(
+                torch.tensor(new_X, dtype=float),
+                torch.tensor(new_Y, dtype=float)
+            )
+
     def train_dataloader(self):
-        return DataLoader(self.dataset, batch_size=self.batch_size)
+        return DataLoader(self.train_data, batch_size=self.batch_size)
+
+    def val_dataloader(self):
+        return DataLoader(self.val_data, batch_size=self.batch_size)
+
+    def test_dataloader(self):
+        return DataLoader(self.test_data, batch_size=self.batch_size)
 
 def generate_bandit_dataset(X,y, standardize=False):
     if standardize:
@@ -98,7 +137,7 @@ def generate_bandit_dataset(X,y, standardize=False):
     n_samples = X.shape[0]
     n_features = X.shape[1]
     assert len(y) == n_samples
-    classes = y.values.unique()
+    classes = np.unique(y)
     n_classes = len(classes)
     
     new_X = np.zeros((n_samples*n_classes, n_features+n_classes))
@@ -114,44 +153,26 @@ def generate_bandit_dataset(X,y, standardize=False):
 
 
 if __name__ == "__main__":
-    ID = 1  
+    ID = 41
     TEST_SIZE = 0.75
     SEED = 0
 
     AVAIL_GPUS = min(1, torch.cuda.device_count())
     BATCH_SIZE = 256 if AVAIL_GPUS else 64
 
-    dataset = openml.datasets.get_dataset(ID)
-    Xx, yy, categorical_indicator, attribute_names = dataset.get_data(
-        dataset_format="array", target=dataset.default_target_attribute
-    )
-    X, y = check_X_y(X=Xx, y=yy, ensure_2d=True, multi_output=False)
-    # re-index actions from 0 to n_classes
-    y = (rankdata(y, "dense") - 1).astype(int)
+    # dataset = TensorDataset(
+    #     torch.tensor(new_X, dtype=float),
+    #     torch.tensor(new_Y, dtype=float)
+    # )
+    # early_stopping = EarlyStopping('train_loss')
 
-    (
-        X_pre,
-        X_test,
-        y_pre,
-        y_test
-    ) = train_test_split(
-        X, y, test_size=TEST_SIZE, random_state=SEED
-    )
-
-    new_X, new_Y = generate_bandit_dataset(X, y, standardize=True)
-    dataset = TensorDataset(
-        torch.tensor(new_X, dtype=float),
-        torch.tensor(new_Y, dtype=float)
-    )
-    early_stopping = EarlyStopping('train_loss')
-
-    model = LitOpenML()
-    tb_logger = pl_loggers.TensorBoardLogger("logs/")
-    trainer = Trainer(
-        gpus=AVAIL_GPUS,
-        max_epochs=30,
-        progress_bar_refresh_rate=20,
-        callbacks=[early_stopping],
-        logger=tb_logger
-    )
-    trainer.fit(model)
+    # model = LitOpenML()
+    # tb_logger = pl_loggers.TensorBoardLogger("logs/")
+    # trainer = Trainer(
+    #     gpus=AVAIL_GPUS,
+    #     max_epochs=30,
+    #     progress_bar_refresh_rate=20,
+    #     callbacks=[early_stopping],
+    #     logger=tb_logger
+    # )
+    # trainer.fit(model)

@@ -3,15 +3,17 @@ channels:
   - defaults
 dependencies:
   - python=3.8
-  - pip
-  - numpy
-  - jupyterlab
-  - scikit-learn
+  - pip>=21.1.3
+  - numpy>=1.19.2
+  - jupyterlab>=3.0.14
+  - scikit-learn>=1.0.0
+  - nvidia::cudatoolkit=11.1
   - pytorch::pytorch
   - pytorch::torchvision
   - pip:
-    - hydra-core
-    - hydra-submitit-launcher
-    - matplotlib
-    - pytorch-lightning
+    - hydra-core>=1.1.0
+    - hydra-submitit-launcher>=1.1.5
+    - matplotlib>=3.4.2
+    - pytorch-lightning>=1.5.9
     - openml
+    - pandas>=1.3.0
