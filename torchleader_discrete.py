@@ -1,12 +1,14 @@
+import imp
 import numpy as np
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Any
 from collections import deque, namedtuple
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
-from linearenv import LinearRepresentation
+from sklearn.preprocessing import OneHotEncoder
+from multiclass import MulticlassToBandit
 
 class Critic(nn.Module):
     def __init__(self, dim_context, dim_actions):
@@ -59,63 +61,48 @@ class SimpleBuffer:
             np.array(rewards, dtype=float),
         )
 
-
 @dataclass
-class TorchLeaderDiscrete:
+class XBTorchDiscrete:
 
+    env: Any
     net: nn.Module
-    noise_std: float
-    features_bound: float
-    param_bound: float
-    delta: Optional[float]=0.01
-    seed: Optional[int]=0
     device: Optional[str]="cpu"
     batch_size: Optional[int]=256
     max_epochs: Optional[int]=1
-    weight_l2param: Optional[float]=1.
-    weight_mse: Optional[float]=1
-    weight_spectral: Optional[float]=1
-    weight_l2features: Optional[float]=1
-    buffer_capacity: Optional[int]=10000
     update_every_n_steps: Optional[int] = 100
-    bonus_scale: Optional[float]=1.
     learning_rate: Optional[float]=0.001
-    
+    weight_l2param: Optional[float]=1. #weight_decay
+    buffer_capacity: Optional[int]=10000
+    seed: Optional[int]=0
+    use_onehotencoding: Optional[bool]=False
+
     def reset(self):
         self.t = 1
         self.buffer = SimpleBuffer(capacity=self.buffer_capacity)
         self.instant_reward = np.zeros(1)
         self.best_reward = np.zeros(1)
         self.batch_counter = 0
+        self.enc = None
+        if self.use_onehotencoding:
+            self.enc = OneHotEncoder(sparse=False)
+            self.enc.fit(np.arange(self.env.action_space.n).reshape(-1,1))
 
-    @torch.no_grad()
-    def action(self, context: np.ndarray):
-        dim = self.net.embedding_dim
-        beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound*self.features_bound*self.t/self.weight_l2param)/self.delta)) + self.param_bound * np.sqrt(self.weight_l2param)
+    def _train_loss(self, b_context, b_actions, b_rewards):
+        raise NotImplementedError
 
-        # get features for each action and make it tensor
-        
-        na = self.env.action_space.n        
-        if len(self.buffer) >= self.batch_size:
-            contexts = torch.FloatTensor(np.tile(context, (na,1))).to(self.device)
-            actions = torch.FloatTensor(np.arange(na).reshape(-1,1)).to(self.device)
+    def action(self, context: np.ndarray) -> int:
+        raise NotImplementedError
 
-            prediction = self.net(contexts, actions).detach().numpy().ravel()
-            net_features = self.net.features(contexts, actions).detach().numpy()
-            ucb = np.einsum('...i,...i->...', net_features @ self.inv_A, net_features)
-            ucb = np.sqrt(ucb)
-            ucb = prediction + self.bonus_scale * beta * ucb
-            action = np.argmax(ucb)
-            assert 0 <= action < na, ucb
-        else:
-            action = np.random.randint(0, na, 1).item()
-        return action
+    def _post_update(self, loader):
+        pass
 
     def update(self, context: np.ndarray, action: int, reward: float):
-        v = self.rep.get_features(context, action)
-        self.buffer.add(torch.FloatTensor(v), torch.FloatTensor(reward))
+        if self.enc:
+            action = self.enc.transform(action)
+        exp = Experience(context, action, reward)
+        self.buffer.append(exp)
 
-        if self.t % 100 == 0 and self.t > self.batch_size:
+        if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
             contexts, actions, rewards = self.buffer.get_all()
             torch_dataset = torch.utils.data.TensorDataset(
                 torch.tensor(contexts, dtype=float, device=self.device), 
@@ -131,28 +118,8 @@ class TorchLeaderDiscrete:
             optimizer = torch.optim.Adam(self.net.parameters(), lr=self.learning_rate, weight_decay=self.weight_l2param)
             for epoch in range(self.max_epochs):
                 self.net.train()
-                for b_context, b_actions, b_rewards in loader:# MSE LOSS
-                    prediction = self.net(b_context, b_actions)
-                    mse_loss = F.mse_loss(prediction, b_rewards)
-                    self.writer.add_scalar('mse_loss', mse_loss, self.batch_counter)
-
-                    #DETERMINANT or LOG_MINEIG LOSS
-                    phi = self.net.features(b_context, b_actions)
-                    A = torch.sum(phi[...,None]*phi[:,None], axis=0)
-                    # det_loss = torch.logdet(A)
-                    spectral_loss = torch.log(torch.linalg.eigvalsh(A).min())
-                    self.writer.add_scalar('spectral_loss', spectral_loss, self.batch_counter)
-
-                    # FEATURES NORM LOSS
-                    l2feat_loss = torch.sum(torch.norm(phi, p=2, dim=1))
-                    # l2 reg on parameters can be done in the optimizer
-                    # though weight_decay (https://discuss.pytorch.org/t/simple-l2-regularization/139)
-                    self.writer.add_scalar('l2feat_loss', l2feat_loss, self.batch_counter)
-
-                    # TOTAL LOSS
-                    loss = self.weight_mse * mse_loss - self.weight_spectral * spectral_loss + self.weight_l2features * l2feat_loss
-                    self.writer.add_scalar('loss', loss, self.batch_counter)
-
+                for b_context, b_actions, b_rewards in loader:
+                    loss = self._train_loss(b_context, b_actions, b_rewards)
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
@@ -160,12 +127,15 @@ class TorchLeaderDiscrete:
                     self.batch_counter += 1
             self.net.eval()
 
+            self._post_update(loader)
+
+
     def _continue(self, horizon: int) -> None:
         """Continue learning from the point where we stopped
         """
         self.instant_reward = np.resize(self.instant_reward, horizon)
         self.best_reward = np.resize(self.best_reward, horizon)
-    
+
     def run(self, horizon: int) -> None:
         self.writer = SummaryWriter(f"runs/{type(self).__name__}")
 
@@ -175,14 +145,94 @@ class TorchLeaderDiscrete:
             context = self.env.sample_context()
             action = self.action(context=context)
             reward = self.env.step(action)
-
             # update
             self.update(context, action, reward)
-
             # regret computation
             self.instant_reward[self.t] = self.env.expected_reward(action)
             self.best_reward[self.t] = self.env.best_reward()
-
             self.t += 1
         
         return {"regret": np.cumsum(self.best_reward - self.instant_reward)}
+    
+
+@dataclass
+class TorchLeaderDiscrete(XBTorchDiscrete):
+
+    noise_std: float=1
+    features_bound: float=1
+    param_bound: float=1
+    delta: Optional[float]=0.01
+    weight_mse: Optional[float]=1
+    weight_spectral: Optional[float]=1
+    weight_l2features: Optional[float]=1
+    bonus_scale: Optional[float]=1.
+
+    @torch.no_grad()
+    def action(self, context: np.ndarray):
+        dim = self.net.embedding_dim
+        beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound*self.features_bound*self.t/self.weight_l2param)/self.delta)) + self.param_bound * np.sqrt(self.weight_l2param)
+
+        # get features for each action and make it tensor
+        
+        na = self.env.action_space.n        
+        if len(self.buffer) >= self.batch_size:
+            contexts = torch.FloatTensor(np.tile(context, (na,1))).to(self.device)
+            actions = np.arange(na).reshape(-1,1)
+            if self.enc:
+                actions = self.enc.transform(actions)
+            actions = torch.FloatTensor(actions).to(self.device)
+
+            prediction = self.net(contexts, actions).detach().numpy().ravel()
+            net_features = self.net.features(contexts, actions).detach().numpy()
+            ucb = np.einsum('...i,...i->...', net_features @ self.inv_A, net_features)
+            ucb = np.sqrt(ucb)
+            ucb = prediction + self.bonus_scale * beta * ucb
+            action = np.argmax(ucb)
+            assert 0 <= action < na, ucb
+        else:
+            action = np.random.randint(0, na, 1).item()
+        return action
+
+
+    def _train_loss(self, b_context, b_actions, b_rewards):
+        # MSE LOSS
+        prediction = self.net(b_context, b_actions)
+        mse_loss = F.mse_loss(prediction, b_rewards)
+        self.writer.add_scalar('mse_loss', mse_loss, self.batch_counter)
+
+        #DETERMINANT or LOG_MINEIG LOSS
+        phi = self.net.features(b_context, b_actions)
+        A = torch.sum(phi[...,None]*phi[:,None], axis=0)
+        # det_loss = torch.logdet(A)
+        spectral_loss = torch.log(torch.linalg.eigvalsh(A).min())
+        self.writer.add_scalar('spectral_loss', spectral_loss, self.batch_counter)
+
+        # FEATURES NORM LOSS
+        l2feat_loss = torch.sum(torch.norm(phi, p=2, dim=1))
+        # l2 reg on parameters can be done in the optimizer
+        # though weight_decay (https://discuss.pytorch.org/t/simple-l2-regularization/139)
+        self.writer.add_scalar('l2feat_loss', l2feat_loss, self.batch_counter)
+
+        # TOTAL LOSS
+        loss = self.weight_mse * mse_loss - self.weight_spectral * spectral_loss + self.weight_l2features * l2feat_loss
+        self.writer.add_scalar('loss', loss, self.batch_counter)
+        return loss
+    
+    def _post_update(self, loader):
+        with torch.no_grad():
+            dim = self.net.embedding_dim
+            A = torch.eye(dim) * self.weight_l2param
+            for b_context, b_actions, b_rewards in loader:
+                phi = self.net.features(b_context, b_actions)
+                A = A + torch.sum(phi[...,None]*phi[:,None], axis=0)
+            self.inv_A = torch.linalg.inv(A)
+            
+@dataclass
+class TorchLinUCBDiscrete(TorchLeaderDiscrete):
+
+    def _train_loss(self, b_context, b_actions, b_rewards):
+        # MSE LOSS
+        prediction = self.net(b_context, b_actions)
+        mse_loss = F.mse_loss(prediction, b_rewards)
+        self.writer.add_scalar('mse_loss', mse_loss, self.batch_counter)
+        return mse_loss
