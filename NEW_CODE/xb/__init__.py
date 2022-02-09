@@ -1,1 +1,0 @@
-from .envs.register_problems import load
