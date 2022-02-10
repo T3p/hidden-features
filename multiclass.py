@@ -34,9 +34,9 @@ class MulticlassToBandit:
 
     def __post_init__(self):
         """Initialize Class"""
-        self.X, y = check_X_y(X=self.X, y=self.y, ensure_2d=True, multi_output=False)
+        # self.X, y = check_X_y(X=self.X, y=self.y, ensure_2d=True, multi_output=False)
         # re-index actions from 0 to n_classes
-        self.y = (rankdata(y, "dense") - 1).astype(int)
+        self.y = (rankdata(self.y, "dense") - 1).astype(int)
         self.action_space = DiscreteFix(n=np.unique(self.y).shape[0])
         self.np_random = np.random.RandomState(seed=self.seed)
         assert self.noise in [None, "bernoulli", "gaussian"]
@@ -89,24 +89,28 @@ class MulticlassToBandit:
         """ Return a realization of the reward in the context for the selected action
         """
         assert self.action_space.contains(action), action
-        reward = self.y[self.idx] != action
+        reward = int(self.y[self.idx] == action)
         if self.noise is not None:
             if self.noise == "bernoulli":
                 proba = reward + self.noise_param if reward == 0 else reward - self.noise_param
                 reward = self.np_random.binomial(n=1, p=proba)
             else:
-                reward = reward + self.np_random.randn(1) * self.noise_param        
+                reward = reward + self.np_random.randn(1).item() * self.noise_param        
         return reward
     
-    def best_reward(self) -> float:
-        """ Maximum reward in the current context
+    def best_reward_and_action(self) -> Tuple[int, float]:
+        """ Best action and reward in the current context
         """
-        return 1
+        action = self.y[self.idx]
+        return action, 1
     
     def expected_reward(self, action: int) -> float:
         assert self.action_space.contains(action)
-        return self.y[self.idx] != action
+        return int(self.y[self.idx] == action)
 
+    def __len__(self) -> int:
+        return self.y.shape[0]
+        
     @property
     def n_samples(self) -> int:
         return self.y.shape[0]

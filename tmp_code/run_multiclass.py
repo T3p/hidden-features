@@ -2,7 +2,7 @@ import numpy as np
 from multiclass import MulticlassToBandit, DiscreteFix
 from sklearn.datasets import load_wine
 from sklearn.preprocessing import OneHotEncoder
-from torchleader_discrete import TorchLeaderDiscrete, Critic, TorchLinUCBDiscrete
+from algs.torchleader_discrete import TorchLeaderDiscrete, Critic, TorchLinUCBDiscrete
 import matplotlib.pyplot as plt
 import openml
 
