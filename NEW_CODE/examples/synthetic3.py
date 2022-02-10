@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Jan 21 14:31:16 2022
-Figure 1 from http://proceedings.mlr.press/v139/papini21a.html
+Figure 8 from http://proceedings.mlr.press/v139/papini21a.html
+'Mixing representations'
 """
 import numpy as np
 from xb.envs.contextualfinite import ContextualFinite
-from xb.envs.synthetic import LinearCB
-from xb.envs.synthetic.linutils import is_hls, random_transform, derank_hls, hls_rank
+from xb.envs.synthetic import LinearRandom
+from xb.envs.synthetic.linutils import is_hls, random_transform, fuse_columns
 from xb.algorithms import LinUCB, LinLEADER, LinLeaderSelect
 from xb.runner import Runner
 from copy import deepcopy
@@ -19,37 +20,28 @@ linecycler = cycle(lines)
 T = 10000
 SEED = 0#97764652
 np.random.seed(SEED)
+std = 0.3
 n_runs = 5
 env_seeds = [np.random.randint(99999) for _ in range(n_runs)]
-std = 0.3
-delta = 0.1
+delta = 0.01
 
-#Ground truth
-rep = np.load('../data/jester/jester_post_d33_span33.npz')
-features, param = rep['features'], rep['theta']
-
-env = LinearCB(features, 
-                   param, 
-                   rewards=features @ param, 
+env = LinearRandom(n_contexts=20, 
+                   n_actions=5, 
+                   feature_dim=6, 
                    random_state=SEED,
                    noise_std=std)
-
-rep_files = ['../data/jester/jester_post_d33_span33.npz', 
-             '../data/jester/jester_post_d26_span26.npz',
-             '../data/jester/jester_post_d24_span24.npz',
-             '../data/jester/jester_post_d23_span23.npz',
-             '../data/jester/jester_post_d20_span20.npz', # <- non HLS
-             '../data/jester/jester_post_d17_span17.npz',
-             '../data/jester/jester_post_d16_span16.npz']
-#all representations are non-redundant
-
-reps = [ContextualFinite._rep(np.load(rf)['features']) for rf in rep_files]
+assert is_hls(env.features, env.param)
 
 
-dims = [np.load(rf)['features'].shape[-1] for rf in rep_files]
-ranks = [hls_rank(np.load(rf)['features'], np.load(rf)['theta']) 
-             for rf in rep_files]
-#"""
+hls_features, hls_param = random_transform(env.features, env.param, normalize=True, seed=SEED)
+
+col_pairs = [(0,1), (1,2), (2,3), (3,4), (4,5), (5,0)]
+reps = []
+
+for cp in col_pairs:
+    new_features, new_param = fuse_columns(hls_features, hls_param, cols=cp, transform=True, normalize=True, seed=SEED)
+    assert not is_hls(new_features, new_param)
+    reps.append(ContextualFinite._rep(new_features))
 
 algs = [LinUCB(rep=r, 
                reg_val=1., 
@@ -83,11 +75,7 @@ algs.append(LinLeaderSelect(reps=reps,
 
 for i, algo in enumerate(algs):
     regrets = np.zeros((n_runs, T))
-    if i < len(reps):
-        name = (type(algo).__name__ + ' dim=' + str(dims[i])
-            + (' (HLS)' if ranks[i]==dims[i] else ''))
-    else:
-        name = type(algo).__name__
+    name = type(algo).__name__
     print(f"Running {name}...")
 
     for j in range(n_runs):    
@@ -105,7 +93,5 @@ for i, algo in enumerate(algs):
         high = mean + np.std(regrets, axis=0) / np.sqrt(n_runs)
         plt.fill_between(np.arange(len(mean)), low, high, alpha=0.3)
 
-plt.xscale('log')
 plt.legend()
 plt.show()
-#"""

@@ -1,0 +1,16 @@
+name: xb.simple
+channels:
+  - defaults
+dependencies:
+  - python=3.8
+  - pip
+  - numpy
+  - jupyterlab
+  - scikit-learn
+  - pytorch::pytorch
+  - pytorch::torchvision
+  - pip:
+    - hydra-core
+    - hydra-submitit-launcher
+    - matplotlib
+    - pytorch-lightning

@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Jan 21 14:31:16 2022
-Figure 1 from http://proceedings.mlr.press/v139/papini21a.html
+Figure 1 from http://proceedings.mlr.press/v139/papini21a.html 
+'Motivating example'
 """
 import numpy as np
 from xb.envs.contextualfinite import ContextualFinite
@@ -19,29 +20,37 @@ linecycler = cycle(lines)
 T = 10000
 SEED = 0#97764652
 np.random.seed(SEED)
-n_runs = 20
+n_runs = 5
 env_seeds = [np.random.randint(99999) for _ in range(n_runs)]
 std = 0.3
+delta = 0.01
+dim = 6
 
 env = LinearRandom(n_contexts=20, 
                    n_actions=5, 
-                   feature_dim=6, 
+                   feature_dim=dim, 
                    random_state=SEED,
                    noise_std=std)
 assert is_hls(env.features, env.param)
 
-hls_features, hls_param = random_transform(env.features, env.param, normalize=True)
+hls_features, hls_param = random_transform(env.features, env.param, normalize=True, seed=SEED)
 
 reps = []
+ranks = []
 
 for i in range(1, env.feat_dim):
-    new_features, new_param =  derank_hls(hls_features, hls_param, newrank=i, normalize=True)
-    assert hls_rank(new_features, new_param) == i
+    new_features, new_param =  derank_hls(hls_features, hls_param, newrank=i, 
+                                          normalize=True, 
+                                          transform=True, 
+                                          seed=SEED)
+    rank = hls_rank(new_features, new_param)
+    assert rank == i
+    ranks.append(rank)
     reps.append(ContextualFinite._rep(new_features))
 
 reps.append(ContextualFinite._rep(hls_features))
+ranks.append(6)
 
-delta = 0.1
 
 algs = [LinUCB(rep=r, 
                reg_val=1., 
@@ -75,7 +84,11 @@ algs.append(LinLeaderSelect(reps=reps,
 
 for i, algo in enumerate(algs):
     regrets = np.zeros((n_runs, T))
-    name = type(algo).__name__
+    if i < len(reps):
+        name = (type(algo).__name__ + ' hls_rank=' + str(ranks[i])
+            + (' (HLS)' if ranks[i]==dim else ''))
+    else:
+        name = type(algo).__name__
     print(f"Running {name}...")
 
     for j in range(n_runs):    
@@ -89,8 +102,8 @@ for i, algo in enumerate(algs):
     mean = np.mean(regrets, axis=0)
     plt.plot(mean, next(linecycler), label=name)
     if n_runs > 1:
-        low = mean - 2 * np.std(regrets, axis=0) / n_runs
-        high = mean + 2 * np.std(regrets, axis=0) / n_runs
+        low = mean - np.std(regrets, axis=0) / np.sqrt(n_runs)
+        high = mean + np.std(regrets, axis=0) / np.sqrt(n_runs)
         plt.fill_between(np.arange(len(mean)), low, high, alpha=0.3)
 
 plt.legend()
