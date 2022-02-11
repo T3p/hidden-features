@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from torchvision import datasets, transforms
-from multiclass import MulticlassToBandit
+from envs.multiclass import MulticlassToBandit
 from algs.nnlinucb import NNLinUCB
 
 class Net(nn.Module):
