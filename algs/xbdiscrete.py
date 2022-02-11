@@ -55,6 +55,7 @@ class XBTorchDiscrete:
             optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
             self.model.train()
             for epoch in range(self.max_epochs):
+                lh = []
                 for b_features, b_rewards in loader:
                     loss = self._train_loss(b_features, b_rewards)
                     optimizer.zero_grad()
@@ -62,6 +63,9 @@ class XBTorchDiscrete:
                     optimizer.step()
                     self.writer.flush()
                     self.batch_counter += 1
+                    lh.append(loss.item())
+                if np.mean(lh) < 1e-3:
+                    break
             self.model.eval()
 
             self._post_train(loader)

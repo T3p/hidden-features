@@ -9,7 +9,10 @@ def make_from_dataset(name:str, bandit_model:str=None, seed:int=0, noise:str=Non
     # Fetch data
     if name in ['adult_num', 'adult_onehot']:
         X, y = fetch_openml('adult', version=1, return_X_y=True)
-        X = X.dropna()
+        is_NaN = X.isna()
+        row_has_NaN = is_NaN.any(axis=1)
+        X = X[row_has_NaN]
+        y = y[row_has_NaN]
         cat_ix = X.select_dtypes(include=['category']).columns
         num_ix = X.select_dtypes(include=['int64', 'float64']).columns
         encoder = LabelEncoder()
@@ -23,7 +26,7 @@ def make_from_dataset(name:str, bandit_model:str=None, seed:int=0, noise:str=Non
             X = np.concatenate((num_features, cat_features), axis=1)
         else:
             X = StandardScaler().fit_transform(X)
-    elif name in ['mushroom_num','mushroom_onehot']:
+    elif name in ['mushroom_num', 'mushroom_onehot']:
         X, y = fetch_openml('mushroom', version=1, return_X_y=True)
         encoder = LabelEncoder()
         # now apply the transformation to all the columns:

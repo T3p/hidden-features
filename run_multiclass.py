@@ -4,22 +4,30 @@ from algs.nnepsilongreedy import NNEpsGreedy
 import torch
 import torch.nn as nn 
 from torch.nn import functional as F
+from torch.nn.modules import Module
 import matplotlib.pyplot as plt
 import numpy as np
 
 class Network(nn.Module):
 
-    def __init__(self, dim, hidden_size=100):
+    def __init__(self, input_size:int, layers_data:list):
         super().__init__()
-        self.fc1 = nn.Sequential(
-            nn.Linear(dim, hidden_size),
-            nn.ReLU()
-        )
-        self.fc2 = nn.Linear(hidden_size, 1)
-        self.embedding_dim = hidden_size
+        self.layers = nn.ModuleList()
+        self.input_size = input_size  # Can be useful later ...
+        for size, activation in layers_data:
+            self.layers.append(nn.Linear(input_size, size))
+            input_size = size  # For the next layer
+            if activation is not None:
+                assert isinstance(activation, Module), \
+                    "Each tuples should contain a size (int) and a torch.nn.modules.Module."
+                self.layers.append(activation)
+        self.embedding_dim = layers_data[-1][0]
+        self.fc2 = nn.Linear(self.embedding_dim, 1, bias=False)
     
     def embedding(self, x):
-        return self.fc1(x)
+        for layer in self.layers:
+            x = layer(x)
+        return x
 
     def forward(self, x):
         x = self.embedding(x)
@@ -32,7 +40,7 @@ def train_full(X, y, model, learning_rate=1e-2, weight_decay=0, max_epochs=10, b
                 )
 
     loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=batch_size, shuffle=True)
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model.train()
     batch_counter = 0
     tot_loss = []
@@ -46,6 +54,8 @@ def train_full(X, y, model, learning_rate=1e-2, weight_decay=0, max_epochs=10, b
             optimizer.step()
             batch_counter += 1
             lh.append(loss.item())
+        if np.mean(lh) < 1e-3:
+            break
         tot_loss.append(np.mean(lh))
 
     return {
@@ -57,7 +67,8 @@ if __name__ == "__main__":
     T = len(env)
     # T = 4000
     # env = bandits.Bandit_Linear(feature_dim=10, arms=5, noise=0.1, seed=0)
-    net = Network(env.feature_dim, hidden_size=100)
+    net = Network(env.feature_dim, [(100, nn.ReLU())])
+    print(net)
 
     # X, Y = None, None
     # for i in range(len(env)):
@@ -70,19 +81,21 @@ if __name__ == "__main__":
 
     # print(X.shape, Y.shape)
 
-    # idx = np.random.randint(0, X.shape[0], size=8000)
-    # idx = np.where(Y)
-    # X = X[idx]
-    # Y = Y[idx]
-    # print(X.shape, Y.shape)
+    # # idx = np.random.randint(0, X.shape[0], size=8000)
+    # # idx = np.where(Y)
+    # # X = X[idx]
+    # # Y = Y[idx]
+    # # print(X.shape, Y.shape)
 
     # results = train_full(
     #     X=X, y=Y, model=net, 
-    #     learning_rate=0.25, weight_decay=0,
-    #     max_epochs=20, batch_size=64
+    #     learning_rate=0.001, weight_decay=0,
+    #     max_epochs=600, batch_size=32
     # )
     # plt.plot(results['loss'])
     # plt.show()
+    # exit(0)
+
 
     algo = NNLinUCB(
         env=env,
