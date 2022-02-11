@@ -21,14 +21,15 @@ class NNLinUCB(XBTorchDiscrete):
 
     noise_std: float=1
     delta: Optional[float]=0.01
+    ucb_regularizer: Optional[float]=1
     weight_mse: Optional[float]=1
     bonus_scale: Optional[float]=1.
 
     def __post_init__(self):
         dim = self.model.embedding_dim
-        self.b_vec = torch.zeros(dim)
-        self.inv_A = torch.eye(dim) / self.weight_l2param
-        self.theta = torch.zeros(dim)
+        self.b_vec = torch.zeros(dim, dtype=torch.float)
+        self.inv_A = torch.eye(dim, dtype=torch.float) / self.ucb_regularizer
+        self.theta = torch.zeros(dim, dtype=torch.float)
         self.param_bound = 1
         self.features_bound = 1
 
@@ -46,7 +47,7 @@ class NNLinUCB(XBTorchDiscrete):
     def play_action(self, features: np.ndarray):
         assert features.shape[0] == self.env.action_space.n
         dim = self.model.embedding_dim
-        beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound*self.features_bound*self.t/self.weight_l2param)/self.delta)) + self.param_bound * np.sqrt(self.weight_l2param)
+        beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound*self.features_bound*self.t/self.ucb_regularizer)/self.delta)) + self.param_bound * np.sqrt(self.ucb_regularizer)
 
         # get features for each action and make it tensor
         xt = torch.FloatTensor(features).to(self.device)
@@ -78,10 +79,10 @@ class NNLinUCB(XBTorchDiscrete):
     
     def _post_train(self, loader=None):
         with torch.no_grad():
-            # A = np.eye(dim) * self.weight_l2param
+            # A = np.eye(dim) * self.ucb_regularizer
             dim = self.model.embedding_dim
             self.b_vec = torch.zeros(dim)
-            self.inv_A = torch.eye(dim) / self.weight_l2param
+            self.inv_A = torch.eye(dim) / self.ucb_regularizer
             self.features_bound = 0
             for b_features, b_rewards in loader:
                 phi = self.model.embedding(b_features) #.cpu().detach().numpy()

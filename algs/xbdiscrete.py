@@ -20,10 +20,11 @@ class XBTorchDiscrete:
     max_epochs: Optional[int]=1
     update_every_n_steps: Optional[int] = 100
     learning_rate: Optional[float]=0.001
-    weight_l2param: Optional[float]=1. #weight_decay
+    weight_decay: Optional[float]=0
     buffer_capacity: Optional[int]=10000
+    seed: Optional[int]=0
 
-    def reset(self):
+    def reset(self) -> None:
         self.t = 0
         self.buffer = FRSimpleBuffer(capacity=self.buffer_capacity)
         self.instant_reward = np.zeros(1)
@@ -32,17 +33,17 @@ class XBTorchDiscrete:
         self.best_action_history = np.zeros(1, dtype=int)
         self.batch_counter = 0
 
-    def play_action(self, context: np.ndarray):
-        raise NotImplementedError
+    # def play_action(self, context: np.ndarray) -> int:
+    #     raise NotImplementedError
 
-    def _post_train(self, loader=None):
-        raise NotImplementedError
+    def _post_train(self, loader=None) -> None:
+        pass
 
     def add_sample(self, context: np.ndarray, action: int, reward: float, features: np.ndarray) -> None:
         exp = FRExperience(features, reward)
         self.buffer.append(exp)
 
-    def train(self):
+    def train(self) -> None:
         if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
             features, rewards = self.buffer.get_all()
             torch_dataset = torch.utils.data.TensorDataset(
@@ -51,9 +52,9 @@ class XBTorchDiscrete:
                 )
 
             loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
-            optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_l2param)
+            optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+            self.model.train()
             for epoch in range(self.max_epochs):
-                self.model.train()
                 for b_features, b_rewards in loader:
                     loss = self._train_loss(b_features, b_rewards)
                     optimizer.zero_grad()
@@ -106,6 +107,10 @@ class XBTorchDiscrete:
                     self.action_history[:self.t+1] == self.best_action_history[:self.t+1]
                 )
                 postfix['% optimal arm'] = '{:.2%}'.format(p_optimal_arm)
+
+                self.writer.add_scalar("regret", postfix['total regret'], self.t)
+                self.writer.add_scalar('perc optimal arm', p_optimal_arm, self.t)
+                self.writer.flush()
 
                 if self.t % throttle == 0:
                     pbar.set_postfix(postfix)
