@@ -32,6 +32,7 @@ class XBTorchDiscrete:
         self.action_history = np.zeros(1, dtype=int)
         self.best_action_history = np.zeros(1, dtype=int)
         self.batch_counter = 0
+        self.model.to(self.device)
 
     # def play_action(self, context: np.ndarray) -> int:
     #     raise NotImplementedError

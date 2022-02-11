@@ -63,7 +63,7 @@ def train_full(X, y, model, learning_rate=1e-2, weight_decay=0, max_epochs=10, b
     }
 
 if __name__ == "__main__":
-    env = bandits.make_from_dataset("mushroom_num", bandit_model="expanded")
+    env = bandits.make_from_dataset("covertype", bandit_model="expanded")
     T = len(env)
     # T = 4000
     # env = bandits.Bandit_Linear(feature_dim=10, arms=5, noise=0.1, seed=0)

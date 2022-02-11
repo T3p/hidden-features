@@ -1,5 +1,5 @@
 from .multiclass import MulticlassToBandit, MCOneHot, MCExpanded
-from sklearn.datasets import fetch_openml
+from sklearn.datasets import fetch_openml, fetch_covtype
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.preprocessing import OneHotEncoder
 import numpy as np
@@ -38,6 +38,9 @@ def make_from_dataset(name:str, bandit_model:str=None, seed:int=0, noise:str=Non
             X = OneHotEncoder(sparse=False).fit_transform(X)
         else:
             X = StandardScaler().fit_transform(X)
+    elif name in ['covertype']:
+        X, y = fetch_covtype(return_X_y=True)
+        X = StandardScaler().fit_transform(X)
     else:
         raise RuntimeError('Dataset does not exist')
 
