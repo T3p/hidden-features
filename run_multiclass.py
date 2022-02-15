@@ -1,6 +1,7 @@
 import envs as bandits
 from algs.nnlinucb import NNLinUCB
 from algs.nnepsilongreedy import NNEpsGreedy
+from algs.nnleader import NNLeader
 import torch
 import torch.nn as nn 
 from torch.nn import functional as F
@@ -8,6 +9,7 @@ from torch.nn.modules import Module
 import matplotlib.pyplot as plt
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
+import tqdm
 
 class Network(nn.Module):
 
@@ -46,69 +48,80 @@ def train_full(X, y, model, learning_rate=1e-2, weight_decay=0, max_epochs=10, b
     model.train()
     batch_counter = 0
     tot_loss = []
-    for epoch in range(max_epochs):
-        lh = []
-        for b_features, b_rewards in loader:
-            pred = model(b_features)
-            loss = F.mse_loss(pred, b_rewards)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            batch_counter += 1
-            lh.append(loss.item())
-        writer.add_scalar("epoch_loss", np.mean(lh), epoch)
-        if np.mean(lh) < 1e-3:
-            break
-        tot_loss.append(np.mean(lh))
+    postfix = {
+            'loss': 0.0,
+        }
+    with tqdm(initial=0, total=max_epochs, postfix=postfix) as pbar:
+        for epoch in range(max_epochs):
+            lh = []
+            for b_features, b_rewards in loader:
+                pred = model(b_features)
+                loss = F.mse_loss(pred, b_rewards)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                batch_counter += 1
+                lh.append(loss.item())
+            writer.add_scalar("epoch_loss", np.mean(lh), epoch)
+            if np.mean(lh) < 1e-3:
+                break
+            tot_loss.append(np.mean(lh))
+            postfix['loss'] = tot_loss[-1]
+            pbar.set_postfix(postfix)
+            pbar.update(1)
 
     return {
         'loss': tot_loss
     }
 
 if __name__ == "__main__":
-    env = bandits.make_from_dataset("covertype", bandit_model="expanded")
+    env = bandits.make_from_dataset("magic", bandit_model="expanded")
+    print(f"Samples: {env.X.shape}")
+    print(f'Labels: {np.unique(env.y)}')
+
     T = len(env)
     # T = 4000
     # env = bandits.Bandit_Linear(feature_dim=10, arms=5, noise=0.1, seed=0)
     net = Network(env.feature_dim, [(100, nn.ReLU())])
     print(net)
 
-    X, Y = None, None
-    for i in range(len(env)):
-        x, y = env.__getitem__(i)
-        if X is None:
-            X = x 
-            Y = y
-        X = np.concatenate((X,x), axis=0)
-        Y = np.concatenate((Y,y), axis=0)
+    print(f'Input features dim: {env.feature_dim}')
 
-    print(X.shape, Y.shape)
+    # X, Y = None, None
+    # for i in range(len(env)):
+    #     x, y = env.__getitem__(i)
+    #     if X is None:
+    #         X = x 
+    #         Y = y
+    #     X = np.concatenate((X,x), axis=0)
+    #     Y = np.concatenate((Y,y), axis=0)
 
-    # idx = np.random.randint(0, X.shape[0], size=8000)
-    # idx = np.where(Y)
-    # X = X[idx]
-    # Y = Y[idx]
-    # print(X.shape, Y.shape)
+    # # idx = np.random.randint(0, X.shape[0], size=8000)
+    # # idx = np.where(Y)
+    # # X = X[idx]
+    # # Y = Y[idx]
+    # # print(X.shape, Y.shape)
+    # print(f"Features (expanded): {X.shape}")
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    net.to(device)
-    results = train_full(
-        X=X, y=Y, model=net, 
-        learning_rate=1e-2, weight_decay=0.00001,
-        max_epochs=1000, batch_size=64,
-        device=device
-    )
-    plt.plot(results['loss'])
-    plt.show()
-    exit(0)
+    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # net.to(device)
+    # results = train_full(
+    #     X=X, y=Y, model=net, 
+    #     learning_rate=1e-2, weight_decay=0.00001,
+    #     max_epochs=1000, batch_size=64,
+    #     device=device
+    # )
+    # plt.plot(results['loss'])
+    # plt.show()
+    # exit(0)
 
 
     # algo = NNLinUCB(
     #     env=env,
     #     model=net,
     #     batch_size=64,
-    #     max_epochs=10,
-    #     update_every_n_steps=100,
+    #     max_epochs=100,
+    #     update_every_n_steps=250,
     #     learning_rate=0.01,
     #     buffer_capacity=T,
     #     noise_std=1,
@@ -131,6 +144,23 @@ if __name__ == "__main__":
     #     epsilon_decay=2000,
     #     weight_decay=0
     # )
+    algo = NNLeader(
+        env=env,
+        model=net,
+        batch_size=64,
+        max_epochs=100,
+        update_every_n_steps=250,
+        learning_rate=0.01,
+        buffer_capacity=T,
+        noise_std=1,
+        delta=0.01,
+        weight_decay=1e-4,
+        weight_mse=0,
+        weight_spectral=-0.25,
+        weight_l2features=0,
+        ucb_regularizer=1,
+        bonus_scale=0.1
+    )
     algo.reset()
     results = algo.run(horizon=T)
 

@@ -50,7 +50,7 @@ def make_from_dataset(name:str, bandit_model:str=None, seed:int=0, noise:str=Non
         X, y = fetch_openml('shuttle', version=1, return_X_y=True)
         X = StandardScaler().fit_transform(X)
         y = LabelEncoder().fit_transform(y)
-    elif name == 'MagicTelescope':
+    elif name == 'magic':
         # https://www.openml.org/d/1120
         # all numeric, no missing values
         X, y = fetch_openml('MagicTelescope', version=1, return_X_y=True)

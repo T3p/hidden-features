@@ -44,7 +44,7 @@ class XBTorchDiscrete:
         exp = FRExperience(features, reward)
         self.buffer.append(exp)
 
-    def train(self) -> None:
+    def train(self) -> int:
         if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
             features, rewards = self.buffer.get_all()
             torch_dataset = torch.utils.data.TensorDataset(
@@ -55,6 +55,7 @@ class XBTorchDiscrete:
             loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
             optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
             self.model.train()
+            last_loss = 0.0
             for epoch in range(self.max_epochs):
                 lh = []
                 for b_features, b_rewards in loader:
@@ -65,11 +66,14 @@ class XBTorchDiscrete:
                     self.writer.flush()
                     self.batch_counter += 1
                     lh.append(loss.item())
-                if np.mean(lh) < 1e-3:
+                last_loss = np.mean(lh)
+                if last_loss < 1e-3:
                     break
             self.model.eval()
 
             self._post_train(loader)
+            return last_loss
+        return None
 
     def _continue(self, horizon: int) -> None:
         """Continue learning from the point where we stopped
@@ -86,6 +90,7 @@ class XBTorchDiscrete:
         postfix = {
             'total regret': 0.0,
             '% optimal arm': 0.0,
+            'train loss': 0.0
         }
         with tqdm(initial=self.t, total=horizon, postfix=postfix) as pbar:
             while (self.t < horizon):
@@ -95,7 +100,7 @@ class XBTorchDiscrete:
                 reward = self.env.step(action)
                 # update
                 self.add_sample(context, action, reward, features[action])
-                self.train()
+                train_loss = self.train()
 
                 # log regret
                 best_reward, best_action = self.env.best_reward_and_action()
@@ -112,6 +117,8 @@ class XBTorchDiscrete:
                     self.action_history[:self.t+1] == self.best_action_history[:self.t+1]
                 )
                 postfix['% optimal arm'] = '{:.2%}'.format(p_optimal_arm)
+                if train_loss:
+                    postfix['train loss'] = train_loss
 
                 self.writer.add_scalar("regret", postfix['total regret'], self.t)
                 self.writer.add_scalar('perc optimal arm', p_optimal_arm, self.t)

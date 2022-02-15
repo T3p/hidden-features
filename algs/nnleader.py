@@ -1,44 +1,31 @@
-import imp
 import numpy as np
 from dataclasses import dataclass
 from typing import Optional, Any
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from torch.utils.tensorboard import SummaryWriter
-from sklearn.preprocessing import OneHotEncoder
-from replaybuffer import SimpleBuffer, Experience
 
-
-
-
-    
+from .nnlinucb import NNLinUCB
 
 @dataclass
-class TorchLeaderDiscrete(XBTorchDiscrete):
+class NNLeader(NNLinUCB):
 
-    noise_std: float=1
-    features_bound: float=1
-    param_bound: float=1
-    delta: Optional[float]=0.01
-    weight_mse: Optional[float]=1
-    weight_spectral: Optional[float]=1
-    weight_l2features: Optional[float]=1
-    bonus_scale: Optional[float]=1.
+    weight_spectral: Optional[float]=-0.001
+    weight_l2features: Optional[float]=0
 
-    def _train_loss(self, b_context, b_actions, b_rewards):
+    def _train_loss(self, b_features, b_rewards):
         loss = 0
         # MSE LOSS
         if not np.isclose(self.weight_mse,0):
-            prediction = self.net(b_context, b_actions)
+            prediction = self.model(b_features)
             mse_loss = F.mse_loss(prediction, b_rewards)
             self.writer.add_scalar('mse_loss', mse_loss, self.batch_counter)
-            loss = loss + self.weight_mse * mse_loss 
+            loss = loss + self.weight_mse * mse_loss
 
         #DETERMINANT or LOG_MINEIG LOSS
         if not np.isclose(self.weight_spectral,0):
-            phi = self.net.features(b_context, b_actions)
-            A = torch.sum(phi[...,None]*phi[:,None], axis=0)
+            phi = self.model.embedding(b_features)
+            A = torch.sum(phi[...,None]*phi[:,None], axis=0) + 1e-3 * torch.eye(phi.shape[1])
             # det_loss = torch.logdet(A)
             spectral_loss = torch.log(torch.linalg.eigvalsh(A).min())
             self.writer.add_scalar('spectral_loss', spectral_loss, self.batch_counter)
