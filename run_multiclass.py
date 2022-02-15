@@ -90,10 +90,13 @@ if __name__ == "__main__":
     # Y = Y[idx]
     # print(X.shape, Y.shape)
 
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    net.to(device)
     results = train_full(
         X=X, y=Y, model=net, 
         learning_rate=1e-2, weight_decay=0.00001,
-        max_epochs=1000, batch_size=64
+        max_epochs=1000, batch_size=64,
+        device=device
     )
     plt.plot(results['loss'])
     plt.show()
