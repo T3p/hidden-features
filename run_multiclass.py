@@ -7,6 +7,7 @@ from torch.nn import functional as F
 from torch.nn.modules import Module
 import matplotlib.pyplot as plt
 import numpy as np
+from torch.utils.tensorboard import SummaryWriter
 
 class Network(nn.Module):
 
@@ -34,6 +35,7 @@ class Network(nn.Module):
         return self.fc2(x)
 
 def train_full(X, y, model, learning_rate=1e-2, weight_decay=0, max_epochs=10, batch_size=64, device="cpu"):
+    writer = SummaryWriter(f"tblogs/train")
     torch_dataset = torch.utils.data.TensorDataset(
                 torch.tensor(X, dtype=torch.float, device=device),
                 torch.tensor(y.reshape(-1,1), dtype=torch.float, device=device)
@@ -54,6 +56,7 @@ def train_full(X, y, model, learning_rate=1e-2, weight_decay=0, max_epochs=10, b
             optimizer.step()
             batch_counter += 1
             lh.append(loss.item())
+        writer.add_scalar("epoch_loss", np.mean(lh), epoch)
         if np.mean(lh) < 1e-3:
             break
         tot_loss.append(np.mean(lh))
@@ -89,8 +92,8 @@ if __name__ == "__main__":
 
     results = train_full(
         X=X, y=Y, model=net, 
-        learning_rate=0.01, weight_decay=0,
-        max_epochs=100, batch_size=32
+        learning_rate=1e-2, weight_decay=0.00001,
+        max_epochs=1000, batch_size=64
     )
     plt.plot(results['loss'])
     plt.show()

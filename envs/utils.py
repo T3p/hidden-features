@@ -11,8 +11,8 @@ def make_from_dataset(name:str, bandit_model:str=None, seed:int=0, noise:str=Non
         X, y = fetch_openml('adult', version=1, return_X_y=True)
         is_NaN = X.isna()
         row_has_NaN = is_NaN.any(axis=1)
-        X = X[row_has_NaN]
-        y = y[row_has_NaN]
+        X = X[~row_has_NaN]
+        y = y[~row_has_NaN]
         cat_ix = X.select_dtypes(include=['category']).columns
         num_ix = X.select_dtypes(include=['int64', 'float64']).columns
         encoder = LabelEncoder()
@@ -42,10 +42,6 @@ def make_from_dataset(name:str, bandit_model:str=None, seed:int=0, noise:str=Non
         # https://www.openml.org/d/150
         # there are some 0/1 features -> consider just numeric
         X, y = fetch_openml('covertype', version=3, return_X_y=True)
-        is_NaN = X.isna()
-        row_has_NaN = is_NaN.any(axis=1)
-        X = X[row_has_NaN]
-        y = y[row_has_NaN]
         X = StandardScaler().fit_transform(X)
         y = LabelEncoder().fit_transform(y)
     elif name == 'shuttle':
