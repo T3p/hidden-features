@@ -40,7 +40,7 @@ def train_full(X, y, model, learning_rate=1e-2, weight_decay=0, max_epochs=10, b
                 )
 
     loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=batch_size, shuffle=True)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model.train()
     batch_counter = 0
     tot_loss = []
@@ -70,48 +70,48 @@ if __name__ == "__main__":
     net = Network(env.feature_dim, [(100, nn.ReLU())])
     print(net)
 
-    # X, Y = None, None
-    # for i in range(len(env)):
-    #     x, y = env.__getitem__(i)
-    #     if X is None:
-    #         X = x 
-    #         Y = y
-    #     X = np.concatenate((X,x), axis=0)
-    #     Y = np.concatenate((Y,y), axis=0)
+    X, Y = None, None
+    for i in range(len(env)):
+        x, y = env.__getitem__(i)
+        if X is None:
+            X = x 
+            Y = y
+        X = np.concatenate((X,x), axis=0)
+        Y = np.concatenate((Y,y), axis=0)
 
+    print(X.shape, Y.shape)
+
+    # idx = np.random.randint(0, X.shape[0], size=8000)
+    # idx = np.where(Y)
+    # X = X[idx]
+    # Y = Y[idx]
     # print(X.shape, Y.shape)
 
-    # # idx = np.random.randint(0, X.shape[0], size=8000)
-    # # idx = np.where(Y)
-    # # X = X[idx]
-    # # Y = Y[idx]
-    # # print(X.shape, Y.shape)
-
-    # results = train_full(
-    #     X=X, y=Y, model=net, 
-    #     learning_rate=0.001, weight_decay=0,
-    #     max_epochs=600, batch_size=32
-    # )
-    # plt.plot(results['loss'])
-    # plt.show()
-    # exit(0)
-
-
-    algo = NNLinUCB(
-        env=env,
-        model=net,
-        batch_size=64,
-        max_epochs=10,
-        update_every_n_steps=100,
-        learning_rate=0.01,
-        buffer_capacity=T,
-        noise_std=1,
-        delta=0.01,
-        weight_decay=1e-4,
-        weight_mse=1,
-        ucb_regularizer=1,
-        bonus_scale=0.1
+    results = train_full(
+        X=X, y=Y, model=net, 
+        learning_rate=0.01, weight_decay=0,
+        max_epochs=100, batch_size=32
     )
+    plt.plot(results['loss'])
+    plt.show()
+    exit(0)
+
+
+    # algo = NNLinUCB(
+    #     env=env,
+    #     model=net,
+    #     batch_size=64,
+    #     max_epochs=10,
+    #     update_every_n_steps=100,
+    #     learning_rate=0.01,
+    #     buffer_capacity=T,
+    #     noise_std=1,
+    #     delta=0.01,
+    #     weight_decay=1e-4,
+    #     weight_mse=1,
+    #     ucb_regularizer=1,
+    #     bonus_scale=0.1
+    # )
     # algo = NNEpsGreedy(
     #     env=env,
     #     model=net,

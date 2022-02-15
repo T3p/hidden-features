@@ -39,8 +39,27 @@ def make_from_dataset(name:str, bandit_model:str=None, seed:int=0, noise:str=Non
         else:
             X = StandardScaler().fit_transform(X)
     elif name in ['covertype']:
-        X, y = fetch_covtype(return_X_y=True)
+        # https://www.openml.org/d/150
+        # there are some 0/1 features -> consider just numeric
+        X, y = fetch_openml('covertype', version=3, return_X_y=True)
+        is_NaN = X.isna()
+        row_has_NaN = is_NaN.any(axis=1)
+        X = X[row_has_NaN]
+        y = y[row_has_NaN]
         X = StandardScaler().fit_transform(X)
+        y = LabelEncoder().fit_transform(y)
+    elif name == 'shuttle':
+        # https://www.openml.org/d/40685
+        # all numeric, no missing values
+        X, y = fetch_openml('shuttle', version=1, return_X_y=True)
+        X = StandardScaler().fit_transform(X)
+        y = LabelEncoder().fit_transform(y)
+    elif name == 'MagicTelescope':
+        # https://www.openml.org/d/1120
+        # all numeric, no missing values
+        X, y = fetch_openml('MagicTelescope', version=1, return_X_y=True)
+        X = StandardScaler().fit_transform(X)
+        y = LabelEncoder().fit_transform(y)
     else:
         raise RuntimeError('Dataset does not exist')
 
