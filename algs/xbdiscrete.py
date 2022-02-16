@@ -49,6 +49,9 @@ class XBTorchDiscrete():
 
     def train(self) -> int:
         if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
+            for layer in self.model.children():
+                if hasattr(layer, 'reset_parameters'):
+                    layer.reset_parameters()
             features, rewards = self.buffer.get_all()
             torch_dataset = torch.utils.data.TensorDataset(
                 torch.tensor(features, dtype=torch.float, device=self.device),

@@ -38,7 +38,7 @@ class NNLinUCB(XBTorchDiscrete):
         if not np.isclose(self.weight_mse,0):
             prediction = self.model(b_features)
             mse_loss = F.mse_loss(prediction, b_rewards)
-            self.writer.add_scalar('mse_loss', mse_loss, self.batch_counter)
+            self.writer.add_scalar('mse_loss', self.weight_mse * mse_loss, self.batch_counter)
             loss = loss + self.weight_mse * mse_loss 
         return loss
     

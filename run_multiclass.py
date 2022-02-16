@@ -11,6 +11,8 @@ import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 import tqdm
 import argparse
+import json
+import os
 
 class Network(nn.Module):
 
@@ -47,11 +49,12 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=0, help='random seed')
     parser.add_argument('--noise', type=str, default=None, help='noise type [None, "bernoulli", "gaussian"]')
     parser.add_argument('--noise_param', type=str, default=0.3, help='noise type [None, "bernoulli", "gaussian"]')
-    parser.add_argument('--bandittype', default='expanded', metavar='DATASET', help="expanded or num")
+    parser.add_argument('--bandittype', default='extended', metavar='DATASET', help="expanded or onehot")
     parser.add_argument('--layers', nargs='+', type=int, default=100, help="dimension of each layer (example --layers 100 200)")
-    parser.add_argument('--algo', type=str, default="nnlinucb", help='algorithm [nnlinucb, nnleader]')
-    parser.add_argument('--max_epochs', type=int, default=250, help="maximum number of epochs")
-    parser.add_argument('--update_every', type=int, default=250, help="Update every N samples")
+    parser.add_argument('--algo', type=str, default="nnleader", help='algorithm [nnlinucb, nnleader]')
+    parser.add_argument('--max_epochs', type=int, default=1000, help="maximum number of epochs")
+    parser.add_argument('--update_every', type=int, default=500, help="Update every N samples")
+    parser.add_argument('--config_name', type=str, default="", help='configuration name used to create the log')
 
     args = parser.parse_args()
     env = bandits.make_from_dataset(
@@ -84,7 +87,7 @@ if __name__ == "__main__":
             batch_size=256,
             max_epochs=args.max_epochs,
             update_every_n_steps=args.update_every,
-            learning_rate=0.01,
+            learning_rate=0.001,
             buffer_capacity=T,
             noise_std=1,
             delta=0.01,
@@ -113,19 +116,29 @@ if __name__ == "__main__":
             batch_size=256,
             max_epochs=args.max_epochs,
             update_every_n_steps=args.update_every,
-            learning_rate=0.01,
+            learning_rate=0.001,
             buffer_capacity=T,
             noise_std=1,
             delta=0.01,
             weight_decay=weight_decay,
-            weight_mse=0,
-            weight_spectral=-0.25,
+            weight_mse=1,
+            weight_spectral=-0.1,
             weight_l2features=0,
             ucb_regularizer=1,
             bonus_scale=bonus_scale
         )
     algo.reset()
-    results = algo.run(horizon=T, log_path=f"tblogs/{type(algo).__name__}_{args.dataset}_{args.bandittype}")
+    log_path = f"tblogs/{type(algo).__name__}_{args.dataset}_{args.bandittype}{args.config_name}"
+    isExist = os.path.exists(log_path)
+    if not isExist:
+        # Create a new directory because it does not exist 
+        os.makedirs(log_path)
+
+    config = vars(args)
+    with open(os.path.join(log_path, "config.json"), "w") as f:
+        json.dump(config,f, indent=4, sort_keys=True)
+
+    results = algo.run(horizon=T, log_path=log_path)
 
     plt.figure()
     plt.plot(results['regret'])
