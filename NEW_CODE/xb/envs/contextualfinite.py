@@ -13,7 +13,7 @@ class ContextualFinite():
             return self.features[context['id'], action['id']]
         
         def feature_bound(self):
-            np.amax(np.linalg.norm(self.features, axis=-1))
+            return np.amax(np.linalg.norm(self.features, axis=-1))
 
     def __init__(self, features, labels, random_state=0, noise_std=0.3) -> None:
         self.features = features

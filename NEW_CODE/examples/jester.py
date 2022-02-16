@@ -16,7 +16,7 @@ from itertools import cycle
 lines = ["-","--","-.",":"]
 linecycler = cycle(lines)
 
-T = 10000
+T = 100000
 SEED = 0#97764652
 np.random.seed(SEED)
 n_runs = 5
@@ -79,6 +79,18 @@ algs.append(LinLeaderSelect(reps=reps,
                             delta=delta,
                             adaptive_ci=True,
                             random_state=SEED,
+                            normalize=False
+))
+
+algs.append(LinLeaderSelect(reps=reps,
+                            reg_val=1.,
+                            noise_std=std,
+                            features_bound=[r.feature_bound() for r in reps], 
+                            param_bound= 1., 
+                            delta=delta,
+                            adaptive_ci=True,
+                            random_state=SEED,
+                            normalize=True
 ))
 
 for i, algo in enumerate(algs):
@@ -87,7 +99,7 @@ for i, algo in enumerate(algs):
         name = (type(algo).__name__ + ' dim=' + str(dims[i])
             + (' (HLS)' if ranks[i]==dims[i] else ''))
     else:
-        name = type(algo).__name__
+        name = type(algo).__name__ + (' (normalized)' if i==len(algs)-1 else '')
     print(f"Running {name}...")
 
     for j in range(n_runs):    
@@ -105,7 +117,7 @@ for i, algo in enumerate(algs):
         high = mean + np.std(regrets, axis=0) / np.sqrt(n_runs)
         plt.fill_between(np.arange(len(mean)), low, high, alpha=0.3)
 
-plt.xscale('log')
+#plt.xscale('log')
 plt.legend()
 plt.show()
 #"""

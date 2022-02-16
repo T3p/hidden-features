@@ -10,22 +10,26 @@ class LinLeaderSelect(LinLEADER):
         param_bound,
         bonus_scale=1., delta=0.01, 
         adaptive_ci=True, random_state=0,
-        time_multiplier_update : int = 2
+        time_multiplier_update : int = 2,
+        normalize=True
     ) -> None:
         super().__init__(
             reps=reps, reg_val=reg_val, noise_std=noise_std,
             features_bound=features_bound, param_bound=param_bound,
             bonus_scale=bonus_scale, delta=delta, 
-            adaptive_ci=adaptive_ci, random_state=random_state
+            adaptive_ci=adaptive_ci, random_state=random_state,
         )
         self.time_update = 1
         self.time_multiplier_update = time_multiplier_update
         self.selected_rep = None
+        self.normalize = normalize
+        self.feature_bounds = features_bound
 
     def reset(self):
         super().reset()
         self.time_update = 1
         self.mineig = []
+        self.normalized_rep_scores = []
 
     def action(self, context, available_actions):
         if self.n_updates % self.time_update == 0:
@@ -39,13 +43,20 @@ class LinLeaderSelect(LinLEADER):
             #     max_eigs_inv[i] = np.real(eigs).max()
             # self.selected_rep = np.argmin(max_eigs_inv)
             min_eigs = np.zeros(M)
+            normalized_rep_scores = np.zeros(M)
             for i in range(M):
                 dm = self.algs[i].A
                 eigs, _ = np.linalg.eig(dm)
                 assert np.isclose(np.imag(eigs).max(), 0)
                 min_eigs[i] = np.real(eigs).min()
+                normalized_rep_scores[i] = min_eigs[i] / self.feature_bounds[i]**2
             self.mineig.append(min_eigs)
-            winners = np.argwhere(min_eigs == min_eigs.max()).flatten().tolist()
+            self.normalized_rep_scores.append(normalized_rep_scores)
+            if self.normalize:
+                winners = np.argwhere(normalized_rep_scores == 
+                                      normalized_rep_scores.max()).flatten().tolist()
+            else:
+                winners = np.argwhere(min_eigs == min_eigs.max()).flatten().tolist()
             self.selected_rep = self.rng.choice(winners)
         scores = self.algs[self.selected_rep].compute_scores(context, available_actions)
         
