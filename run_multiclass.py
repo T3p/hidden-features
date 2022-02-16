@@ -49,6 +49,7 @@ if __name__ == "__main__":
     parser.add_argument('--noise_param', type=str, default=0.3, help='noise type [None, "bernoulli", "gaussian"]')
     parser.add_argument('--bandittype', default='expanded', metavar='DATASET', help="expanded or num")
     parser.add_argument('--layers', nargs='+', type=int, default=100, help="dimension of each layer (example --layers 100 200)")
+    parser.add_argument('--algo', type=str, default="nnlinucb", help='algorithm [nnlinucb, nnleader]')
 
     args = parser.parse_args()
     env = bandits.make_from_dataset(
@@ -73,21 +74,22 @@ if __name__ == "__main__":
     print(f'Input features dim: {env.feature_dim}')
 
 
-    algo = NNLinUCB(
-        env=env,
-        model=net,
-        batch_size=256,
-        max_epochs=1000,
-        update_every_n_steps=100,
-        learning_rate=0.01,
-        buffer_capacity=T,
-        noise_std=1,
-        delta=0.01,
-        weight_decay=1e-4,
-        weight_mse=1,
-        ucb_regularizer=1,
-        bonus_scale=0.5
-    )
+    if args.algo == "nnlinucb":
+        algo = NNLinUCB(
+            env=env,
+            model=net,
+            batch_size=256,
+            max_epochs=1000,
+            update_every_n_steps=100,
+            learning_rate=0.01,
+            buffer_capacity=T,
+            noise_std=1,
+            delta=0.01,
+            weight_decay=1e-4,
+            weight_mse=1,
+            ucb_regularizer=1,
+            bonus_scale=0.5
+        )
     # algo = NNEpsGreedy(
     #     env=env,
     #     model=net,
@@ -101,23 +103,24 @@ if __name__ == "__main__":
     #     epsilon_decay=2000,
     #     weight_decay=0
     # )
-    # algo = NNLeader(
-    #     env=env,
-    #     model=net,
-    #     batch_size=256,
-    #     max_epochs=1000,
-    #     update_every_n_steps=100,
-    #     learning_rate=0.01,
-    #     buffer_capacity=T,
-    #     noise_std=1,
-    #     delta=0.01,
-    #     weight_decay=1e-4,
-    #     weight_mse=0,
-    #     weight_spectral=-0.25,
-    #     weight_l2features=0,
-    #     ucb_regularizer=1,
-    #     bonus_scale=0.5
-    # )
+    elif args.algo == "nnleader":
+        algo = NNLeader(
+            env=env,
+            model=net,
+            batch_size=256,
+            max_epochs=1000,
+            update_every_n_steps=100,
+            learning_rate=0.01,
+            buffer_capacity=T,
+            noise_std=1,
+            delta=0.01,
+            weight_decay=1e-4,
+            weight_mse=0,
+            weight_spectral=-0.25,
+            weight_l2features=0,
+            ucb_regularizer=1,
+            bonus_scale=0.5
+        )
     algo.reset()
     results = algo.run(horizon=T, log_path=f"tblogs/{type(algo).__name__}_{args.dataset}_{args.bandittype}")
 
