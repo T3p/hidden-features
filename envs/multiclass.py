@@ -6,6 +6,7 @@ import numpy as np
 from scipy.stats import rankdata
 from sklearn.preprocessing import OrdinalEncoder
 from .spaces import DiscreteFix
+from sklearn.utils import shuffle
 
 @dataclass
 class MulticlassToBandit:
@@ -16,6 +17,7 @@ class MulticlassToBandit:
     seed: Optional[int] = 0
     noise: Optional[str] = None
     noise_param: Optional[float] = None
+    shuffle: Optional[bool] = True
 
     def __post_init__(self) -> None:
         """Initialize Class"""
@@ -23,10 +25,16 @@ class MulticlassToBandit:
         self.y = OrdinalEncoder(dtype=int).fit_transform(self.y.reshape((-1, 1)))
         self.action_space = DiscreteFix(n=np.unique(self.y).shape[0])
         self.np_random = np.random.RandomState(seed=self.seed)
+        if shuffle:
+            self.X, self.y = shuffle(self.X, self.y, random_state=self.seed)
         assert self.noise in [None, "bernoulli", "gaussian"]
+        self.idx = -1
 
     def sample_context(self) -> np.ndarray:
-        self.idx = self.np_random.randint(0, self.__len__(), 1).item()
+        # self.idx = self.np_random.randint(0, self.__len__(), 1).item()
+        self.idx += 1
+        if self.idx == self.__len__():
+            self.idx = 0  
         return self.X[self.idx]
 
     def step(self, action: int) -> float:

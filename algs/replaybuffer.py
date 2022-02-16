@@ -1,12 +1,9 @@
 import numpy as np
-from collections import deque, namedtuple
+from collections import deque
+from typing import Tuple
 
-XARExperience = namedtuple(
-    "Experience",
-    field_names=["context", "action", "reward"],
-)
 
-class XARSimpleBuffer:
+class SimpleBuffer:
 
     def __init__(self, capacity: int) -> None:
         self.buffer = deque(maxlen=capacity)
@@ -14,43 +11,15 @@ class XARSimpleBuffer:
     def __len__(self) -> None:
         return len(self.buffer)
 
-    def append(self, experience: XARExperience) -> None:
+    def append(self, experience: Tuple) -> None:
         """Add experience to the buffer.
         """
         self.buffer.append(experience)
 
     def get_all(self):
-        indices = np.arange(len(self.buffer))
-        contexts, actions, rewards = zip(*(self.buffer[idx] for idx in indices))
-        return (
-            np.array(contexts),
-            np.array(actions),
-            np.array(rewards),
-        )
+        return self.sample(size=len(self.buffer))
 
-
-FRExperience = namedtuple(
-    "Experience",
-    field_names=["features", "reward"],
-)
-
-class FRSimpleBuffer:
-
-    def __init__(self, capacity: int) -> None:
-        self.buffer = deque(maxlen=capacity)
-
-    def __len__(self) -> None:
-        return len(self.buffer)
-
-    def append(self, experience: FRExperience) -> None:
-        """Add experience to the buffer.
-        """
-        self.buffer.append(experience)
-
-    def get_all(self):
-        indices = np.arange(len(self.buffer))
-        features, rewards = zip(*(self.buffer[idx] for idx in indices))
-        return (
-            np.array(features),
-            np.array(rewards),
-        )
+    def sample(self, size:int):
+        indices = np.random.choice(len(self.buffer), min(size, len(self.buffer)), replace=False)
+        out = (np.array(el) for el in zip(*(self.buffer[idx] for idx in indices)))
+        return out

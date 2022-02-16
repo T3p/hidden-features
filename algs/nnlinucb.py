@@ -62,7 +62,7 @@ class NNLinUCB(XBTorchDiscrete):
         return action
 
     def add_sample(self, context: np.ndarray, action: int, reward: float, features: np.ndarray) -> None:
-        exp = FRExperience(features, reward)
+        exp = (features, reward)
         self.buffer.append(exp)
 
         # estimate linear component on the embedding + UCB part

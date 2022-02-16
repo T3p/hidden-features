@@ -1,4 +1,3 @@
-from cmath import log
 import numpy as np
 from dataclasses import dataclass
 from typing import Optional, Any
@@ -6,8 +5,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
-from sklearn.preprocessing import OneHotEncoder
-from .replaybuffer import FRExperience, FRSimpleBuffer
+from .replaybuffer import SimpleBuffer
 from tqdm import tqdm
 
 # TODO make an nn.Module so that we can easily save the class
@@ -26,10 +24,11 @@ class XBTorchDiscrete():
     weight_decay: Optional[float]=0
     buffer_capacity: Optional[int]=10000
     seed: Optional[int]=0
+    reset_model_at_train: Optional[bool]=True
 
     def reset(self) -> None:
         self.t = 0
-        self.buffer = FRSimpleBuffer(capacity=self.buffer_capacity)
+        self.buffer = SimpleBuffer(capacity=self.buffer_capacity)
         self.instant_reward = np.zeros(1)
         self.best_reward = np.zeros(1)
         self.action_history = np.zeros(1, dtype=int)
@@ -44,14 +43,15 @@ class XBTorchDiscrete():
         pass
 
     def add_sample(self, context: np.ndarray, action: int, reward: float, features: np.ndarray) -> None:
-        exp = FRExperience(features, reward)
+        exp = (features, reward)
         self.buffer.append(exp)
 
     def train(self) -> int:
         if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
-            for layer in self.model.children():
-                if hasattr(layer, 'reset_parameters'):
-                    layer.reset_parameters()
+            if self.reset_model_at_train:
+                for layer in self.model.children():
+                    if hasattr(layer, 'reset_parameters'):
+                        layer.reset_parameters()
             features, rewards = self.buffer.get_all()
             torch_dataset = torch.utils.data.TensorDataset(
                 torch.tensor(features, dtype=torch.float, device=self.device),
