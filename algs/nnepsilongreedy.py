@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from .xbdiscrete import XBTorchDiscrete, FRExperience
+from .xbdiscrete import XBTorchDiscrete
 
 @dataclass
 class NNEpsGreedy(XBTorchDiscrete):

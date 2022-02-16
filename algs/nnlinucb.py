@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from .xbdiscrete import XBTorchDiscrete, FRExperience
+from .xbdiscrete import XBTorchDiscrete
 
 def inv_sherman_morrison(u, A_inv):
     """Inverse of a matrix with rank 1 update.
