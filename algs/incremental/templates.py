@@ -8,10 +8,6 @@ from torch.utils.tensorboard import SummaryWriter
 from ..replaybuffer import SimpleBuffer
 from tqdm import tqdm
 
-# TODO make an nn.Module so that we can easily save the class
-# problem: we cannot use dataclass with nn.Module
-
-
 @dataclass
 class XBModule(nn.Module):
 
