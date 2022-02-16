@@ -1,7 +1,6 @@
 import envs as bandits
-from algs.nnlinucb import NNLinUCB
-from algs.nnepsilongreedy import NNEpsGreedy
-from algs.nnleader import NNLeader
+# from algs.batched import NNLinUCB, NNEpsGreedy, NNLeader
+from algs.incremental import NNLinUCB, NNEpsGreedy, NNLeader
 import torch
 import torch.nn as nn 
 from torch.nn import functional as F
@@ -52,7 +51,7 @@ if __name__ == "__main__":
     parser.add_argument('--bandittype', default='extended', metavar='DATASET', help="expanded or onehot")
     parser.add_argument('--layers', nargs='+', type=int, default=100, help="dimension of each layer (example --layers 100 200)")
     parser.add_argument('--algo', type=str, default="nnleader", help='algorithm [nnlinucb, nnleader]')
-    parser.add_argument('--max_epochs', type=int, default=1000, help="maximum number of epochs")
+    parser.add_argument('--max_epochs', type=int, default=10, help="maximum number of epochs")
     parser.add_argument('--update_every', type=int, default=500, help="Update every N samples")
     parser.add_argument('--config_name', type=str, default="", help='configuration name used to create the log')
 
@@ -85,7 +84,7 @@ if __name__ == "__main__":
             env=env,
             model=net,
             batch_size=256,
-            max_epochs=args.max_epochs,
+            max_updates=args.max_epochs,
             update_every_n_steps=args.update_every,
             learning_rate=0.001,
             buffer_capacity=T,
@@ -114,7 +113,7 @@ if __name__ == "__main__":
             env=env,
             model=net,
             batch_size=256,
-            max_epochs=args.max_epochs,
+            max_updates=args.max_epochs,
             update_every_n_steps=args.update_every,
             learning_rate=0.001,
             buffer_capacity=T,

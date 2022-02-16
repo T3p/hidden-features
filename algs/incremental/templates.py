@@ -5,21 +5,21 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
-from .replaybuffer import SimpleBuffer
+from ..replaybuffer import SimpleBuffer
 from tqdm import tqdm
 
 # TODO make an nn.Module so that we can easily save the class
 # problem: we cannot use dataclass with nn.Module
 
+
 @dataclass
-class XBTorchDiscrete():
+class XBModule():
 
     env: Any
     model: nn.Module
     device: Optional[str]="cpu"
     batch_size: Optional[int]=256
-    max_epochs: Optional[int]=1
-    update_every_n_steps: Optional[int] = 100
+    max_updates: Optional[int]=1
     learning_rate: Optional[float]=0.001
     weight_decay: Optional[float]=0
     buffer_capacity: Optional[int]=10000
@@ -35,50 +35,30 @@ class XBTorchDiscrete():
         self.best_action_history = np.zeros(1, dtype=int)
         self.batch_counter = 0
         self.model.to(self.device)
-
-    # def play_action(self, context: np.ndarray) -> int:
-    #     raise NotImplementedError
-
-    def _post_train(self, loader=None) -> None:
-        pass
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
 
     def add_sample(self, context: np.ndarray, action: int, reward: float, features: np.ndarray) -> None:
         exp = (features, reward)
         self.buffer.append(exp)
 
-    def train(self) -> int:
-        if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
-            if self.reset_model_at_train:
-                for layer in self.model.children():
-                    if hasattr(layer, 'reset_parameters'):
-                        layer.reset_parameters()
-            features, rewards = self.buffer.get_all()
-            torch_dataset = torch.utils.data.TensorDataset(
-                torch.tensor(features, dtype=torch.float, device=self.device),
-                torch.tensor(rewards.reshape(-1,1), dtype=torch.float, device=self.device)
-                )
+    def train(self) -> float:
 
-            loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
-            optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
-            self.model.train()
-            last_loss = 0.0
-            for epoch in range(self.max_epochs):
-                lh = []
-                for b_features, b_rewards in loader:
-                    loss = self._train_loss(b_features, b_rewards)
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-                    self.writer.flush()
-                    self.batch_counter += 1
-                    lh.append(loss.item())
-                last_loss = np.mean(lh)
-                if last_loss < 1e-3:
-                    break
-            self.model.eval()
-
-            self._post_train(loader)
-            return last_loss
+        if self.t > self.batch_size:
+            cnt = 0
+            sum_loss = 0
+            for _ in range(self.max_updates):
+                features, rewards = self.buffer.sample(self.batch_size)
+                b_features = torch.FloatTensor(features, device=self.device)
+                b_rewards = torch.FloatTensor(rewards.reshape(-1,1), device=self.device)
+                loss = self._train_loss(b_features, b_rewards)
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+                self.writer.flush()
+                self.batch_counter += 1
+                cnt += 1
+                sum_loss += loss.item()
+            return sum_loss / cnt
         return None
 
     def _continue(self, horizon: int) -> None:

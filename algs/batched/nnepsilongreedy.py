@@ -6,16 +6,17 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from .xbdiscrete import XBTorchDiscrete
+from .templates import XBModule
 
 @dataclass
-class NNEpsGreedy(XBTorchDiscrete):
+class NNEpsGreedy(XBModule):
 
     epsilon_min: float=0.05
     epsilon_start: float=2
     epsilon_decay: float=200
 
-    def __post_init__(self) -> None:
+    def reset(self) -> None:
+        super().reset()
         self.epsilon = self.epsilon_start
         self.np_random = np.random.RandomState(self.seed)
 

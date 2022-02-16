@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from .xbdiscrete import XBTorchDiscrete
+from .templates import XBModule
 
 def inv_sherman_morrison(u, A_inv):
     """Inverse of a matrix with rank 1 update.
@@ -16,7 +16,7 @@ def inv_sherman_morrison(u, A_inv):
     return A_inv, den
 
 @dataclass
-class NNLinUCB(XBTorchDiscrete):
+class NNLinUCB(XBModule):
 
     noise_std: float=1
     delta: Optional[float]=0.01
@@ -24,7 +24,8 @@ class NNLinUCB(XBTorchDiscrete):
     weight_mse: Optional[float]=1
     bonus_scale: Optional[float]=1.
 
-    def __post_init__(self):
+    def reset(self) -> None:
+        super().reset()
         dim = self.model.embedding_dim
         self.b_vec = torch.zeros(dim, dtype=torch.float)
         self.inv_A = torch.eye(dim, dtype=torch.float) / self.ucb_regularizer
