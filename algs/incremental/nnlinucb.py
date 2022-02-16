@@ -19,12 +19,21 @@ def inv_sherman_morrison(u, A_inv):
 @dataclass
 class NNLinUCB(XBModule):
 
-    update_every_n_steps: Optional[int] = 100
-    noise_std: float=1
-    delta: Optional[float]=0.01
-    ucb_regularizer: Optional[float]=1
-    weight_mse: Optional[float]=1
+    def __init__(
+        self, env: Any, model: nn.Module, device: Optional[str] = "cpu", batch_size: Optional[int] = 256, max_updates: Optional[int] = 1, learning_rate: Optional[float] = 0.001, weight_decay: Optional[float] = 0, buffer_capacity: Optional[int] = 10000, seed: Optional[int] = 0, reset_model_at_train: Optional[bool] = True,
+    update_every_n_steps: Optional[int] = 100,
+    noise_std: float=1,
+    delta: Optional[float]=0.01,
+    ucb_regularizer: Optional[float]=1,
     bonus_scale: Optional[float]=1.
+    ) -> None:
+        super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train)
+        self.update_every_n_steps = update_every_n_steps
+        self.noise_std = noise_std
+        self.delta = delta
+        self.ucb_regularizer = ucb_regularizer
+        self.bonus_scale = bonus_scale
+
 
     def reset(self):
         super().reset()
@@ -38,14 +47,11 @@ class NNLinUCB(XBModule):
         self.target_model.to(self.device)
 
     def _train_loss(self, b_features, b_rewards):
-        loss = 0
         # MSE LOSS
-        if not np.isclose(self.weight_mse,0):
-            prediction = self.model(b_features)
-            mse_loss = F.mse_loss(prediction, b_rewards)
-            self.writer.add_scalar('mse_loss', self.weight_mse * mse_loss, self.batch_counter)
-            loss = loss + self.weight_mse * mse_loss 
-        return loss
+        prediction = self.model(b_features)
+        mse_loss = F.mse_loss(prediction, b_rewards)
+        self.writer.add_scalar('mse_loss', mse_loss, self.batch_counter)
+        return mse_loss
     
     @torch.no_grad()
     def play_action(self, features: np.ndarray):

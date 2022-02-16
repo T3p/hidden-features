@@ -13,18 +13,32 @@ from tqdm import tqdm
 
 
 @dataclass
-class XBModule():
+class XBModule(nn.Module):
 
-    env: Any
-    model: nn.Module
-    device: Optional[str]="cpu"
-    batch_size: Optional[int]=256
-    max_updates: Optional[int]=1
-    learning_rate: Optional[float]=0.001
-    weight_decay: Optional[float]=0
-    buffer_capacity: Optional[int]=10000
-    seed: Optional[int]=0
-    reset_model_at_train: Optional[bool]=True
+    def __init__(
+        self,
+        env: Any,
+        model: nn.Module,
+        device: Optional[str]="cpu",
+        batch_size: Optional[int]=256,
+        max_updates: Optional[int]=1,
+        learning_rate: Optional[float]=0.001,
+        weight_decay: Optional[float]=0,
+        buffer_capacity: Optional[int]=10000,
+        seed: Optional[int]=0,
+        reset_model_at_train: Optional[bool]=True
+    ) -> None:
+        super().__init__()
+        self.env = env
+        self.model = model
+        self.device = device
+        self.batch_size = batch_size
+        self.max_updates = max_updates
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+        self.buffer_capacity = buffer_capacity
+        self.seed = seed
+        self.reset_model_at_train = reset_model_at_train
 
     def reset(self) -> None:
         self.t = 0
