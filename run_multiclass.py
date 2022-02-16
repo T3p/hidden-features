@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 import tqdm
+import argparse
 
 class Network(nn.Module):
 
@@ -36,101 +37,57 @@ class Network(nn.Module):
         x = self.embedding(x)
         return self.fc2(x)
 
-def train_full(X, y, model, learning_rate=1e-2, weight_decay=0, max_epochs=10, batch_size=64, device="cpu"):
-    writer = SummaryWriter(f"tblogs/train")
-    torch_dataset = torch.utils.data.TensorDataset(
-                torch.tensor(X, dtype=torch.float, device=device),
-                torch.tensor(y.reshape(-1,1), dtype=torch.float, device=device)
-                )
-
-    loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=batch_size, shuffle=True)
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    model.train()
-    batch_counter = 0
-    tot_loss = []
-    postfix = {
-            'loss': 0.0,
-        }
-    with tqdm(initial=0, total=max_epochs, postfix=postfix) as pbar:
-        for epoch in range(max_epochs):
-            lh = []
-            for b_features, b_rewards in loader:
-                pred = model(b_features)
-                loss = F.mse_loss(pred, b_rewards)
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                batch_counter += 1
-                lh.append(loss.item())
-            writer.add_scalar("epoch_loss", np.mean(lh), epoch)
-            if np.mean(lh) < 1e-3:
-                break
-            tot_loss.append(np.mean(lh))
-            postfix['loss'] = tot_loss[-1]
-            pbar.set_postfix(postfix)
-            pbar.update(1)
-
-    return {
-        'loss': tot_loss
-    }
+### MOVE TO HYDRA FOR MAIN SCRIPT
 
 if __name__ == "__main__":
-    env = bandits.make_from_dataset("magic", bandit_model="expanded")
+    parser = argparse.ArgumentParser(description='MultiClass Bandit Test')
+
+    parser.add_argument('--horizon', default=None, type=int, help='Horizon. None (default) => dataset size')
+    parser.add_argument('--dataset', default='magic', metavar='DATASET')
+    parser.add_argument('--seed', type=int, default=0, help='random seed')
+    parser.add_argument('--noise', type=str, default=None, help='noise type [None, "bernoulli", "gaussian"]')
+    parser.add_argument('--noise_param', type=str, default=0.3, help='noise type [None, "bernoulli", "gaussian"]')
+    parser.add_argument('--bandittype', default='expanded', metavar='DATASET', help="expanded or num")
+    parser.add_argument('--layers', nargs='+', type=int, default=100, help="dimension of each layer (example --layers 100 200)")
+
+    args = parser.parse_args()
+    env = bandits.make_from_dataset(
+        args.dataset, bandit_model="expanded", 
+        seed=args.seed, noise=args.noise, noise_param=args.noise_param)
     print(f"Samples: {env.X.shape}")
     print(f'Labels: {np.unique(env.y)}')
 
-    T = len(env)
+    T = args.horizon
+    if T is None:
+        T = len(env)
     # T = 4000
     # env = bandits.Bandit_Linear(feature_dim=10, arms=5, noise=0.1, seed=0)
-    net = Network(env.feature_dim, [(100, nn.ReLU())])
+    print('layers: ', args.layers)
+    hid_dim = args.layers
+    if not isinstance(args.layers, list):
+        hid_dim = [args.layers]
+    layers = [(el, nn.ReLU()) for el in hid_dim]
+    net = Network(env.feature_dim, layers)
     print(net)
 
     print(f'Input features dim: {env.feature_dim}')
 
-    # X, Y = None, None
-    # for i in range(len(env)):
-    #     x, y = env.__getitem__(i)
-    #     if X is None:
-    #         X = x 
-    #         Y = y
-    #     X = np.concatenate((X,x), axis=0)
-    #     Y = np.concatenate((Y,y), axis=0)
 
-    # # idx = np.random.randint(0, X.shape[0], size=8000)
-    # # idx = np.where(Y)
-    # # X = X[idx]
-    # # Y = Y[idx]
-    # # print(X.shape, Y.shape)
-    # print(f"Features (expanded): {X.shape}")
-
-    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # net.to(device)
-    # results = train_full(
-    #     X=X, y=Y, model=net, 
-    #     learning_rate=1e-2, weight_decay=0.00001,
-    #     max_epochs=1000, batch_size=64,
-    #     device=device
-    # )
-    # plt.plot(results['loss'])
-    # plt.show()
-    # exit(0)
-
-
-    # algo = NNLinUCB(
-    #     env=env,
-    #     model=net,
-    #     batch_size=64,
-    #     max_epochs=100,
-    #     update_every_n_steps=250,
-    #     learning_rate=0.01,
-    #     buffer_capacity=T,
-    #     noise_std=1,
-    #     delta=0.01,
-    #     weight_decay=1e-4,
-    #     weight_mse=1,
-    #     ucb_regularizer=1,
-    #     bonus_scale=0.1
-    # )
+    algo = NNLinUCB(
+        env=env,
+        model=net,
+        batch_size=256,
+        max_epochs=1000,
+        update_every_n_steps=100,
+        learning_rate=0.01,
+        buffer_capacity=T,
+        noise_std=1,
+        delta=0.01,
+        weight_decay=1e-4,
+        weight_mse=1,
+        ucb_regularizer=1,
+        bonus_scale=0.5
+    )
     # algo = NNEpsGreedy(
     #     env=env,
     #     model=net,
@@ -144,25 +101,25 @@ if __name__ == "__main__":
     #     epsilon_decay=2000,
     #     weight_decay=0
     # )
-    algo = NNLeader(
-        env=env,
-        model=net,
-        batch_size=64,
-        max_epochs=100,
-        update_every_n_steps=250,
-        learning_rate=0.01,
-        buffer_capacity=T,
-        noise_std=1,
-        delta=0.01,
-        weight_decay=1e-4,
-        weight_mse=0,
-        weight_spectral=-0.25,
-        weight_l2features=0,
-        ucb_regularizer=1,
-        bonus_scale=0.1
-    )
+    # algo = NNLeader(
+    #     env=env,
+    #     model=net,
+    #     batch_size=256,
+    #     max_epochs=1000,
+    #     update_every_n_steps=100,
+    #     learning_rate=0.01,
+    #     buffer_capacity=T,
+    #     noise_std=1,
+    #     delta=0.01,
+    #     weight_decay=1e-4,
+    #     weight_mse=0,
+    #     weight_spectral=-0.25,
+    #     weight_l2features=0,
+    #     ucb_regularizer=1,
+    #     bonus_scale=0.5
+    # )
     algo.reset()
-    results = algo.run(horizon=T)
+    results = algo.run(horizon=T, log_path=f"tblogs/{type(algo).__name__}_{args.dataset}_{args.bandittype}")
 
     plt.figure()
     plt.plot(results['regret'])

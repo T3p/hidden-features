@@ -1,4 +1,4 @@
-import imp
+from cmath import log
 import numpy as np
 from dataclasses import dataclass
 from typing import Optional, Any
@@ -10,8 +10,11 @@ from sklearn.preprocessing import OneHotEncoder
 from .replaybuffer import FRExperience, FRSimpleBuffer
 from tqdm import tqdm
 
+# TODO make an nn.Module so that we can easily save the class
+# problem: we cannot use dataclass with nn.Module
+
 @dataclass
-class XBTorchDiscrete:
+class XBTorchDiscrete():
 
     env: Any
     model: nn.Module
@@ -83,8 +86,11 @@ class XBTorchDiscrete:
         self.action_history = np.resize(self.action_history, horizon)
         self.best_action_history = np.resize(self.best_action_history, horizon)
 
-    def run(self, horizon: int, throttle: int=100) -> None:
-        self.writer = SummaryWriter(f"tblogs/{type(self).__name__}")
+    def run(self, horizon: int, throttle: int=100, log_path: str=None) -> None:
+        if log_path is None:
+            log_path = f"tblogs/{type(self).__name__}_{self.env.dataset_name}"
+        self.log_path = log_path
+        self.writer = SummaryWriter(log_path)
 
         self._continue(horizon)
         postfix = {
@@ -122,6 +128,7 @@ class XBTorchDiscrete:
 
                 self.writer.add_scalar("regret", postfix['total regret'], self.t)
                 self.writer.add_scalar('perc optimal arm', p_optimal_arm, self.t)
+                self.writer.add_scalar('optimal arm?', 1 if self.action_history[self.t] == self.best_action_history[self.t] else 0, self.t)
                 self.writer.flush()
 
                 if self.t % throttle == 0:
