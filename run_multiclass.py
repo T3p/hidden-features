@@ -50,6 +50,8 @@ if __name__ == "__main__":
     parser.add_argument('--bandittype', default='expanded', metavar='DATASET', help="expanded or num")
     parser.add_argument('--layers', nargs='+', type=int, default=100, help="dimension of each layer (example --layers 100 200)")
     parser.add_argument('--algo', type=str, default="nnlinucb", help='algorithm [nnlinucb, nnleader]')
+    parser.add_argument('--max_epochs', type=int, default=250, help="maximum number of epochs")
+    parser.add_argument('--update_every', type=int, default=250, help="Update every N samples")
 
     args = parser.parse_args()
     env = bandits.make_from_dataset(
@@ -73,22 +75,23 @@ if __name__ == "__main__":
 
     print(f'Input features dim: {env.feature_dim}')
 
-
+    weight_decay = 1e-4
+    bonus_scale = 0.5
     if args.algo == "nnlinucb":
         algo = NNLinUCB(
             env=env,
             model=net,
             batch_size=256,
-            max_epochs=1000,
-            update_every_n_steps=100,
+            max_epochs=args.max_epochs,
+            update_every_n_steps=args.update_every,
             learning_rate=0.01,
             buffer_capacity=T,
             noise_std=1,
             delta=0.01,
-            weight_decay=1e-4,
+            weight_decay=weight_decay,
             weight_mse=1,
             ucb_regularizer=1,
-            bonus_scale=0.5
+            bonus_scale=bonus_scale
         )
     # algo = NNEpsGreedy(
     #     env=env,
@@ -108,18 +111,18 @@ if __name__ == "__main__":
             env=env,
             model=net,
             batch_size=256,
-            max_epochs=1000,
-            update_every_n_steps=100,
+            max_epochs=args.max_epochs,
+            update_every_n_steps=args.update_every,
             learning_rate=0.01,
             buffer_capacity=T,
             noise_std=1,
             delta=0.01,
-            weight_decay=1e-4,
+            weight_decay=weight_decay,
             weight_mse=0,
             weight_spectral=-0.25,
             weight_l2features=0,
             ucb_regularizer=1,
-            bonus_scale=0.5
+            bonus_scale=bonus_scale
         )
     algo.reset()
     results = algo.run(horizon=T, log_path=f"tblogs/{type(algo).__name__}_{args.dataset}_{args.bandittype}")

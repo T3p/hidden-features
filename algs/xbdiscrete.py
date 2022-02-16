@@ -95,7 +95,7 @@ class XBTorchDiscrete():
         self._continue(horizon)
         postfix = {
             'total regret': 0.0,
-            '% optimal arm': 0.0,
+            '% optimal arm (last 100 steps)': 0.0,
             'train loss': 0.0
         }
         with tqdm(initial=self.t, total=horizon, postfix=postfix) as pbar:
@@ -120,9 +120,9 @@ class XBTorchDiscrete():
                 # log
                 postfix['total regret'] += self.best_reward[self.t] - self.instant_reward[self.t]
                 p_optimal_arm = np.mean(
-                    self.action_history[:self.t+1] == self.best_action_history[:self.t+1]
+                    self.action_history[max(0,self.t-100):self.t+1] == self.best_action_history[max(0,self.t-100):self.t+1]
                 )
-                postfix['% optimal arm'] = '{:.2%}'.format(p_optimal_arm)
+                postfix['% optimal arm (last 100 steps)'] = '{:.2%}'.format(p_optimal_arm)
                 if train_loss:
                     postfix['train loss'] = train_loss
 

@@ -52,10 +52,11 @@ class NNLinUCB(XBTorchDiscrete):
         xt = torch.FloatTensor(features).to(self.device)
         net_features = self.model.embedding(xt)
         #https://stackoverflow.com/questions/18541851/calculate-vt-a-v-for-a-matrix-of-vectors-v/18542314#18542314
-        ucb = ((net_features @ self.inv_A)*net_features).sum(axis=1)
-        ucb = torch.sqrt(ucb)
-        ucb = net_features @ self.theta + self.bonus_scale * beta * ucb
+        bonus = ((net_features @ self.inv_A)*net_features).sum(axis=1)
+        bonus = self.bonus_scale * beta * torch.sqrt(bonus)
+        ucb = net_features @ self.theta + bonus
         action = torch.argmax(ucb).item()
+        self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
         assert 0 <= action < self.env.action_space.n, ucb
 
         return action
@@ -69,12 +70,14 @@ class NNLinUCB(XBTorchDiscrete):
             xt = torch.FloatTensor(features.reshape(1,-1)).to(self.device)
             v = self.model.embedding(xt).ravel()
             self.features_bound = max(self.features_bound, torch.norm(v, p=2).item())
+            self.writer.add_scalar('features_bound', self.features_bound, self.t)
 
             self.b_vec = self.b_vec + v * reward
             self.inv_A, den = inv_sherman_morrison(v, self.inv_A)
             # self.A_logdet += np.log(den)
             self.theta = self.inv_A @ self.b_vec
             self.param_bound = torch.linalg.norm(self.theta, 2).item()
+            self.writer.add_scalar('param_bound', self.param_bound, self.t)
     
     def _post_train(self, loader=None):
         with torch.no_grad():
