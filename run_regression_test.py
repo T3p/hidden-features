@@ -1,7 +1,4 @@
-import envs as bandits
-from algs.nnlinucb import NNLinUCB
-from algs.nnepsilongreedy import NNEpsGreedy
-from algs.nnleader import NNLeader
+import envs as bandits  
 import torch
 import torch.nn as nn 
 from torch.nn import functional as F
@@ -153,8 +150,8 @@ if __name__ == "__main__":
     log_path = f"tblogs/{args.dataset}_{args.bandittype}{args.config_name}"
 
     config = vars(args)
-    with open(os.path.join(log_path, "config.json"), "w") as f:
-        json.dump(config,f, indent=4, sort_keys=True)
+        # with open(os.path.join(log_path, "config.json"), "w") as f:
+        #     json.dump(config,f, indent=4, sort_keys=True)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     net.to(device)
