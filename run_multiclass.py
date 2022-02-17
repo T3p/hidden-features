@@ -1,6 +1,6 @@
 import envs as bandits
-# from algs.batched import NNLinUCB, NNEpsGreedy, NNLeader
-from algs.incremental import NNLinUCB, NNEpsGreedy, NNLeader
+import algs.batched
+import algs.incremental
 import torch
 import torch.nn as nn 
 from torch.nn import functional as F
@@ -8,7 +8,6 @@ from torch.nn.modules import Module
 import matplotlib.pyplot as plt
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
-import tqdm
 import argparse
 import json
 import os
@@ -50,7 +49,7 @@ if __name__ == "__main__":
     parser.add_argument('--noise_param', type=str, default=0.3, help='noise type [None, "bernoulli", "gaussian"]')
     parser.add_argument('--bandittype', default='extended', metavar='DATASET', help="expanded or onehot")
     parser.add_argument('--layers', nargs='+', type=int, default=100, help="dimension of each layer (example --layers 100 200)")
-    parser.add_argument('--algo', type=str, default="nnleader", help='algorithm [nnlinucb, nnleader]')
+    parser.add_argument('--algo', type=str, default="nnlinucb", help='algorithm [nnlinucb, nnleader]')
     parser.add_argument('--max_epochs', type=int, default=10, help="maximum number of epochs")
     parser.add_argument('--update_every', type=int, default=500, help="Update every N samples")
     parser.add_argument('--config_name', type=str, default="", help='configuration name used to create the log')
@@ -59,7 +58,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     env = bandits.make_from_dataset(
-        args.dataset, bandit_model="expanded", 
+        args.dataset, bandit_model=args.bandittype, 
         seed=args.seed, noise=args.noise, noise_param=args.noise_param)
     print(f"Samples: {env.X.shape}")
     print(f'Labels: {np.unique(env.y)}')
@@ -81,8 +80,36 @@ if __name__ == "__main__":
 
     weight_decay = 1e-4
     bonus_scale = 0.5
-    if args.algo == "nnlinucb":
-        algo = NNLinUCB(
+    if args.algo == "nnlinucb_inc":
+        algo = algs.incremental.NNLinUCB(
+            env=env,
+            model=net,
+            batch_size=args.batch_size,
+            max_updates=args.max_epochs,
+            update_every_n_steps=args.update_every,
+            learning_rate=args.lr,
+            buffer_capacity=T,
+            noise_std=1,
+            delta=0.01,
+            weight_decay=weight_decay,
+            ucb_regularizer=1,
+            bonus_scale=bonus_scale
+        )
+    # algo = NNEpsGreedy(
+    #     env=env,
+    #     model=net,
+    #     batch_size=64,
+    #     max_epochs=10,
+    #     update_every_n_steps=100,
+    #     learning_rate=0.01,
+    #     buffer_capacity=T,
+    #     epsilon_start=5,
+    #     epsilon_min=0.05,
+    #     epsilon_decay=2000,
+    #     weight_decay=0
+    # )
+    elif args.algo == "nnleader_inc":
+        algo = algs.incremental.NNLeader(
             env=env,
             model=net,
             batch_size=args.batch_size,
@@ -94,6 +121,23 @@ if __name__ == "__main__":
             delta=0.01,
             weight_decay=weight_decay,
             weight_mse=1,
+            weight_spectral=-0.1,
+            weight_l2features=0,
+            ucb_regularizer=1,
+            bonus_scale=bonus_scale
+        )
+    elif args.algo == "nnlinucb":
+        algo = algs.batched.NNLinUCB(
+            env=env,
+            model=net,
+            batch_size=args.batch_size,
+            max_updates=args.max_epochs,
+            update_every_n_steps=args.update_every,
+            learning_rate=args.lr,
+            buffer_capacity=T,
+            noise_std=1,
+            delta=0.01,
+            weight_decay=weight_decay,
             ucb_regularizer=1,
             bonus_scale=bonus_scale
         )
@@ -111,7 +155,7 @@ if __name__ == "__main__":
     #     weight_decay=0
     # )
     elif args.algo == "nnleader":
-        algo = NNLeader(
+        algo = algs.batched.NNLeader(
             env=env,
             model=net,
             batch_size=args.batch_size,
@@ -129,7 +173,7 @@ if __name__ == "__main__":
             bonus_scale=bonus_scale
         )
     algo.reset()
-    log_path = f"tblogs/{type(algo).__name__}_{args.dataset}_{args.bandittype}{args.config_name}"
+    log_path = f"tblogs/{args.algo}_{args.dataset}_{args.bandittype}{args.config_name}"
     isExist = os.path.exists(log_path)
     if not isExist:
         # Create a new directory because it does not exist 
