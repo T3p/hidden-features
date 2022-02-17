@@ -8,7 +8,6 @@ class LinearBandit:
     context_dim: int
     noise: float
     num_actions: int
-    seed: Optional[int] = 0
 
     def __post_init__(self) -> None:
         self.theta = np.random.uniform(low=-1, high=1, size=(self.num_actions, self.context_dim))
