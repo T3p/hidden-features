@@ -37,28 +37,23 @@ class Network(nn.Module):
         return self.fc2(x)
 
 
-def train_full(X, y, model, learning_rate=1e-2, weight_decay=0, max_epochs=10, batch_size=64, device="cpu", logfolder="",
+def train_full(train_loader, test_data, model, learning_rate=1e-2, weight_decay=0, max_epochs=10, batch_size=64, device="cpu", logfolder="",
 weight_mse=1, weight_spectral=1, weight_l2features=0):
     writer = SummaryWriter(logfolder)
-    torch_dataset = torch.utils.data.TensorDataset(
-                torch.tensor(X, dtype=torch.float, device=device),
-                torch.tensor(y.reshape(-1,1), dtype=torch.float, device=device)
-                )
-
-    loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=batch_size, shuffle=True)
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model.train()
     batch_counter = 0
     tot_loss = []
     postfix = {
             'loss': 0.0,
+            'perc optimal actions': 0.0,
         }
     with tqdm(initial=0, total=max_epochs, postfix=postfix) as pbar:
         batch_counter = 0
         for epoch in range(max_epochs):
             lh = []
             model.train()
-            for b_features, b_rewards in loader:
+            for b_features, b_rewards in train_loader:
                 loss = 0
                 N = b_features.shape[0]
                 # MSE LOSS
@@ -93,12 +88,27 @@ weight_mse=1, weight_spectral=1, weight_l2features=0):
                 batch_counter += 1
                 lh.append(loss.item())
             writer.add_scalar("epoch_loss", np.mean(lh), epoch)
+
+            model.eval()
+            accuracy = 0
+            cnt = 0
+            for b_features, b_rewards in test_data:
+                prediction = model(b_features)
+                predicted_optimal_action = torch.argmax(prediction).item()
+                optimal_action = torch.argmax(b_rewards).item()
+                accuracy += 1 if predicted_optimal_action == optimal_action else 0
+                cnt += 1
+
+            writer.add_scalar("epoch percentage optimal actions", accuracy / cnt, epoch)
+
+
             if np.mean(lh) < 1e-3:
                 break
             tot_loss.append(np.mean(lh))
 
 
             postfix['loss'] = tot_loss[-1]
+            postfix['perc optimal actions'] = accuracy / cnt
             pbar.set_postfix(postfix)
             pbar.update(1)
 
@@ -115,12 +125,14 @@ if __name__ == "__main__":
     parser.add_argument('--layers', nargs='+', type=int, default=100, help="dimension of each layer (example --layers 100 200)")
     parser.add_argument('--logfolder', type=str, default="tblogs")
     parser.add_argument('--max_epochs', type=int, default=250, help="maximum number of epochs")
+    parser.add_argument('--batch_size', type=int, default=256, help="batch size")
     parser.add_argument('--lr', type=float, default=1e-2, help="learning rate")
     parser.add_argument('--weight_decay', type=float, default=1e-4, help="weight_decay")
     parser.add_argument('--config_name', type=str, default="", help='configuration name used to create the log')
     parser.add_argument('--weight_mse', type=float, default=1, help="weight_mse")
-    parser.add_argument('--weight_spectral', type=float, default=-0.25, help="weight_spectral")
+    parser.add_argument('--weight_spectral', type=float, default=0, help="weight_spectral")
     parser.add_argument('--weight_l2features', type=float, default=0, help="weight_l2features")
+    parser.add_argument('--device', type=str, default="cpu", help="PyTorch device")
 
     args = parser.parse_args()
     env = bandits.make_from_dataset(
@@ -137,29 +149,45 @@ if __name__ == "__main__":
 
     print(f'Input features dim: {env.feature_dim}')
 
+    # train dataset
     X, Y = None, None
+    test_data = []
     for i in range(len(env)):
+        # with this we get a matrix (na x ndim) for x and (na) for y 
         x, y = env.__getitem__(i)
+        test_data.append((torch.FloatTensor(x,device=args.device),torch.FloatTensor(y,device=args.device)))
         if X is None:
             X = x 
             Y = y
         X = np.concatenate((X,x), axis=0)
         Y = np.concatenate((Y,y), axis=0)
     print(f"Features (expanded): {X.shape}")
+    print(X.shape)
+    print(Y.shape)
+
+    train_dataset = torch.utils.data.TensorDataset(
+                torch.tensor(X, dtype=torch.float, device=args.device),
+                torch.tensor(Y.reshape(-1,1), dtype=torch.float, device=args.device)
+                )
+    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True)
     
     log_path = f"tblogs/{args.dataset}_{args.bandittype}{args.config_name}"
+    isExist = os.path.exists(log_path)
+    if not isExist:
+        # Create a new directory because it does not exist 
+        os.makedirs(log_path)
+
 
     config = vars(args)
-        # with open(os.path.join(log_path, "config.json"), "w") as f:
-        #     json.dump(config,f, indent=4, sort_keys=True)
+    with open(os.path.join(log_path, "config.json"), "w") as f:
+        json.dump(config,f, indent=4, sort_keys=True)
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    net.to(device)
+    net.to(args.device)
     results = train_full(
-        X=X, y=Y, model=net, 
+        train_loader=train_loader, test_data=test_data, model=net, 
         learning_rate=args.lr, weight_decay=args.weight_decay,
-        max_epochs=args.max_epochs, batch_size=256,
-        device=device,
+        max_epochs=args.max_epochs,
+        device=args.device,
         logfolder=log_path,
         weight_mse=args.weight_mse, weight_spectral=args.weight_spectral, weight_l2features=args.weight_l2features
     )
