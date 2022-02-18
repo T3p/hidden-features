@@ -1,4 +1,5 @@
 from .multiclass import MulticlassToBandit, MCOneHot, MCExpanded
+from .linear import LinearContinuous
 from sklearn.datasets import fetch_openml, fetch_covtype
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.preprocessing import OneHotEncoder
@@ -68,3 +69,12 @@ def make_from_dataset(name:str, bandit_model:str=None, seed:int=0, noise:str=Non
     else:
         raise RuntimeError('Bandit model does not exist')
     return bandit
+
+
+def make_linear(name:str, **kwargs):
+
+    if name == "linear_continuous":
+        return LinearContinuous(**kwargs)
+    else:
+        raise ValueError("unknown name")
+    

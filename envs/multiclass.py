@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import Optional, Union, Tuple
 import numpy as np
 
-from scipy.stats import rankdata
 from sklearn.preprocessing import OrdinalEncoder
 from .spaces import DiscreteFix
 from sklearn.utils import shuffle
