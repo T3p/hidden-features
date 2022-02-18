@@ -7,7 +7,7 @@ import matplotlib.pylab as plt
 import seaborn as sns
 sns.set(style="whitegrid")
 
-from envs.linear import LinearBandit
+from envs.linear import LinearContinuous
 from algorithms.greedy_agent import GreedyAgent
 
 
@@ -52,7 +52,7 @@ def main():
     random.seed(args.seed)
 
     # Create Env
-    env = LinearBandit(context_dim=args.context_dim, num_actions=args.num_actions, noise=args.noise)
+    env = LinearContinuous(context_dim=args.context_dim, num_actions=args.num_actions, noise=args.noise)
     agent = GreedyAgent('greedy agent', args)
 
     h_actions = []
