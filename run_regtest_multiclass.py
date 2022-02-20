@@ -65,10 +65,15 @@ weight_mse=1, weight_spectral=1, weight_l2features=0):
 
                 #DETERMINANT or LOG_MINEIG LOSS
                 if not np.isclose(weight_spectral,0):
-                    phi = model.embedding(b_features)
+
+                    # I use the fact that the reward is just 0/1
+                    idxs_opt = torch.where(b_rewards)[0]
+                    features_optimal_actions = b_features[idxs_opt]
+
+                    phi = model.embedding(features_optimal_actions)
                     A = torch.sum(phi[...,None]*phi[:,None], axis=0) + 1e-3 * torch.eye(phi.shape[1])
                     # det_loss = torch.logdet(A)
-                    spectral_loss = torch.log(torch.linalg.eigvalsh(A).min()/N)
+                    spectral_loss = torch.log(torch.linalg.eigvalsh(A).min())
                     writer.add_scalar('spectral_loss',  weight_spectral * spectral_loss, batch_counter)
                     loss = loss + weight_spectral * spectral_loss
 
@@ -130,7 +135,7 @@ if __name__ == "__main__":
     parser.add_argument('--weight_decay', type=float, default=1e-4, help="weight_decay")
     parser.add_argument('--config_name', type=str, default="", help='configuration name used to create the log')
     parser.add_argument('--weight_mse', type=float, default=1, help="weight_mse")
-    parser.add_argument('--weight_spectral', type=float, default=0, help="weight_spectral")
+    parser.add_argument('--weight_spectral', type=float, default=-0.2, help="weight_spectral")
     parser.add_argument('--weight_l2features', type=float, default=0, help="weight_l2features")
     parser.add_argument('--device', type=str, default="cpu", help="PyTorch device")
 
