@@ -45,17 +45,18 @@ class LinearContinuous:
         """
         context = self._sample_context().copy()
         if self.feature_expansion is None:
-            self.feat = context
-        elif self.feature_expansion == "expanded":
-            feat = np.zeros((self.num_actions, self.feature_dim))
+            self.feat = np.zeros((self.num_actions, self.context_dim))
             for a in range(self.num_actions):
-                feat[a, a * self.context_dim: a * self.context_dim + self.context_dim] = context
-            self.feat = feat
+                self.feat[a] = self._sample_context()
+        elif self.feature_expansion == "expanded":
+            self.feat = np.zeros((self.num_actions, self.feature_dim))
+            for a in range(self.num_actions):
+                self.feat[a, a * self.context_dim: a * self.context_dim + self.context_dim] = context
         elif self.feature_expansion == "onehot":
             self.feat = np.zeros((self.num_actions, self.feature_dim))
             for a in range(self.num_actions):
-                feat[a, 0:self.context_dim] = context
-                feat[a, a] = 1
+                self.feat[a, 0:self.context_dim] = context
+                self.feat[a, a] = 1
         return self.feat
 
     def step(self, action: int) -> float:
@@ -77,4 +78,5 @@ class LinearContinuous:
     def expected_reward(self, action: int) -> float:
         reward = np.dot(self.theta, self.feat[action])
         return reward
+
 
