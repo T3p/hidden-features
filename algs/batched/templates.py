@@ -1,5 +1,4 @@
 import numpy as np
-from dataclasses import dataclass
 from typing import Optional, Any
 import torch
 import torch.nn as nn
@@ -8,24 +7,34 @@ from torch.utils.tensorboard import SummaryWriter
 from ..replaybuffer import SimpleBuffer
 from tqdm import tqdm
 
-# TODO make an nn.Module so that we can easily save the class
-# problem: we cannot use dataclass with nn.Module
+class XBModule(nn.Module):
 
-
-@dataclass
-class XBModule():
-
-    env: Any
-    model: nn.Module
-    device: Optional[str]="cpu"
-    batch_size: Optional[int]=256
-    max_updates: Optional[int]=1
-    update_every_n_steps: Optional[int] = 100
-    learning_rate: Optional[float]=0.001
-    weight_decay: Optional[float]=0
-    buffer_capacity: Optional[int]=10000
-    seed: Optional[int]=0
-    reset_model_at_train: Optional[bool]=True
+    def __init__(
+        self,
+        env: Any,
+        model: nn.Module,
+        device: Optional[str]="cpu",
+        batch_size: Optional[int]=256,
+        max_updates: Optional[int]=1,
+        learning_rate: Optional[float]=0.001,
+        weight_decay: Optional[float]=0,
+        buffer_capacity: Optional[int]=10000,
+        seed: Optional[int]=0,
+        reset_model_at_train: Optional[bool]=True,
+        update_every_n_steps: Optional[int] = 100
+    ) -> None:
+        super().__init__()
+        self.env = env
+        self.model = model
+        self.device = device
+        self.batch_size = batch_size
+        self.max_updates = max_updates
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+        self.buffer_capacity = buffer_capacity
+        self.seed = seed
+        self.reset_model_at_train = reset_model_at_train
+        self.update_every_n_steps = update_every_n_steps
 
     def reset(self) -> None:
         self.t = 0
@@ -35,7 +44,8 @@ class XBModule():
         self.action_history = np.zeros(1, dtype=int)
         self.best_action_history = np.zeros(1, dtype=int)
         self.batch_counter = 0
-        self.model.to(self.device)
+        if self.model:
+            self.model.to(self.device)
 
     def _post_train(self, loader=None) -> None:
         pass

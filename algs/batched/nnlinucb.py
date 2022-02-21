@@ -1,5 +1,4 @@
 import numpy as np
-from dataclasses import dataclass
 from typing import Optional, Any
 import torch
 import torch.nn as nn
@@ -15,14 +14,22 @@ def inv_sherman_morrison(u, A_inv):
     A_inv -= torch.outer(Au, Au) / (den)
     return A_inv, den
 
-@dataclass
 class NNLinUCB(XBModule):
 
-    noise_std: float=1
-    delta: Optional[float]=0.01
-    ucb_regularizer: Optional[float]=1
-    weight_mse: Optional[float]=1
-    bonus_scale: Optional[float]=1.
+    def __init__(
+        self, env: Any, model: nn.Module, device: Optional[str] = "cpu", batch_size: Optional[int] = 256, max_updates: Optional[int] = 1, learning_rate: Optional[float] = 0.001, weight_decay: Optional[float] = 0, buffer_capacity: Optional[int] = 10000, seed: Optional[int] = 0, reset_model_at_train: Optional[bool] = True, update_every_n_steps: Optional[int] = 100,
+        noise_std: float=1,
+        delta: Optional[float]=0.01,
+        ucb_regularizer: Optional[float]=1,
+        weight_mse: Optional[float]=1,
+        bonus_scale: Optional[float]=1.
+    ) -> None:
+        super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train, update_every_n_steps)
+        self.noise_std = noise_std
+        self.delta = delta
+        self.ucb_regularizer = ucb_regularizer
+        self.bonus_scale = bonus_scale
+        self.weight_mse = weight_mse
 
     def reset(self) -> None:
         super().reset()

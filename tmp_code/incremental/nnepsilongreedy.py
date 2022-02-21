@@ -11,11 +11,17 @@ from .templates import XBModule
 @dataclass
 class NNEpsGreedy(XBModule):
 
-    epsilon_min: float=0.05
-    epsilon_start: float=2
-    epsilon_decay: float=200
 
-    def __post_init__(self) -> None:
+    def __init__(
+        self, env: Any, model: nn.Module, device: Optional[str] = "cpu", batch_size: Optional[int] = 256, max_updates: Optional[int] = 1, learning_rate: Optional[float] = 0.001, weight_decay: Optional[float] = 0, buffer_capacity: Optional[int] = 10000, seed: Optional[int] = 0, reset_model_at_train: Optional[bool] = True,
+        epsilon_min: float=0.05,
+        epsilon_start: float=2,
+        epsilon_decay: float=200
+    ) -> None:
+        super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train)
+        self.epsilon_min = epsilon_min
+        self.epsilon_start = epsilon_start
+        self.epsilon_decay = epsilon_decay
         self.np_random = np.random.RandomState(self.seed)
 
     def reset(self) -> None:

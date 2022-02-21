@@ -1,6 +1,7 @@
 import numpy as np
 from dataclasses import dataclass
 from typing import Optional, Tuple, Any
+from .spaces import DiscreteFix
 
 @dataclass
 class LinearContinuous:
@@ -18,6 +19,7 @@ class LinearContinuous:
     min_value: Optional[int] = -1
     noise: Optional[str]=None
     noise_param: Optional[Any]=None
+    dataset_name: Optional[str]="linearcontinuous"
 
     def __post_init__(self) -> None:
         assert self.context_generation in ["gaussian", "bernoulli", "uniform"]
@@ -30,8 +32,9 @@ class LinearContinuous:
         elif self.feature_expansion == "onehot":
             self.feature_dim = self.context_dim + self.num_actions
         self.theta = self.np_random.uniform(low=self.min_value, high=self.max_value, size=self.feature_dim)
+        self.action_space = DiscreteFix(n=self.num_actions)
 
-    def _sample_context(self) -> np.ndarray:
+    def sample_context(self) -> np.ndarray:
         if self.context_generation == "uniform":
             self.context = self.np_random.uniform(low=self.min_value, high=self.max_value, size=(self.context_dim, ))
         elif self.context_generation == "gaussian":
@@ -43,19 +46,20 @@ class LinearContinuous:
     def features(self) -> np.ndarray:
         """ sample a context and return its expanded feature
         """
-        context = self._sample_context().copy()
         if self.feature_expansion is None:
+            # reward(a) = \phi(a) * \theta
+            # \phi(a) \sim D
             self.feat = np.zeros((self.num_actions, self.context_dim))
             for a in range(self.num_actions):
-                self.feat[a] = self._sample_context()
+                self.feat[a] = self.sample_context()
         elif self.feature_expansion == "expanded":
             self.feat = np.zeros((self.num_actions, self.feature_dim))
             for a in range(self.num_actions):
-                self.feat[a, a * self.context_dim: a * self.context_dim + self.context_dim] = context
+                self.feat[a, a * self.context_dim: a * self.context_dim + self.context_dim] = self.context
         elif self.feature_expansion == "onehot":
             self.feat = np.zeros((self.num_actions, self.feature_dim))
             for a in range(self.num_actions):
-                self.feat[a, 0:self.context_dim] = context
+                self.feat[a, 0:self.context_dim] = self.context
                 self.feat[a, a] = 1
         return self.feat
 

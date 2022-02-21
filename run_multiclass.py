@@ -1,6 +1,6 @@
 import envs as bandits
 import algs.batched
-import algs.incremental
+# import algs.incremental
 import torch
 import torch.nn as nn 
 from torch.nn import functional as F
@@ -80,53 +80,40 @@ if __name__ == "__main__":
 
     weight_decay = 1e-4
     bonus_scale = 0.5
-    if args.algo == "nnlinucb_inc":
-        algo = algs.incremental.NNLinUCB(
-            env=env,
-            model=net,
-            batch_size=args.batch_size,
-            max_updates=args.max_epochs,
-            update_every_n_steps=args.update_every,
-            learning_rate=args.lr,
-            buffer_capacity=T,
-            noise_std=1,
-            delta=0.01,
-            weight_decay=weight_decay,
-            ucb_regularizer=1,
-            bonus_scale=bonus_scale
-        )
-    # algo = NNEpsGreedy(
-    #     env=env,
-    #     model=net,
-    #     batch_size=64,
-    #     max_epochs=10,
-    #     update_every_n_steps=100,
-    #     learning_rate=0.01,
-    #     buffer_capacity=T,
-    #     epsilon_start=5,
-    #     epsilon_min=0.05,
-    #     epsilon_decay=2000,
-    #     weight_decay=0
-    # )
-    elif args.algo == "nnleader_inc":
-        algo = algs.incremental.NNLeader(
-            env=env,
-            model=net,
-            batch_size=args.batch_size,
-            max_updates=args.max_epochs,
-            update_every_n_steps=args.update_every,
-            learning_rate=args.lr,
-            buffer_capacity=T,
-            noise_std=1,
-            delta=0.01,
-            weight_decay=weight_decay,
-            weight_mse=1,
-            weight_spectral=-0.1,
-            weight_l2features=0,
-            ucb_regularizer=1,
-            bonus_scale=bonus_scale
-        )
-    elif args.algo == "nnlinucb":
+    # if args.algo == "nnlinucb_inc":
+    #     algo = algs.incremental.NNLinUCB(
+    #         env=env,
+    #         model=net,
+    #         batch_size=args.batch_size,
+    #         max_updates=args.max_epochs,
+    #         update_every_n_steps=args.update_every,
+    #         learning_rate=args.lr,
+    #         buffer_capacity=T,
+    #         noise_std=1,
+    #         delta=0.01,
+    #         weight_decay=weight_decay,
+    #         ucb_regularizer=1,
+    #         bonus_scale=bonus_scale
+    #     )
+    # elif args.algo == "nnleader_inc":
+    #     algo = algs.incremental.NNLeader(
+    #         env=env,
+    #         model=net,
+    #         batch_size=args.batch_size,
+    #         max_updates=args.max_epochs,
+    #         update_every_n_steps=args.update_every,
+    #         learning_rate=args.lr,
+    #         buffer_capacity=T,
+    #         noise_std=1,
+    #         delta=0.01,
+    #         weight_decay=weight_decay,
+    #         weight_mse=1,
+    #         weight_spectral=-0.1,
+    #         weight_l2features=0,
+    #         ucb_regularizer=1,
+    #         bonus_scale=bonus_scale
+    #     )
+    if args.algo == "nnlinucb":
         algo = algs.batched.NNLinUCB(
             env=env,
             model=net,

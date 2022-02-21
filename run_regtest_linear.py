@@ -143,6 +143,7 @@ if __name__ == "__main__":
     parser.add_argument('--horizon', type=int, default=10000, metavar='Horizon of the bandit problem, corresponding to horizon x nactions samples ')
     parser.add_argument('--seed', type=int, default=0, metavar='Seed used for the generation of the bandit problem')
     parser.add_argument('--bandittype', default="onehot", help="None, expanded, onehot")
+    parser.add_argument('--contextgeneration', default="uniform", help="uniform, gaussian, bernoulli")
     parser.add_argument('--layers', nargs='+', type=int, default=100, help="dimension of each layer (example --layers 100 200)")
     parser.add_argument('--logfolder', type=str, default="tblogs")
     parser.add_argument('--max_epochs', type=int, default=250, help="maximum number of epochs")
@@ -157,7 +158,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     env = bandits.LinearContinuous(
-        context_dim=args.dim, num_actions=args.narms, context_generation="uniform",
+        context_dim=args.dim, num_actions=args.narms, context_generation=args.contextgeneration,
         feature_expansion=args.bandittype, seed=args.seed
     )
     hid_dim = args.layers

@@ -1,5 +1,4 @@
 import numpy as np
-from dataclasses import dataclass
 from typing import Optional, Any
 import torch
 import torch.nn as nn
@@ -7,11 +6,16 @@ from torch.nn import functional as F
 
 from .nnlinucb import NNLinUCB
 
-@dataclass
 class NNLeader(NNLinUCB):
 
-    weight_spectral: Optional[float]=-0.001
-    weight_l2features: Optional[float]=0
+    def __init__(
+        self, env: Any, model: nn.Module, device: Optional[str] = "cpu", batch_size: Optional[int] = 256, max_updates: Optional[int] = 1, learning_rate: Optional[float] = 0.001, weight_decay: Optional[float] = 0, buffer_capacity: Optional[int] = 10000, seed: Optional[int] = 0, reset_model_at_train: Optional[bool] = True, update_every_n_steps: Optional[int] = 100, noise_std: float = 1, delta: Optional[float] = 0.01, ucb_regularizer: Optional[float] = 1, weight_mse: Optional[float] = 1, bonus_scale: Optional[float] = 1,
+        weight_spectral: Optional[float]=-0.001,
+        weight_l2features: Optional[float]=0
+    ) -> None:
+        super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train, update_every_n_steps, noise_std, delta, ucb_regularizer, weight_mse, bonus_scale)
+        self.weight_spectral = weight_spectral
+        self.weight_l2features = weight_l2features
 
     def _train_loss(self, b_features, b_rewards):
         loss = 0
