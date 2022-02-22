@@ -1,6 +1,7 @@
 import envs as bandits
 import matplotlib.pyplot as plt
 from algs.linear import LinUCB
+from algs.generalized_linear import UCBGLM
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 import argparse
@@ -27,7 +28,7 @@ if __name__ == "__main__":
     )
 
 
-    algo = LinUCB(
+    algo = UCBGLM(
         env=env,
         seed=args.seed,
         update_every_n_steps=1,
@@ -37,5 +38,6 @@ if __name__ == "__main__":
         bonus_scale=1.
     )
     algo.reset()
-    algo.run(horizon=args.horizon)
-    
+    result = algo.run(horizon=args.horizon)
+    regrets = result['expected_regret']
+    plt.plot(regrets)

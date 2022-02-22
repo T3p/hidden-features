@@ -93,6 +93,7 @@ class XBModule(nn.Module):
         """Continue learning from the point where we stopped
         """
         self.instant_reward = np.resize(self.instant_reward, horizon)
+        self.expected_reward = np.resize(self.instant_reward, horizon)
         self.best_reward = np.resize(self.best_reward, horizon)
         self.action_history = np.resize(self.action_history, horizon)
         self.best_action_history = np.resize(self.best_action_history, horizon)
@@ -121,7 +122,8 @@ class XBModule(nn.Module):
 
                 # log regret
                 best_reward, best_action = self.env.best_reward_and_action()
-                self.instant_reward[self.t] = reward #self.env.expected_reward(action)
+                self.instant_reward[self.t] = reward 
+                self.expected_reward[self.t] = self.env.expected_reward(action)
                 self.best_reward[self.t] = best_reward
 
                 # log accuracy
@@ -151,5 +153,6 @@ class XBModule(nn.Module):
         
         return {
             "regret": np.cumsum(self.best_reward - self.instant_reward),
-            "optimal_arm": np.cumsum(self.action_history == self.best_action_history) / np.arange(1, len(self.action_history)+1)
+            "optimal_arm": np.cumsum(self.action_history == self.best_action_history) / np.arange(1, len(self.action_history)+1),
+            "expected_regret": np.cumsum(self.best_reward - self.expected_reward)
         }
