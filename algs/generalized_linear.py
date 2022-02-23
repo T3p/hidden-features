@@ -3,18 +3,14 @@ from typing import Optional, Any, Callable
 from .batched.templates import XBModule
 from .linear import inv_sherman_morrison
 from scipy.optimize import root
+from scipy.special import expit as sigmoid
+import warnings
 
-def sigmoid(x):
-    return np.where(x < 0, np.exp(x)/(np.exp(x) + 1), 1/(np.exp(-x) + 1))
-
-def sigmoid_fod(x):
-    return sigmoid(x) * (-sigmoid(x) + 1)
-
-def sigmoid_sod(x):
-    return sigmoid_fod(x) * (-2 * sigmoid(x) + 1)
+def sigmoid_derivative(x):
+    return sigmoid(x) * (1 - sigmoid(x))
 
 def sigmoid_nonlinearity(param_bound, features_bound):
-    z = (1 + param_bound) * features_bound
+    z = param_bound * features_bound
     return 2 * (np.cosh(z) + 1)
 
 class UCBGLM(XBModule):
@@ -29,8 +25,7 @@ class UCBGLM(XBModule):
         bonus_scale: Optional[float]=1.,
         link_function: Callable[[float], float] = sigmoid,
         nonlinearity_function: Callable[[float, float], float] = sigmoid_nonlinearity,
-        link_fod: Optional[Callable[[float], float]] = sigmoid_fod,
-        link_sod: Optional[Callable[[float], float]] = sigmoid_sod
+        link_derivative: Optional[Callable[[float], float]] = sigmoid_derivative,
     ) -> None:
         super().__init__(env, None, None, None, None, None, None, 0, seed, None, update_every_n_steps)
         self.np_random = np.random.RandomState(seed)
@@ -40,8 +35,7 @@ class UCBGLM(XBModule):
         self.bonus_scale = bonus_scale
         self.link_function = link_function
         self.nonlinearity_function = nonlinearity_function
-        self.link_fod = link_fod
-        self.link_sod_sod = link_sod
+        self.link_derivative = link_derivative
         
     def reset(self) -> None:
         super().reset()
@@ -60,6 +54,7 @@ class UCBGLM(XBModule):
         assert features.shape[0] == self.env.action_space.n
         dim = features.shape[1]
         nonlinearity_coeff = self.nonlinearity_function(self.param_bound, self.features_bound)
+        #print(nonlinearity_coeff)
         beta = nonlinearity_coeff * self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2*self.t/self.ucb_regularizer)/self.delta)) + self.param_bound * np.sqrt(self.ucb_regularizer)
 
         # get features for each action and make it tensor
@@ -79,7 +74,7 @@ class UCBGLM(XBModule):
         # estimate linear component on the embedding + UCB part
         v = features
         self.features_history.append(features)
-        self.features_bound = max(self.features_bound, np.linalg.norm(v, 2).item())
+        #self.features_bound = max(self.features_bound, np.linalg.norm(v, 2).item())
         self.writer.add_scalar('features_bound', self.features_bound, self.t)
 
         self.new_b_vec = self.new_b_vec + v * reward
@@ -93,20 +88,28 @@ class UCBGLM(XBModule):
             self.inv_A = self.new_inv_A
             #self.theta = self.new_theta
             self.b_vec = self.new_b_vec
+            feature_matrix = np.stack(self.features_history, axis=0) #txd
             
             def mle_equation(theta):
-                feature_matrix = np.stack(self.features_history, axis=0) #txd
                 predictions = self.link_function(feature_matrix @ theta) #t
-                value = predictions @ feature_matrix - self.b_vec # d
-                derivatives = self.link_fod(feature_matrix @ theta) #t
-                jac = (derivatives * feature_matrix.T) @ feature_matrix #dxd
-                return value, jac
+                return predictions @ feature_matrix - self.b_vec # d
             
-            sol = root(mle_equation, self.theta, jac=True)
-            if sol.success:
-                self.theta = sol.x
-                self.param_bound = np.linalg.norm(self.theta, 2).item()
+            def mle_jacobian(theta):
+                derivatives = self.link_derivative(feature_matrix @ theta) #t
+                jacobian = np.einsum('i,ij,ik->jk', derivatives, feature_matrix, feature_matrix)  #dxd
+                return jacobian + np.eye(jacobian.shape[0]) * 1e-12
+  
+            theta_0 = self.inv_A @ self.b_vec
+            sol = root(mle_equation, theta_0, jac=mle_jacobian, method='hybr')
+            theta = sol.x
+            success = sol.success
+            if success:
+                self.theta = theta
+                #self.param_bound = max(self.param_bound, np.linalg.norm(self.theta, 2).item())
                 self.writer.add_scalar('param_bound', self.param_bound, self.t)
+            else:
+                print('Newton Method found no root!')
+            
         
         return 0
 
