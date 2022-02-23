@@ -6,6 +6,7 @@ from torch.nn import functional as F
 
 from .templates import XBModule
 
+
 def inv_sherman_morrison(u, A_inv):
     """Inverse of a matrix with rank 1 update.
     """
@@ -14,17 +15,29 @@ def inv_sherman_morrison(u, A_inv):
     A_inv -= torch.outer(Au, Au) / (den)
     return A_inv, den
 
+
 class NNLinUCB(XBModule):
 
     def __init__(
-        self, env: Any, model: nn.Module, device: Optional[str] = "cpu", batch_size: Optional[int] = 256, max_updates: Optional[int] = 1, learning_rate: Optional[float] = 0.001, weight_decay: Optional[float] = 0, buffer_capacity: Optional[int] = 10000, seed: Optional[int] = 0, reset_model_at_train: Optional[bool] = True, update_every_n_steps: Optional[int] = 100,
-        noise_std: float=1,
-        delta: Optional[float]=0.01,
-        ucb_regularizer: Optional[float]=1,
-        weight_mse: Optional[float]=1,
-        bonus_scale: Optional[float]=1.
+        self, env: Any, model: nn.Module,
+            device: Optional[str] = "cpu",
+            batch_size: Optional[int] = 256,
+            max_updates: Optional[int] = 1,
+            learning_rate: Optional[float] = 0.001,
+            weight_decay: Optional[float] = 0,
+            buffer_capacity: Optional[int] = 10000,
+            seed: Optional[int] = 0,
+            reset_model_at_train: Optional[bool] = True,
+            update_every_n_steps: Optional[int] = 100,
+            noise_std: float=1,
+            delta: Optional[float]=0.01,
+            ucb_regularizer: Optional[float]=1,
+            weight_mse: Optional[float]=1,
+            bonus_scale: Optional[float]=1.
     ) -> None:
-        super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train, update_every_n_steps)
+        super().__init__(env, model, device, batch_size, max_updates, learning_rate,
+                         weight_decay, buffer_capacity, seed, reset_model_at_train,
+                         update_every_n_steps)
         self.noise_std = noise_std
         self.delta = delta
         self.ucb_regularizer = ucb_regularizer
@@ -54,7 +67,9 @@ class NNLinUCB(XBModule):
     def play_action(self, features: np.ndarray):
         assert features.shape[0] == self.env.action_space.n
         dim = self.model.embedding_dim
-        beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound*self.features_bound*self.t/self.ucb_regularizer)/self.delta)) + self.param_bound * np.sqrt(self.ucb_regularizer)
+        beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
+                                                      *self.t/self.ucb_regularizer)/self.delta))\
+               + self.param_bound * np.sqrt(self.ucb_regularizer)
 
         # get features for each action and make it tensor
         xt = torch.FloatTensor(features).to(self.device)
@@ -76,7 +91,7 @@ class NNLinUCB(XBModule):
         # estimate linear component on the embedding + UCB part
         with torch.no_grad():
             xt = torch.FloatTensor(features.reshape(1,-1)).to(self.device)
-            v = self.model.embedding(xt).ravel()
+            v = self.model.embedding(xt).squeeze()
             self.features_bound = max(self.features_bound, torch.norm(v, p=2).item())
             self.writer.add_scalar('features_bound', self.features_bound, self.t)
 
