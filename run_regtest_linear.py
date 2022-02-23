@@ -10,37 +10,13 @@ from tqdm import tqdm
 import argparse
 import json
 import os
-
-class Network(nn.Module):
-
-    def __init__(self, input_size:int, layers_data:list):
-        super().__init__()
-        self.layers = nn.ModuleList()
-        self.input_size = input_size  # Can be useful later ...
-        for size, activation in layers_data:
-            self.layers.append(nn.Linear(input_size, size))
-            input_size = size  # For the next layer
-            if activation is not None:
-                assert isinstance(activation, Module), \
-                    "Each tuples should contain a size (int) and a torch.nn.modules.Module."
-                self.layers.append(activation)
-        self.embedding_dim = layers_data[-1][0]
-        self.fc2 = nn.Linear(self.embedding_dim, 1, bias=False)
-    
-    def embedding(self, x):
-        for layer in self.layers:
-            x = layer(x)
-        return x
-
-    def forward(self, x):
-        x = self.embedding(x)
-        return self.fc2(x)
+from algs.nnmodel import Network
 
 
 def train_full(test_data, model, learning_rate=1e-2, weight_decay=0, max_epochs=10, batch_size=64, device="cpu", logfolder="",
 weight_mse=1,weight_spectral=1, weight_l2features=0):
     writer = SummaryWriter(logfolder)
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model.train()
     batch_counter = 0
     tot_loss = []
@@ -174,7 +150,8 @@ if __name__ == "__main__":
     X, Y = None, None
     test_data = []
     for i in range(args.horizon):
-        # with this we get a matrix (na x ndim) for x and (na) for y 
+        # with this we get a matrix (na x ndim) for x and (na) for y
+        env.sample_context()
         x = env.features()
         y = x @ env.theta
         test_data.append((torch.FloatTensor(x,device=args.device),torch.FloatTensor(y.reshape(-1,1),device=args.device)))
