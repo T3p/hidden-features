@@ -2,6 +2,7 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Optional, Tuple, Any
 from .spaces import DiscreteFix
+from scipy.special import expit as sigmoid
 
 @dataclass
 class LinearContinuous:
@@ -64,23 +65,31 @@ class LinearContinuous:
         return self.feat
 
     def step(self, action: int) -> float:
-        reward = np.dot(self.theta, self.feat[action])
+        z = np.dot(self.theta, self.feat[action])
         if self.noise is not None:
             if self.noise == "bernoulli":
-                reward = self.np_random.binomial(n=1, p=reward).item()
+                reward = self.np_random.binomial(n=1, p=sigmoid(z))
             else:
-                reward = reward + self.np_random.randn(1).item() * self.noise_param     
+                reward = z + self.np_random.randn(1).item() * self.noise_param     
         return reward
 
     def best_reward_and_action(self) -> Tuple[int, float]:
         """ Best action and reward in the current context
         """
-        rewards = self.feat @ self.theta
-        action = np.argmax(rewards)
+        z = self.feat @ self.theta
+        action = np.argmax(z)
+        if self.noise == 'bernoulli':
+            rewards = sigmoid(z)
+        else:
+            rewards = z
         return rewards[action], action
     
     def expected_reward(self, action: int) -> float:
-        reward = np.dot(self.theta, self.feat[action])
+        z = np.dot(self.theta, self.feat[action])
+        if self.noise == 'bernoulli':
+            reward = sigmoid(z)
+        else:
+            reward = z
         return reward
 
 

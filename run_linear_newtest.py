@@ -17,7 +17,7 @@ if __name__ == "__main__":
     # env options
     parser.add_argument('--dim', type=int, default=20, metavar='Context dimension')
     parser.add_argument('--narms', type=int, default=5, metavar='Number of actions')
-    parser.add_argument('--horizon', type=int, default=10000, metavar='Horizon of the bandit problem')
+    parser.add_argument('--horizon', type=int, default=100000, metavar='Horizon of the bandit problem')
     parser.add_argument('--seed', type=int, default=0, metavar='Seed used for the generation of the bandit problem')
     parser.add_argument('--bandittype', default="expanded", help="None, expanded, onehot")
     parser.add_argument('--contextgeneration', default="uniform", help="uniform, gaussian, bernoulli")
@@ -35,10 +35,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     noise_std = 0.5
+    
     env = bandits.LinearContinuous(
         context_dim=args.dim, num_actions=args.narms, context_generation=args.contextgeneration,
         feature_expansion=args.bandittype, seed=args.seed, noise="gaussian", noise_param=noise_std
     )
+
 
     print('layers: ', args.layers)
     hid_dim = args.layers
@@ -47,6 +49,7 @@ if __name__ == "__main__":
     layers = [(el, nn.ReLU()) for el in hid_dim]
     net = Network(env.feature_dim, layers)
     print(net)
+
 
     print(f'Input features dim: {env.feature_dim}')
 
@@ -92,3 +95,18 @@ if __name__ == "__main__":
     regrets = result['expected_regret']
     plt.plot(regrets)
     plt.savefig('regret.png')
+
+    
+    algo = LinUCB(
+        env=env,
+        seed=args.seed,
+        update_every_n_steps=1,
+        noise_std=noise_std,
+        delta=0.01,
+        ucb_regularizer=1,
+        bonus_scale=1.
+    )
+    algo.reset()
+    result = algo.run(horizon=args.horizon)
+    regrets = result['expected_regret']
+    plt.plot(regrets)
