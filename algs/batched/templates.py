@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 from ..replaybuffer import SimpleBuffer
 from tqdm import tqdm
 
+
 class XBModule(nn.Module):
 
     def __init__(
@@ -67,7 +68,7 @@ class XBModule(nn.Module):
                 )
 
             loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
-            optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+            optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
             self.model.train()
             last_loss = 0.0
             for epoch in range(self.max_updates):
