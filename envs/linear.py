@@ -4,6 +4,7 @@ from typing import Optional, Tuple, Any
 from .spaces import DiscreteFix
 from scipy.special import expit as sigmoid
 
+
 @dataclass
 class LinearContinuous:
 
@@ -12,6 +13,7 @@ class LinearContinuous:
     context_generation: Optional[str] = "uniform"
     feature_expansion: Optional[str] = None
     seed: Optional[int] = 0
+    seed_problem: Optional[int]=99
     max_value: Optional[int] = 1
     min_value: Optional[int] = -1
     features_sigma: Optional[int] = 1
@@ -32,7 +34,8 @@ class LinearContinuous:
             self.feature_dim = self.context_dim * self.num_actions
         elif self.feature_expansion == "onehot":
             self.feature_dim = self.context_dim + self.num_actions
-        self.theta = self.np_random.uniform(low=self.min_value, high=self.max_value, size=self.feature_dim)
+        random_problem = np.random.RandomState(seed=self.seed_problem)
+        self.theta = random_problem.uniform(low=self.min_value, high=self.max_value, size=self.feature_dim)
         self.action_space = DiscreteFix(n=self.num_actions)
 
     def sample_context(self) -> np.ndarray:
@@ -64,32 +67,41 @@ class LinearContinuous:
                 self.feat[a, a] = 1
         return self.feat
 
+    def _expected_reward(self, features) -> np.ndarray:
+        z = features @ self.theta
+        if self.noise == 'bernoulli':
+            rewards = sigmoid(z)
+        else:
+            rewards = z
+        return rewards
+
     def step(self, action: int) -> float:
-        z = np.dot(self.theta, self.feat[action])
+        reward = self._expected_reward(self.feat)[action]
         if self.noise is not None:
             if self.noise == "bernoulli":
-                reward = self.np_random.binomial(n=1, p=sigmoid(z))
+                reward = self.np_random.binomial(n=1, p=reward)
             else:
-                reward = z + self.np_random.randn(1).item() * self.noise_param     
+                reward = reward + self.np_random.randn(1).item() * self.noise_param     
         return reward
 
     def best_reward_and_action(self) -> Tuple[int, float]:
         """ Best action and reward in the current context
         """
-        z = self.feat @ self.theta
-        action = np.argmax(z)
-        if self.noise == 'bernoulli':
-            rewards = sigmoid(z)
-        else:
-            rewards = z
+        rewards = self._expected_reward(self.feat)
+        action = np.argmax(rewards).item()
         return rewards[action], action
     
     def expected_reward(self, action: int) -> float:
-        z = np.dot(self.theta, self.feat[action])
-        if self.noise == 'bernoulli':
-            reward = sigmoid(z)
-        else:
-            reward = z
+        reward = self._expected_reward(self.feat)[action]
         return reward
 
-
+    def min_suboptimality_gap(self, n_samples=1000):
+        gap = np.inf
+        for _ in range(n_samples):
+            self.sample_context()
+            features = self.features()
+            rewards = self._expected_reward(features)
+            sorted = np.sort(rewards)
+            action_gap = sorted[-1]-sorted[-2]
+            gap = min(gap, action_gap)
+        return gap
