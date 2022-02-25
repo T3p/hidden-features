@@ -10,7 +10,7 @@ from tqdm import tqdm
 import argparse
 import json
 import os
-from algs.nnmodel import Network
+from algs.nnmodel import Network, LinearNetwork
 
 
 def train_full(test_data, model, learning_rate=1e-2, weight_decay=0, max_epochs=10, batch_size=64, device="cpu", logfolder="",
@@ -97,7 +97,7 @@ weight_mse=1,weight_spectral=1, weight_l2features=0):
             writer.add_scalar("epoch percentage optimal actions", accuracy / cnt, epoch)
 
 
-            if np.mean(lh) < 1e-3:
+            if np.mean(lh) < 1e-6:
                 break
             tot_loss.append(np.mean(lh))
 
@@ -143,6 +143,8 @@ if __name__ == "__main__":
     layers = [(el, nn.ReLU()) for el in hid_dim]
     net = Network(env.feature_dim, layers)
     print(net)
+    # net = LinearNetwork(env.feature_dim)
+    # print(net)
 
     print(f'Input features dim: {env.feature_dim}')
 

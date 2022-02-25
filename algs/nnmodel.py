@@ -45,3 +45,17 @@ class Network(nn.Module):
     def forward(self, x):
         x = self.embedding(x)
         return self.fc2(x)
+
+
+class LinearNetwork(nn.Module):
+    def __init__(self, input_size: int):
+        super().__init__()
+        self.fc = nn.Linear(input_size, 1, bias=False)
+        self.embedding_dim = input_size
+        initialize_weights(self)
+
+    def embedding(self, x):
+        return x
+
+    def forward(self, x):
+        return self.fc(x)

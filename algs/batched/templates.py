@@ -6,6 +6,7 @@ from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 from ..replaybuffer import SimpleBuffer
 from tqdm import tqdm
+from algs.nnmodel import initialize_weights
 
 
 class XBModule(nn.Module):
@@ -58,13 +59,14 @@ class XBModule(nn.Module):
     def train(self) -> float:
         if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
             if self.reset_model_at_train:
-                for layer in self.model.children():
-                    if hasattr(layer, 'reset_parameters'):
-                        layer.reset_parameters()
+                initialize_weights(self.model)
+                # for layer in self.model.children():
+                #     if hasattr(layer, 'reset_parameters'):
+                #         layer.reset_parameters()
             features, rewards = self.buffer.get_all()
             torch_dataset = torch.utils.data.TensorDataset(
                 torch.tensor(features, dtype=torch.float, device=self.device),
-                torch.tensor(rewards.reshape(-1,1), dtype=torch.float, device=self.device)
+                torch.tensor(rewards.reshape(-1, 1), dtype=torch.float, device=self.device)
                 )
 
             loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
@@ -109,7 +111,8 @@ class XBModule(nn.Module):
         postfix = {
             'total regret': 0.0,
             '% optimal arm (last 100 steps)': 0.0,
-            'train loss': 0.0
+            'train loss': 0.0,
+            'expected regret': 0.0
         }
         with tqdm(initial=self.t, total=horizon, postfix=postfix) as pbar:
             while (self.t < horizon):
@@ -133,6 +136,7 @@ class XBModule(nn.Module):
                 
                 # log
                 postfix['total regret'] += self.best_reward[self.t] - self.instant_reward[self.t]
+                postfix['expected regret'] += self.best_reward[self.t] - self.expected_reward[self.t]
                 p_optimal_arm = np.mean(
                     self.action_history[max(0,self.t-100):self.t+1] == self.best_action_history[max(0,self.t-100):self.t+1]
                 )
@@ -141,8 +145,10 @@ class XBModule(nn.Module):
                     postfix['train loss'] = train_loss
 
                 self.writer.add_scalar("regret", postfix['total regret'], self.t)
+                self.writer.add_scalar("expected regret", postfix['expected regret'], self.t)
                 self.writer.add_scalar('perc optimal arm', p_optimal_arm, self.t)
                 self.writer.add_scalar('optimal arm?', 1 if self.action_history[self.t] == self.best_action_history[self.t] else 0, self.t)
+
                 self.writer.flush()
 
                 if self.t % throttle == 0:
