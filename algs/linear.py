@@ -43,7 +43,9 @@ class LinUCB(XBModule):
     def play_action(self, features: np.ndarray) -> int:
         assert features.shape[0] == self.env.action_space.n
         dim = features.shape[1]
-        beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound*self.features_bound*self.t/self.ucb_regularizer)/self.delta)) + self.param_bound * np.sqrt(self.ucb_regularizer)
+        beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
+                                                      *self.t/self.ucb_regularizer)/self.delta)) \
+               + self.param_bound * np.sqrt(self.ucb_regularizer)
 
         # get features for each action and make it tensor
         bonus = ((features @ self.inv_A)*features).sum(axis=1)
@@ -71,6 +73,9 @@ class LinUCB(XBModule):
         self.param_bound = np.linalg.norm(self.theta, 2).item()
         self.writer.add_scalar('param_bound', self.param_bound, self.t)
 
+        self.inv_A = self.new_inv_A
+        self.theta = self.new_theta
+        self.b_vec = self.new_b_vec
 
     def train(self) -> float:
         if self.t % self.update_every_n_steps == 0:
