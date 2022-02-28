@@ -33,6 +33,8 @@ if __name__ == "__main__":
     parser.add_argument('--update_every', type=int, default=100, help="Update every N samples")
     parser.add_argument('--config_name', type=str, default="", help='configuration name used to create the log')
     parser.add_argument('--lr', type=float, default=1e-3, help="learning rate")
+    parser.add_argument('--weight_decay', type=float, default=1e-4, help="weight decay, ie L2 regularization of the parameters")
+    parser.add_argument('--noise_std', type=float, default=1e-3, help="standard deviation of the noise")
     parser.add_argument('--batch_size', type=int, default=128, help="batch size")
     parser.add_argument('--device', type=str, default="cpu")
     parser.add_argument('--log_dir', type=str, default=None)
@@ -40,11 +42,10 @@ if __name__ == "__main__":
 
 
     args = parser.parse_args()
-    noise_std = 0.5
-    
     env = bandits.LinearContinuous(
         context_dim=args.dim, num_actions=args.narms, context_generation=args.contextgeneration,
-        feature_expansion=args.bandittype, seed=args.seed, noise="gaussian", noise_param=noise_std
+        feature_expansion=args.bandittype, seed=args.seed, noise="gaussian", noise_param=args.noise_std,
+        seed_problem=99
     )
 
 
@@ -101,7 +102,7 @@ if __name__ == "__main__":
              env=env,
              seed=args.seed,
              update_every_n_steps=args.update_every,
-             noise_std=noise_std,
+             noise_std=args.noise_std,
             delta=0.01,
             ucb_regularizer=1,
             bonus_scale=args.bonus_scale)
@@ -110,7 +111,7 @@ if __name__ == "__main__":
             env=env,
             seed=args.seed,
             update_every_n_steps=1,
-            noise_std=noise_std,
+            noise_std=args.noise_std,
             delta=0.01,
             ucb_regularizer=1,
             bonus_scale=1.
