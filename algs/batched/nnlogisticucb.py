@@ -6,6 +6,7 @@ from torch.nn import functional as F
 from scipy.special import expit as sigmoid
 
 from .templates import XBModule
+from ..linear import inv_sherman_morrison
 
 def sigmoid_nonlinearity(param_bound, features_bound):
     z = param_bound * features_bound
@@ -67,9 +68,7 @@ class NNLogisticUCB(XBModule):
         action = torch.argmax(ucb).item()
         self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
         assert 0 <= action < self.env.action_space.n, ucb
-
         return action
-
     
     def add_sample(self, context: np.ndarray, action: int, reward: float, features: np.ndarray) -> None:
         exp = (features, reward)
@@ -79,15 +78,10 @@ class NNLogisticUCB(XBModule):
         with torch.no_grad():
             xt = torch.FloatTensor(features.reshape(1,-1)).to(self.device)
             v = self.model.embedding(xt).squeeze()
-            self.features_bound = max(self.features_bound, torch.norm(v, p=2).item())
-            self.writer.add_scalar('features_bound', self.features_bound, self.t)
-
             self.b_vec = self.b_vec + v * reward
             self.inv_A, den = inv_sherman_morrison(v, self.inv_A)
             # self.A_logdet += np.log(den)
             self.theta = self.inv_A @ self.b_vec
-            self.param_bound = torch.linalg.norm(self.theta, 2).item()
-            self.writer.add_scalar('param_bound', self.param_bound, self.t)
     
     def _post_train(self, loader=None):
         with torch.no_grad():
