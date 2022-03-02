@@ -130,7 +130,7 @@ class XBModule(nn.Module):
                 self.expected_reward[self.t] = self.env.expected_reward(action)
                 self.best_reward[self.t] = best_reward
 
-                rewards = [self.env.expected_reward(a) for a in self.env.action_space.n]
+                rewards = [self.env.expected_reward(a) for a in range(self.env.action_space.n)]
                 sorted = np.sort(rewards)
                 action_gap = sorted[-1]-sorted[-2]
                 self.writer.add_scalar('action gap', action_gap, self.t)
