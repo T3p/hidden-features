@@ -93,14 +93,14 @@ class NNLinUCB(XBModule):
             xt = torch.FloatTensor(features.reshape(1,-1)).to(self.device)
             v = self.model.embedding(xt).squeeze()
             # self.features_bound = max(self.features_bound, torch.norm(v, p=2).item())
-            self.writer.add_scalar('features_bound', self.features_bound, self.t)
+            # self.writer.add_scalar('features_bound', self.features_bound, self.t)
 
             self.b_vec = self.b_vec + v * reward
             self.inv_A, den = inv_sherman_morrison(v, self.inv_A)
             # self.A_logdet += np.log(den)
             self.theta = self.inv_A @ self.b_vec
             # self.param_bound = torch.linalg.norm(self.theta, 2).item()
-            self.writer.add_scalar('param_bound', self.param_bound, self.t)
+            # self.writer.add_scalar('param_bound', self.param_bound, self.t)
     
     def _post_train(self, loader=None):
         with torch.no_grad():
@@ -123,3 +123,6 @@ class NNLinUCB(XBModule):
             # # strange issue with making operations directly in pytorch
             # self.inv_A = torch.tensor(np.linalg.inv(A), dtype=torch.float)
             self.theta = self.inv_A @ self.b_vec
+            self.param_bound = torch.linalg.norm(self.theta, 2).item()
+            self.writer.add_scalar('param_bound', self.param_bound, self.t)
+            self.writer.add_scalar('features_bound', self.features_bound, self.t)
