@@ -43,13 +43,14 @@ class NNLinUCB(XBModule):
         self.ucb_regularizer = ucb_regularizer
         self.bonus_scale = bonus_scale
         self.weight_mse = weight_mse
+        self.device = device
 
     def reset(self) -> None:
         super().reset()
         dim = self.model.embedding_dim
-        self.b_vec = torch.zeros(dim, dtype=torch.float)
-        self.inv_A = torch.eye(dim, dtype=torch.float) / self.ucb_regularizer
-        self.theta = torch.zeros(dim, dtype=torch.float)
+        self.b_vec = torch.zeros(dim, dtype=torch.float).to(self.device)
+        self.inv_A = torch.eye(dim, dtype=torch.float).to(self.device) / self.ucb_regularizer
+        self.theta = torch.zeros(dim, dtype=torch.float).to(self.device)
         self.param_bound = 1
         self.features_bound = 1
 
@@ -92,28 +93,28 @@ class NNLinUCB(XBModule):
         with torch.no_grad():
             xt = torch.FloatTensor(features.reshape(1,-1)).to(self.device)
             v = self.model.embedding(xt).squeeze()
-            self.features_bound = max(self.features_bound, torch.norm(v, p=2).item())
+            self.features_bound = max(self.features_bound, torch.norm(v, p=2).cpu().item())
             self.writer.add_scalar('features_bound', self.features_bound, self.t)
 
             self.b_vec = self.b_vec + v * reward
             self.inv_A, den = inv_sherman_morrison(v, self.inv_A)
             # self.A_logdet += np.log(den)
             self.theta = self.inv_A @ self.b_vec
-            self.param_bound = torch.linalg.norm(self.theta, 2).item()
+            self.param_bound = torch.linalg.norm(self.theta, 2).cpu().item()
             self.writer.add_scalar('param_bound', self.param_bound, self.t)
     
     def _post_train(self, loader=None):
         with torch.no_grad():
             # A = np.eye(dim) * self.ucb_regularizer
             dim = self.model.embedding_dim
-            self.b_vec = torch.zeros(dim)
-            self.inv_A = torch.eye(dim) / self.ucb_regularizer
+            self.b_vec = torch.zeros(dim).to(self.device)
+            self.inv_A = torch.eye(dim).to(self.device) / self.ucb_regularizer
             self.features_bound = 0
             for b_features, b_rewards in loader:
                 phi = self.model.embedding(b_features) #.cpu().detach().numpy()
 
                 # features
-                max_norm = torch.norm(phi, p=2, dim=1).max()
+                max_norm = torch.norm(phi, p=2, dim=1).max().cpu()
                 self.features_bound = max(self.features_bound, max_norm)
                 self.b_vec = self.b_vec + (phi * b_rewards).sum(dim=0)
                 #SM
