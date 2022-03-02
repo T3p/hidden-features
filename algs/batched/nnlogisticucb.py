@@ -8,6 +8,7 @@ from scipy.special import expit as sigmoid
 from .templates import XBModule
 from ..linear import inv_sherman_morrison
 
+
 def sigmoid_nonlinearity(param_bound, features_bound):
     z = param_bound * features_bound
     return 2 * (np.cosh(z) + 1)
@@ -49,7 +50,7 @@ class NNLogisticUCB(XBModule):
 
     def _train_loss(self, b_features, b_rewards):
         output = self.model(b_features)
-        loss = F.nll_loss(output, b_rewards)
+        loss = F.binary_cross_entropy(output, b_rewards)
         return loss
     
     @torch.no_grad()
@@ -57,6 +58,7 @@ class NNLogisticUCB(XBModule):
         assert features.shape[0] == self.env.action_space.n
         xt = torch.FloatTensor(features).to(self.device)
         net_features = self.model.embedding(xt)
+        prediction = self.model(xt).squeeze()
         dim = net_features.shape[1]
         nonlinearity_coeff = sigmoid_nonlinearity(1. + self.param_bound, self.features_bound)
         beta = nonlinearity_coeff * self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2*self.t/self.ucb_regularizer)/self.delta)) + self.param_bound * np.sqrt(self.ucb_regularizer)
@@ -64,7 +66,7 @@ class NNLogisticUCB(XBModule):
         # get features for each action and make it tensor
         bonus = ((net_features @ self.inv_A)*net_features).sum(axis=1)
         bonus = self.bonus_scale * beta * np.sqrt(bonus)
-        ucb = net_features @ self.theta + bonus
+        ucb = prediction + bonus
         action = torch.argmax(ucb).item()
         self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
         assert 0 <= action < self.env.action_space.n, ucb
@@ -84,8 +86,9 @@ class NNLogisticUCB(XBModule):
             self.theta = self.inv_A @ self.b_vec
     
     def _post_train(self, loader=None):
+
+        # recompute design matrix after update of neural network
         with torch.no_grad():
-            # A = np.eye(dim) * self.ucb_regularizer
             dim = self.model.embedding_dim
             self.b_vec = torch.zeros(dim)
             self.inv_A = torch.eye(dim) / self.ucb_regularizer
@@ -100,7 +103,6 @@ class NNLogisticUCB(XBModule):
                 #SM
                 for v in phi:
                     self.inv_A = inv_sherman_morrison(v.ravel(), self.inv_A)[0]
-            #     A = A + np.sum(phi[...,None]*phi[:,None], axis=0)
-            # # strange issue with making operations directly in pytorch
-            # self.inv_A = torch.tensor(np.linalg.inv(A), dtype=torch.float)
-            self.theta = self.inv_A @ self.b_vec
+        
+
+        

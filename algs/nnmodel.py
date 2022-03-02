@@ -1,6 +1,7 @@
-from torch.nn.modules import Module
 import math
+import torch
 import torch.nn as nn
+from typing import Tuple, List
 
 
 def initialize_weights(model):
@@ -20,42 +21,89 @@ def initialize_weights(model):
                 m.bias.data.zero_()
 
 
-class Network(nn.Module):
+class MLLinearNetwork(nn.Module):
 
-    def __init__(self, input_size: int, layers_data: list):
+    def __init__(self, input_size: int, layers_data: List[Tuple]):
         super().__init__()
         self.layers = nn.ModuleList()
         self.input_size = input_size  # Can be useful later ...
-        for size, activation in layers_data:
-            self.layers.append(nn.Linear(input_size, size))
-            input_size = size  # For the next layer
-            if activation is not None:
-                assert isinstance(activation, Module), \
-                    "Each tuples should contain a size (int) and a torch.nn.modules.Module."
-                self.layers.append(activation)
-        self.embedding_dim = layers_data[-1][0]
+        if layers_data:
+            for size, activation in layers_data:
+                self.layers.append(nn.Linear(input_size, size))
+                input_size = size  # For the next layer
+                if activation is not None:
+                    assert isinstance(activation, nn.Module), \
+                        "Each tuples should contain a size (int) and a torch.nn.modules.Module."
+                    self.layers.append(activation)
+            self.embedding_dim = layers_data[-1][0]
+        else:
+            self.embedding_dim = input_size
+            self.layers = None
         self.fc2 = nn.Linear(self.embedding_dim, 1, bias=False)
         initialize_weights(self)
 
     def embedding(self, x):
-        for layer in self.layers:
-            x = layer(x)
+        if self.layers:
+            for layer in self.layers:
+                x = layer(x)
         return x
 
     def forward(self, x):
         x = self.embedding(x)
         return self.fc2(x)
 
+class LinearNetwork(MLLinearNetwork):
 
-class LinearNetwork(nn.Module):
     def __init__(self, input_size: int):
+        super().__init__(input_size, None)
+
+# class LinearNetwork(nn.Module):
+#     def __init__(self, input_size: int):
+#         super().__init__()
+#         self.fc = nn.Linear(input_size, 1, bias=False)
+#         self.embedding_dim = input_size
+#         initialize_weights(self)
+
+#     def embedding(self, x):
+#         return x
+
+#     def forward(self, x):
+#         return self.fc(x)
+
+
+
+class MLLogisticNetwork(nn.Module):
+
+    def __init__(self, input_size: int, layers_data: List[Tuple]):
         super().__init__()
-        self.fc = nn.Linear(input_size, 1, bias=False)
-        self.embedding_dim = input_size
+        self.layers = nn.ModuleList()
+        self.input_size = input_size  # Can be useful later ...
+        if layers_data:
+            for size, activation in layers_data:
+                self.layers.append(nn.Linear(input_size, size))
+                input_size = size  # For the next layer
+                if activation is not None:
+                    assert isinstance(activation, nn.Module), \
+                        "Each tuples should contain a size (int) and a torch.nn.modules.Module."
+                    self.layers.append(activation)
+            self.embedding_dim = layers_data[-1][0]
+        else:
+            self.layers = None
+            self.embedding_dim = input_size
+        self.fc2 = nn.Linear(self.embedding_dim, 1, bias=False)
         initialize_weights(self)
 
     def embedding(self, x):
+        if self.layers:
+            for layer in self.layers:
+                x = layer(x)
         return x
 
     def forward(self, x):
-        return self.fc(x)
+        x = self.embedding(x)
+        return torch.sigmoid(self.fc2(x))
+
+class LogisticNetwork(MLLogisticNetwork):
+
+    def __init__(self, input_size: int):
+        super().__init__(input_size, None)

@@ -1,8 +1,11 @@
 import envs as bandits
 import matplotlib.pyplot as plt
 from algs.linear import LinUCB
+from algs.generalized_linear import UCBGLM
 from algs.batched.nnlinucb import NNLinUCB
+from algs.nnmodel import LinearNetwork
 from algs.batched.nnepsilongreedy import NNEpsGreedy
+from algs.batched.nnlogisticucb import NNLogisticUCB
 from algs.linear import LinUCB
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
@@ -11,7 +14,7 @@ import argparse
 import json
 import os
 import pickle
-from algs.nnmodel import MLLinearNetwork, MLLogisticNetwork
+from algs.nnmodel import MLLogisticNetwork
 import torch
 import random
 
@@ -26,7 +29,7 @@ if __name__ == "__main__":
     parser.add_argument('--bandittype', default="expanded", help="None, expanded, onehot")
     parser.add_argument('--contextgeneration', default="uniform", help="uniform, gaussian, bernoulli")
     # algo options
-    parser.add_argument('--algo', type=str, default="nnlinucb", help='algorithm [nnlinucb, nnleader]')
+    parser.add_argument('--algo', type=str, default="nnlogisticucb", help='algorithm [nnlinucb, nnleader]')
     parser.add_argument('--bonus_scale', type=float, default=0.1)
     parser.add_argument('--layers', nargs='+', type=int, default=100,
                         help="dimension of each layer (example --layers 100 200)")
@@ -45,7 +48,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     env = bandits.LinearContinuous(
         context_dim=args.dim, num_actions=args.narms, context_generation=args.contextgeneration,
-        feature_expansion=args.bandittype, seed=args.seed, noise="gaussian", noise_param=args.noise_std,
+        feature_expansion=args.bandittype, seed=args.seed, noise="bernoulli", noise_param=None,
         seed_problem=args.seed_problem
     )
 
@@ -56,21 +59,19 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
     random.seed(args.seed)
 
-
     print('layers: ', args.layers)
     hid_dim = args.layers
     if not isinstance(args.layers, list):
         hid_dim = [args.layers]
     layers = [(el, nn.Tanh()) for el in hid_dim]
-    net = MLLinearNetwork(env.feature_dim, layers)
-    print(net)
-    # net = MLLinearNetwork(env.feature_dim, None)
+    # net = MLLogisticNetwork(env.feature_dim, layers)
     # print(net)
-
+    net = MLLogisticNetwork(env.feature_dim, None)
+    print(net)
 
     print(f'Input features dim: {env.feature_dim}')
-    if args.algo == "nnlinucb":
-        algo = NNLinUCB(
+    if args.algo == "nnlogisticucb":
+        algo = NNLogisticUCB(
             env=env,
             model=net,
             batch_size=args.batch_size,
@@ -85,33 +86,16 @@ if __name__ == "__main__":
             bonus_scale=args.bonus_scale,
             reset_model_at_train=True
         )
-    elif args.algo == "nnepsilon":
-        algo = NNEpsGreedy(
-            env=env,
-            model=net,
-            batch_size=args.batch_size,
-            max_updates=args.max_epochs,
-            learning_rate=args.lr,
-            weight_decay=args.weight_decay,
-            buffer_capacity=args.horizon,
-            seed=args.seed,
-            reset_model_at_train=True,
-            update_every_n_steps=args.update_every,
-            epsilon_min=0.05,
-            epsilon_start=1,
-            epsilon_decay=200
-        )
-    elif args.algo == "linucb":
-        algo = LinUCB(
+    elif args.algo == "ucbglm":
+        algo = UCBGLM(
             env=env,
             seed=args.seed,
-            update_every_n_steps=args.update_every,
+            update_every_n_steps=1,
             noise_std=args.noise_std,
             delta=0.01,
             ucb_regularizer=1,
-            bonus_scale=args.bonus_scale
+            bonus_scale=1.
         )
-
     algo.reset()
     result = algo.run(horizon=args.horizon, log_path=args.log_dir)
     regrets = result['expected_regret']
