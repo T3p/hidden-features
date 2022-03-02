@@ -14,6 +14,8 @@ import json
 import os
 import pickle
 from algs.nnmodel import Network
+import torch
+import random
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Linear Bandit Test')
@@ -47,6 +49,13 @@ if __name__ == "__main__":
         feature_expansion=args.bandittype, seed=args.seed, noise="gaussian", noise_param=args.noise_std,
         seed_problem=99
     )
+
+    # set_seed_everywhere
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
 
 
     print('layers: ', args.layers)
