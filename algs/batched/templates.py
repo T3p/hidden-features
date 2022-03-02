@@ -43,8 +43,10 @@ class XBModule(nn.Module):
         self.buffer = SimpleBuffer(capacity=self.buffer_capacity)
         self.instant_reward = np.zeros(1)
         self.best_reward = np.zeros(1)
+        self.action_gap = np.zeros(1)
         self.action_history = np.zeros(1, dtype=int)
         self.best_action_history = np.zeros(1, dtype=int)
+
         self.batch_counter = 0
         if self.model:
             self.model.to(self.device)
@@ -86,6 +88,7 @@ class XBModule(nn.Module):
                 last_loss = np.mean(lh)
                 if last_loss < 1e-3:
                     break
+            self.writer.add_scalar('epoch_mse_loss', last_loss, self.t)
             self.model.eval()
 
             self._post_train(loader)
@@ -100,6 +103,7 @@ class XBModule(nn.Module):
         self.best_reward = np.resize(self.best_reward, horizon)
         self.action_history = np.resize(self.action_history, horizon)
         self.best_action_history = np.resize(self.best_action_history, horizon)
+        self.action_gap = np.resize(self.action_gap, horizon)
 
     def run(self, horizon: int, throttle: int=100, log_path: str=None) -> None:
         if log_path is None:
@@ -132,8 +136,8 @@ class XBModule(nn.Module):
 
                 rewards = [self.env.expected_reward(a) for a in range(self.env.action_space.n)]
                 sorted = np.sort(rewards)
-                action_gap = sorted[-1]-sorted[-2]
-                self.writer.add_scalar('action gap', action_gap, self.t)
+                self.action_gap[self.t] = sorted[-1]-sorted[-2]
+                self.writer.add_scalar('action gap', self.action_gap[self.t], self.t)
 
                 # log accuracy
                 self.action_history[self.t] = action
@@ -166,5 +170,7 @@ class XBModule(nn.Module):
         return {
             "regret": np.cumsum(self.best_reward - self.instant_reward),
             "optimal_arm": np.cumsum(self.action_history == self.best_action_history) / np.arange(1, len(self.action_history)+1),
-            "expected_regret": np.cumsum(self.best_reward - self.expected_reward)
+            "expected_regret": np.cumsum(self.best_reward - self.expected_reward),
+            "action_gap": self.action_gap
+
         }
