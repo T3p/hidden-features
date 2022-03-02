@@ -50,8 +50,8 @@ class NNLinUCB(XBModule):
         self.b_vec = torch.zeros(dim, dtype=torch.float)
         self.inv_A = torch.eye(dim, dtype=torch.float) / self.ucb_regularizer
         self.theta = torch.zeros(dim, dtype=torch.float)
-        self.param_bound = 1
-        self.features_bound = 1
+        self.param_bound = 10
+        self.features_bound = 10
 
     def _train_loss(self, b_features, b_rewards):
         loss = 0
@@ -92,14 +92,14 @@ class NNLinUCB(XBModule):
         with torch.no_grad():
             xt = torch.FloatTensor(features.reshape(1,-1)).to(self.device)
             v = self.model.embedding(xt).squeeze()
-            self.features_bound = max(self.features_bound, torch.norm(v, p=2).item())
+            # self.features_bound = max(self.features_bound, torch.norm(v, p=2).item())
             self.writer.add_scalar('features_bound', self.features_bound, self.t)
 
             self.b_vec = self.b_vec + v * reward
             self.inv_A, den = inv_sherman_morrison(v, self.inv_A)
             # self.A_logdet += np.log(den)
             self.theta = self.inv_A @ self.b_vec
-            self.param_bound = torch.linalg.norm(self.theta, 2).item()
+            # self.param_bound = torch.linalg.norm(self.theta, 2).item()
             self.writer.add_scalar('param_bound', self.param_bound, self.t)
     
     def _post_train(self, loader=None):
