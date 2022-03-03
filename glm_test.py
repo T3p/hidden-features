@@ -10,7 +10,7 @@ import torch.nn as nn
 import argparse
 import json
 import os
-from algs.nnmodel import Network
+#from algs.nnmodel import Network
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Linear Bandit Test')
@@ -36,12 +36,31 @@ if __name__ == "__main__":
     args = parser.parse_args()
     noise_std = 1.
     
+    """
     env = bandits.LinearContinuous(
         context_dim=args.dim, num_actions=args.narms, context_generation=args.contextgeneration,
         feature_expansion=None, seed=args.seed, noise="bernoulli", noise_param=noise_std
     )
+    """
+    std = 0.3
+    instance_generator = np.random.RandomState(seed=args.seed)
+    n_contexts = 20
+    n_actions = 5
+    dim = 6
+    #features = instance_generator.normal(size=(n_actions, n_contexts, dim))
+    features = np.load("basic_features.npy").swapaxes(0,1)
+    #param = instance_generator.uniform(low=-1, high=1, size=dim)
+    #param = param / np.linalg.norm(param)
+    #features = features * np.linalg.norm(param)
+    param = np.load("basic_param.npy")
+    rewards = features @ param
+    env = bandits.CBFinite(_features=features,
+                           rewards=rewards,
+                           noise="bernoulli",
+                           seed=args.seed,
+                           noise_param=std)
 
-    
+    #"""
     algo = OL2M(
         env=env,
         seed=args.seed,
@@ -51,6 +70,17 @@ if __name__ == "__main__":
         bonus_scale=1.,
         #step_size=0.01
     )
+    """
+    algo = LinUCB(
+        env=env,
+        seed=args.seed,
+        update_every_n_steps=1,
+        noise_std=std,
+        delta=0.01,
+        ucb_regularizer=1,
+        bonus_scale=1.
+    )
+    #"""
     algo.reset()
     result = algo.run(horizon=args.horizon)
     regrets = result['expected_regret']

@@ -26,21 +26,21 @@ class CBFinite:
         self.idx = -1
         assert len(self._features.shape) == 3
         self.feature_dim = self._features.shape[-1]
-        self.action_space = DiscreteFix(n=self._features.shape[1])
+        self.action_space = DiscreteFix(n=self._features.shape[0])
 
     def sample_context(self) -> np.ndarray:
         self.idx += 1
         if self.idx == self.__len__():
             self.idx = 0  
-        return self._features[self.idx]
+        return self._features[:, self.idx, :]
 
     def features(self) -> np.ndarray:
         """ sample a context and return its expanded feature
         """
-        return self._features
+        return self.sample_context()
     
     def step(self, action: int) -> float:
-        reward = self.rewards[self.idx, action]
+        reward = self.rewards[action, self.idx]
         if self.noise is not None:
             if self.noise == "bernoulli":
                 reward = self.np_random.binomial(n=1, p=sigmoid(reward))
@@ -52,13 +52,13 @@ class CBFinite:
         return self._features.shape[0]
     
     def best_reward_and_action(self) -> Tuple[int, float]:
-        best_action = np.argmax(self.rewards[self.idx])
-        best_reward = self.rewards[self.idx,best_action]
+        best_action = np.argmax(self.rewards[:, self.idx])
+        best_reward = self.rewards[best_action, self.idx]
         if self.noise == "bernoulli":
             return sigmoid(best_reward), best_action
         return best_reward, best_action
 
     def expected_reward(self, action: int) -> float:
         if self.noise == "bernoulli":
-            return sigmoid(self.rewards[self.idx, action])
-        return self.rewards[self.idx, action]
+            return sigmoid(self.rewards[action, self.idx])
+        return self.rewards[action, self.idx]
