@@ -2,6 +2,8 @@ import envs as bandits
 import matplotlib.pyplot as plt
 from algs.linear import LinUCB
 from algs.batched.nnlinucb import NNLinUCB
+from algs.batched.nnleader import NNLeader
+from algs.nnmodel import LinearNetwork
 from algs.batched.nnepsilongreedy import NNEpsGreedy
 from algs.linear import LinUCB
 import numpy as np
@@ -30,12 +32,13 @@ if __name__ == "__main__":
     parser.add_argument('--bonus_scale', type=float, default=0.1)
     parser.add_argument('--layers', nargs='+', type=int, default=100,
                         help="dimension of each layer (example --layers 100 200)")
+    parser.add_argument('--weight_spectral', type=float, default=0.1)
     parser.add_argument('--max_epochs', type=int, default=20, help="maximum number of epochs")
     parser.add_argument('--update_every', type=int, default=100, help="Update every N samples")
     parser.add_argument('--config_name', type=str, default="", help='configuration name used to create the log')
     parser.add_argument('--lr', type=float, default=1e-3, help="learning rate")
     parser.add_argument('--weight_decay', type=float, default=1e-4, help="weight decay, ie L2 regularization of the parameters")
-    parser.add_argument('--noise_std', type=float, default=1e-3, help="standard deviation of the noise")
+    parser.add_argument('--noise_std', type=float, default=0.2, help="standard deviation of the noise")
     parser.add_argument('--batch_size', type=int, default=128, help="batch size")
     parser.add_argument('--device', type=str, default="cpu")
     parser.add_argument('--log_dir', type=str, default=None)
@@ -62,10 +65,11 @@ if __name__ == "__main__":
     if not isinstance(args.layers, list):
         hid_dim = [args.layers]
     layers = [(el, nn.Tanh()) for el in hid_dim]
-    net = MLLinearNetwork(env.feature_dim, layers)
+    net = MLLinearNetwork(env.feature_dim, layers).to(args.device)
+    # net = Network(env.feature_dim, layers).to(args.device)
+
     print(net)
-    # net = MLLinearNetwork(env.feature_dim, None)
-    # print(net)
+
 
 
     print(f'Input features dim: {env.feature_dim}')
@@ -73,6 +77,7 @@ if __name__ == "__main__":
         algo = NNLinUCB(
             env=env,
             model=net,
+            device=args.device,
             batch_size=args.batch_size,
             max_updates=args.max_epochs,
             update_every_n_steps=args.update_every,
@@ -110,6 +115,27 @@ if __name__ == "__main__":
             delta=0.01,
             ucb_regularizer=1,
             bonus_scale=args.bonus_scale
+        )
+    elif args.algo == "nnleader":
+        algo = NNLeader(
+            env=env,
+            model=net,
+            device=args.device,
+            batch_size=args.batch_size,
+            max_updates=args.max_epochs,
+            learning_rate=args.lr,
+            weight_decay=args.weight_decay,
+            buffer_capacity=args.horizon,
+            seed=args.seed,
+            reset_model_at_train=True,
+            update_every_n_steps=args.update_every,
+            noise_std=args.noise_std,
+            delta=0.01,
+            ucb_regularizer=1,
+            weight_mse=1,
+            bonus_scale=args.bonus_scale,
+            weight_spectral=args.weight_spectral,
+            weight_l2features=0
         )
 
     algo.reset()

@@ -6,6 +6,7 @@ from torch.nn import functional as F
 
 from .nnlinucb import NNLinUCB
 
+
 class NNLeader(NNLinUCB):
 
     def __init__(
@@ -16,6 +17,7 @@ class NNLeader(NNLinUCB):
         super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train, update_every_n_steps, noise_std, delta, ucb_regularizer, weight_mse, bonus_scale)
         self.weight_spectral = weight_spectral
         self.weight_l2features = weight_l2features
+
 
     def _train_loss(self, b_features, b_rewards):
         loss = 0
@@ -28,16 +30,17 @@ class NNLeader(NNLinUCB):
             loss = loss + self.weight_mse * mse_loss
 
         #DETERMINANT or LOG_MINEIG LOSS
-        if not np.isclose(self.weight_spectral,0):
+        if not np.isclose(self.weight_spectral, 0):
             phi = self.model.embedding(b_features)
-            A = torch.sum(phi[...,None]*phi[:,None], axis=0) + 1e-3 * torch.eye(phi.shape[1])
+            # A = torch.sum(phi[...,None]*phi[:,None], axis=0) + 1e-3 * torch.eye(phi.shape[1]).to(self.device)
+            A = torch.matmul(phi.transpose(1, 0), phi)
             # det_loss = torch.logdet(A)
-            spectral_loss = torch.log(torch.linalg.eigvalsh(A).min()/N)
-            self.writer.add_scalar('spectral_loss', self.weight_spectral * spectral_loss, self.batch_counter)
+            spectral_loss = torch.linalg.eigvalsh(A).min()
+            self.writer.add_scalar('spectral_loss', spectral_loss, self.batch_counter)
             loss = loss + self.weight_spectral * spectral_loss
 
         # FEATURES NORM LOSS
-        if not np.isclose(self.weight_l2features,0):
+        if not np.isclose(self.weight_l2features, 0):
             l2feat_loss = torch.sum(torch.norm(phi, p=2, dim=1))
             # l2 reg on parameters can be done in the optimizer
             # though weight_decay (https://discuss.pytorch.org/t/simple-l2-regularization/139)

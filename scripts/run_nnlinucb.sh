@@ -5,17 +5,17 @@
 #cp ${CURDIR}/*.py ${CODEDIR}
 #cp -r ${CURDIR}/a2c_ppo_acktr ${CODEDIR}
 
-CDIR=/checkpoint/${USER}/linear-tanh
+CDIR=/checkpoint/${USER}/linear-std-0.5
 mkdir -p ${CDIR}
-
-for BANDITTYPE in 'onehot' 'expanded'; do
+# set epoch to 10 for onehot and 20 for expanded
+for BANDITTYPE in 'onehot'; do
 for ALGO in 'nnlinucb'; do
 for LAYERS in 200 400 800; do
-for LR in 0.001 0.0005 0.0001; do
-for MAX_EPOCHS in 10 20; do
-for BONUS in 0.001 0.0001; do
-for SEED in 0; do
-  SUBDIR=${ALGO}-layers-${LAYERS}-lr-${LR}-bonus-${BONUS}-epoch-${MAX_EPOCHS}-seed-${SEED}
+for LR in 0.001; do
+for MAX_EPOCHS in 20; do
+for BONUS in 0.001 0.01; do
+for SEED in 0 1 2 3 4; do
+  SUBDIR=Random-${ALGO}-layers-${LAYERS}-lr-${LR}-bonus-${BONUS}-epoch-${MAX_EPOCHS}-seed-${SEED}
   SAVEDIR=${CDIR}/${BANDITTYPE}/${SUBDIR}
   LOGDIR=${CDIR}/${BANDITTYPE}/logs/${SUBDIR}
   mkdir -p ${SAVEDIR}
@@ -30,7 +30,7 @@ for SEED in 0; do
   echo "#SBATCH --job-name=${JOBNAME}" >> ${SLURM}
   echo "#SBATCH --output=${SAVEDIR}/stdout" >> ${SLURM}
   echo "#SBATCH --error=${SAVEDIR}/stderr" >> ${SLURM}
-  echo "#SBATCH --partition=learnfair" >> ${SLURM}
+  echo "#SBATCH --partition=devlab" >> ${SLURM}
   echo "#SBATCH --nodes=1" >> ${SLURM}
   echo "#SBATCH --ntasks=1" >> ${SLURM}
   echo "#SBATCH --time=2:00:00" >> ${SLURM}
@@ -50,8 +50,10 @@ for SEED in 0; do
     --max_epochs ${MAX_EPOCHS} \
     --seed ${SEED} \
     --bonus_scale ${BONUS} \
-    --device gpu \
-    --batch_size 128 \
+    --noise_std 0.5 \
+    --device cuda \
+    --batch_size 256 \
+    --horizon 5000 \
     --save_dir ${SAVEDIR} \
     --log_dir ${LOGDIR} >> ${SCRIPT}
   sbatch ${SLURM}
