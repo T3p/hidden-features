@@ -10,7 +10,7 @@ from .spaces import DiscreteFix
 @dataclass
 class CBFinite:
 
-    _features: np.ndarray=None # n_contexts x n_actions x dim
+    feature_matrix: np.ndarray=None # n_contexts x n_actions x dim
     rewards: np.ndarray=None # n_contexts x n_actions
     noise: Optional[str]=None
     noise_param: Optional[Any]=None
@@ -21,18 +21,19 @@ class CBFinite:
     def __post_init__(self) -> None:
         self.np_random = np.random.RandomState(seed=self.seed)
         if shuffle:
-            self._features, self.rewards = shuffle(self._features, self.rewards, random_state=self.seed)
+            self.feature_matrix, self.rewards = shuffle(self.feature_matrix, self.rewards, random_state=self.seed)
         assert self.noise in [None, "bernoulli", "gaussian"]
         self.idx = -1
-        assert len(self._features.shape) == 3
-        self.feature_dim = self._features.shape[-1]
-        self.action_space = DiscreteFix(n=self._features.shape[0])
+        assert len(self.feature_matrix.shape) == 3
+        assert (self.feature_matrix.shape[0] == self.rewards.shape[0]) and (self.feature_matrix.shape[1] == self.rewards.shape[1])
+        self.feature_dim = self.feature_matrix.shape[-1]
+        self.action_space = DiscreteFix(n=self.feature_matrix.shape[1])
 
     def sample_context(self) -> np.ndarray:
         self.idx += 1
         if self.idx == self.__len__():
             self.idx = 0  
-        return self._features[:, self.idx, :]
+        return self.feature_matrix[self.idx]
 
     def features(self) -> np.ndarray:
         """ sample a context and return its expanded feature
@@ -40,7 +41,7 @@ class CBFinite:
         return self.sample_context()
     
     def step(self, action: int) -> float:
-        reward = self.rewards[action, self.idx]
+        reward = self.rewards[self.idx, action]
         if self.noise is not None:
             if self.noise == "bernoulli":
                 reward = self.np_random.binomial(n=1, p=sigmoid(reward))
@@ -49,16 +50,16 @@ class CBFinite:
         return reward
 
     def __len__(self) -> int:
-        return self._features.shape[0]
+        return self.feature_matrix.shape[0]
     
     def best_reward_and_action(self) -> Tuple[int, float]:
-        best_action = np.argmax(self.rewards[:, self.idx])
-        best_reward = self.rewards[best_action, self.idx]
+        best_action = np.argmax(self.rewards[self.idx])
+        best_reward = self.rewards[self.idx, best_action]
         if self.noise == "bernoulli":
             return sigmoid(best_reward), best_action
         return best_reward, best_action
 
     def expected_reward(self, action: int) -> float:
         if self.noise == "bernoulli":
-            return sigmoid(self.rewards[action, self.idx])
-        return self.rewards[action, self.idx]
+            return sigmoid(self.rewards[self.idx, action])
+        return self.rewards[self.idx, action]

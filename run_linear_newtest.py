@@ -28,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument('--bandittype', default="expanded", help="None, expanded, onehot")
     parser.add_argument('--contextgeneration', default="uniform", help="uniform, gaussian, bernoulli")
     # algo options
-    parser.add_argument('--algo', type=str, default="nnlinucb", help='algorithm [nnlinucb, nnleader]')
+    parser.add_argument('--algo', type=str, default="linucb", help='algorithm [linucb, nnlinucb, nnleader]')
     parser.add_argument('--bonus_scale', type=float, default=0.1)
     parser.add_argument('--layers', nargs='+', type=int, default=100,
                         help="dimension of each layer (example --layers 100 200)")
@@ -51,6 +51,14 @@ if __name__ == "__main__":
         feature_expansion=args.bandittype, seed=args.seed, noise="gaussian", noise_param=args.noise_std,
         seed_problem=args.seed_problem
     )
+
+    features, theta = bandits.make_synthetic_features(
+        n_contexts=1000, n_actions=args.narms, dim=args.dim,
+        context_generation=args.contextgeneration, feature_expansion=args.bandittype,
+        seed=args.seed_problem
+    )
+    rewards = features @ theta
+    env = bandits.CBFinite(feature_matrix=features, rewards=rewards, seed=args.seed, noise="gaussian", noise_param=args.noise_std)
 
     # set_seed_everywhere
     torch.manual_seed(args.seed)

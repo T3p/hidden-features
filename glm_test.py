@@ -48,13 +48,13 @@ if __name__ == "__main__":
     n_actions = 5
     dim = 6
     #features = instance_generator.normal(size=(n_actions, n_contexts, dim))
-    features = np.load("basic_features.npy").swapaxes(0,1)
+    features = np.load("basic_features.npy") #.swapaxes(0,1)
     #param = instance_generator.uniform(low=-1, high=1, size=dim)
     #param = param / np.linalg.norm(param)
     #features = features * np.linalg.norm(param)
     param = np.load("basic_param.npy")
     rewards = features @ param
-    env = bandits.CBFinite(_features=features,
+    env = bandits.CBFinite(feature_matrix=features,
                            rewards=rewards,
                            noise="bernoulli",
                            seed=args.seed,
