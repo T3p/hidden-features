@@ -63,3 +63,11 @@ class CBFinite:
         if self.noise == "bernoulli":
             return sigmoid(self.rewards[self.idx, action])
         return self.rewards[self.idx, action]
+
+    def min_suboptimality_gap(self):
+        gap = np.inf
+        for x in range(self.__len__()):
+            sorted = np.sort(self.rewards[x])
+            action_gap = sorted[-1]-sorted[-2]
+            gap = min(gap, action_gap)
+        return gap
