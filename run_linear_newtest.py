@@ -1,4 +1,5 @@
 import envs as bandits
+from envs.linear import derank_hls
 import matplotlib.pyplot as plt
 from algs.linear import LinUCB
 from algs.batched.nnlinucb import NNLinUCB
@@ -57,7 +58,10 @@ if __name__ == "__main__":
         context_generation=args.contextgeneration, feature_expansion=args.bandittype,
         seed=args.seed_problem
     )
+    features, theta = derank_hls(features=features, param=theta, newrank=6)
     rewards = features @ theta
+
+
     env = bandits.CBFinite(feature_matrix=features, rewards=rewards, seed=args.seed, noise="gaussian", noise_param=args.noise_std)
 
     # set_seed_everywhere

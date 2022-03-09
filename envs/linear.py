@@ -4,6 +4,56 @@ from typing import Optional, Tuple, Any
 from .spaces import DiscreteFix
 from scipy.special import expit as sigmoid
 
+def normalize_linrep(features, param, scale=1.):
+    param_norm = np.linalg.norm(param)
+    new_param = param / param_norm * scale
+    new_features = features * param_norm / scale
+    return new_features, new_param
+
+def random_transform(features, param, normalize=True, seed=0):
+    rng = np.random.RandomState(seed)
+    dim = len(param)
+    A = rng.normal(size=(dim, dim))
+
+    A = rng.normal(size=(dim, dim))
+    q, r = np.linalg.qr(A)
+    
+    new_features = features @ q
+    new_param = q.T @ param
+        
+    if normalize:
+        new_features, new_param = normalize_linrep(new_features, new_param)
+    
+    val = features @ param - new_features @ new_param
+    assert np.allclose(features @ param, new_features @ new_param)
+    return new_features, new_param
+
+def derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=0):
+    nc = features.shape[0]
+
+    rewards = features @ param
+    # compute optimal arms
+    opt_arms = np.argmax(rewards, axis=1)
+    # compute features of optimal arms
+    opt_feats = features[np.arange(nc), opt_arms, :]
+    opt_rews = rewards[np.arange(nc), opt_arms].reshape((nc, 1)) 
+    remove = min(max(nc - newrank + 1, 0), nc)
+    
+    new_features = np.array(features)
+    outer = np.matmul(opt_rews[:remove], opt_rews[:remove].T)
+    xx = np.matmul(outer, opt_feats[:remove, :]) \
+        / np.linalg.norm(opt_rews[:remove])**2
+    new_features[np.arange(remove), opt_arms[:remove], :] = xx
+    
+    new_param = param.copy()
+    
+    if transform:
+        new_features, new_param = random_transform(new_features, new_param, normalize=normalize, seed=seed)
+    elif normalize:
+        new_features, new_param = normalize_linrep(new_features, new_param, seed=seed)
+        
+    assert np.allclose(features @ param, new_features @ new_param)
+    return new_features, new_param
 
 @dataclass
 class LinearContinuous:
