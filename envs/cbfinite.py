@@ -29,6 +29,11 @@ class CBFinite:
         self.feature_dim = self.feature_matrix.shape[-1]
         self.action_space = DiscreteFix(n=self.feature_matrix.shape[1])
 
+        if self.noise == "bernoulli":
+            self.rewards = sigmoid(self.rewards)
+
+        self.n_contexts, self.n_arms, self.dim = self.feature_matrix.shape
+
     def sample_context(self) -> np.ndarray:
         self.idx += 1
         if self.idx == self.__len__():
@@ -44,7 +49,7 @@ class CBFinite:
         reward = self.rewards[self.idx, action]
         if self.noise is not None:
             if self.noise == "bernoulli":
-                reward = self.np_random.binomial(n=1, p=sigmoid(reward))
+                reward = self.np_random.binomial(n=1, p=reward)
             else:
                 reward = reward + self.np_random.randn(1).item() * self.noise_param     
         return reward
@@ -55,13 +60,9 @@ class CBFinite:
     def best_reward_and_action(self) -> Tuple[int, float]:
         best_action = np.argmax(self.rewards[self.idx])
         best_reward = self.rewards[self.idx, best_action]
-        if self.noise == "bernoulli":
-            return sigmoid(best_reward), best_action
         return best_reward, best_action
 
     def expected_reward(self, action: int) -> float:
-        if self.noise == "bernoulli":
-            return sigmoid(self.rewards[self.idx, action])
         return self.rewards[self.idx, action]
 
     def min_suboptimality_gap(self):
@@ -71,3 +72,4 @@ class CBFinite:
             action_gap = sorted[-1]-sorted[-2]
             gap = min(gap, action_gap)
         return gap
+

@@ -1,5 +1,5 @@
 import envs as bandits
-from envs.linear import derank_hls
+import envs.hlsutils as hlsutils
 import matplotlib.pyplot as plt
 from algs.linear import LinUCB
 from algs.batched.nnlinucb import NNLinUCB
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=128, help="batch size")
     parser.add_argument('--device', type=str, default="cpu")
     parser.add_argument('--log_dir', type=str, default=None)
-    parser.add_argument('--save_dir', type=str, default=None)
+    parser.add_argument('--save_dir', type=str, default=".")
 
 
     args = parser.parse_args()
@@ -58,11 +58,21 @@ if __name__ == "__main__":
         context_generation=args.contextgeneration, feature_expansion=args.bandittype,
         seed=args.seed_problem
     )
-    features, theta = derank_hls(features=features, param=theta, newrank=6)
     rewards = features @ theta
+    print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
+    print(f"Original rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
+    print(f"Original rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
+    features, theta = hlsutils.derank_hls(features=features, param=theta, newrank=6)
+    rewards = features @ theta
+    print(f"New rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
+    print(f"New rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
+    print(f"New rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
 
-
-    env = bandits.CBFinite(feature_matrix=features, rewards=rewards, seed=args.seed, noise="gaussian", noise_param=args.noise_std)
+    env = bandits.CBFinite(
+        feature_matrix=features, 
+        rewards=rewards, seed=args.seed, 
+        noise="gaussian", noise_param=args.noise_std
+    )
 
     # set_seed_everywhere
     torch.manual_seed(args.seed)
@@ -81,8 +91,6 @@ if __name__ == "__main__":
     # net = Network(env.feature_dim, layers).to(args.device)
 
     print(net)
-
-
 
     print(f'Input features dim: {env.feature_dim}')
     if args.algo == "nnlinucb":
@@ -154,12 +162,12 @@ if __name__ == "__main__":
     result = algo.run(horizon=args.horizon, log_path=args.log_dir)
     regrets = result['expected_regret']
     plt.plot(regrets)
-    plt.savefig(args.save_dir + '/regret.png')
+    plt.savefig(os.path.join(args.save_dir, 'regret.png'))
 
     if args.save_dir is not None:
-        with open(args.save_dir + "/arguments.pkl", 'wb') as f:
+        with open(os.path.join(args.save_dir, "arguments.pkl"), 'wb') as f:
             pickle.dump(args, f)
-        with open(args.save_dir + "/result.pkl", 'wb') as f:
+        with open(os.path.join(args.save_dir, "result.pkl"), 'wb') as f:
             pickle.dump(result, f)
 
 
