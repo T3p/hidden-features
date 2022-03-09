@@ -155,7 +155,7 @@ class XBModule(nn.Module):
 
                 self.writer.add_scalar("regret", postfix['total regret'], self.t)
                 self.writer.add_scalar("expected regret", postfix['expected regret'], self.t)
-                self.writer.add_scalar('perc optimal arm', p_optimal_arm, self.t)
+                self.writer.add_scalar('perc optimal pulls (last 100 steps)', p_optimal_arm, self.t)
                 self.writer.add_scalar('optimal arm?', 1 if self.action_history[self.t] == self.best_action_history[self.t] else 0, self.t)
 
                 self.writer.flush()

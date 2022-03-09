@@ -43,7 +43,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=128, help="batch size")
     parser.add_argument('--device', type=str, default="cpu")
     parser.add_argument('--log_dir', type=str, default=None)
-    parser.add_argument('--save_dir', type=str, default=".")
+    parser.add_argument('--save_dir', type=str, default=None)
 
 
     args = parser.parse_args()
@@ -62,11 +62,11 @@ if __name__ == "__main__":
     print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
     print(f"Original rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
     print(f"Original rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
-    features, theta = hlsutils.derank_hls(features=features, param=theta, newrank=6)
-    rewards = features @ theta
-    print(f"New rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
-    print(f"New rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
-    print(f"New rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
+    # features, theta = hlsutils.derank_hls(features=features, param=theta, newrank=6)
+    # rewards = features @ theta
+    # print(f"New rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
+    # print(f"New rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
+    # print(f"New rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
 
     env = bandits.CBFinite(
         feature_matrix=features, 
@@ -162,7 +162,7 @@ if __name__ == "__main__":
     result = algo.run(horizon=args.horizon, log_path=args.log_dir)
     regrets = result['expected_regret']
     plt.plot(regrets)
-    plt.savefig(os.path.join(args.save_dir, 'regret.png'))
+    plt.savefig(os.path.join(algo.log_path, 'regret.png'))
 
     if args.save_dir is not None:
         with open(os.path.join(args.save_dir, "arguments.pkl"), 'wb') as f:
