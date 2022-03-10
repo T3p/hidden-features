@@ -18,6 +18,8 @@ from algs.batched.nnlinucb import NNLinUCB
 from algs.batched.nnleader import NNLeader
 import pickle
 import json
+from algs.nnmodel import MLLinearNetwork, MLLogisticNetwork
+import torch.nn as nn
 
 def set_seed_everywhere(seed):
     torch.manual_seed(seed)
@@ -60,14 +62,26 @@ def my_app(cfg: DictConfig) -> None:
         noise=cfg.noise_type, noise_param=cfg.noise_param
     )
 
+    if not cfg.algo == "linucb":
+        print('layers: ', cfg.layers)
+        if cfg.layers not in [None, "none", "None"]:
+            hid_dim = cfg.layers
+            if not isinstance(cfg.layers, list):
+                hid_dim = [cfg.layers]
+            layers = [(el, nn.Tanh()) for el in hid_dim]
+        else:
+            layers = None # linear in the features
+        net = MLLinearNetwork(env.feature_dim, layers).to(cfg.device)
+        print(net)
+
     if cfg.algo == "nnlinucb":
         algo = NNLinUCB(
             env=env,
             model=net,
             device=cfg.device,
             batch_size=cfg.batch_size,
-            max_updates=cfg.max_epochs,
-            update_every_n_steps=cfg.update_every,
+            max_updates=cfg.max_updates,
+            update_every_n_steps=cfg.update_every_n_steps,
             learning_rate=cfg.lr,
             buffer_capacity=cfg.buffer_capacity,
             noise_std=cfg.noise_std,

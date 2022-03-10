@@ -2,18 +2,19 @@ defaults:
   - override hydra/launcher: joblib
 
 horizon: 20000
-algo: linucb
+algo: nnlinucb
 update_every_n_steps: 100
 noise_std: 1
 delta: 0.01
 ucb_regularizer: 1
 bonus_scale: 0.1
 batch_size: 128
-max_updates: 20
-lr: 1e-3,
+max_updates: 30
+lr: 1e-3
 buffer_capacity: ${horizon}
 weight_decay: 1e-4
 reset_model_at_train: true
+layers: 150
 
 # problem
 ncontexts: 1000
@@ -30,7 +31,7 @@ noise_param: 0.2
 # misc
 seed: 1
 seed_problem: 0
-device: cuda
+device: cpu
 use_tb: true
 
 hydra:
