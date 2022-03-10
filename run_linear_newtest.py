@@ -23,6 +23,7 @@ if __name__ == "__main__":
     # env options
     parser.add_argument('--dim', type=int, default=20, metavar='Context dimension')
     parser.add_argument('--narms', type=int, default=5, metavar='Number of actions')
+    parser.add_argument('--ncontexts', type=int, default=20000, metavar='Number of contexts')
     parser.add_argument('--horizon', type=int, default=20000, metavar='Horizon of the bandit problem')
     parser.add_argument('--seed', type=int, default=0, metavar='Seed for noise')
     parser.add_argument('--seed-problem', type=int, default=0, metavar='Seed used for the generation of the bandit problem')
@@ -47,14 +48,14 @@ if __name__ == "__main__":
 
 
     args = parser.parse_args()
-    env = bandits.LinearContinuous(
-        context_dim=args.dim, num_actions=args.narms, context_generation=args.contextgeneration,
-        feature_expansion=args.bandittype, seed=args.seed, noise="gaussian", noise_param=args.noise_std,
-        seed_problem=args.seed_problem
-    )
+    # env = bandits.LinearContinuous(
+    #     context_dim=args.dim, num_actions=args.narms, context_generation=args.contextgeneration,
+    #     feature_expansion=args.bandittype, seed=args.seed, noise="gaussian", noise_param=args.noise_std,
+    #     seed_problem=args.seed_problem
+    # )
 
     features, theta = bandits.make_synthetic_features(
-        n_contexts=1000, n_actions=args.narms, dim=args.dim,
+        n_contexts=args.ncontexts, n_actions=args.narms, dim=args.dim,
         context_generation=args.contextgeneration, feature_expansion=args.bandittype,
         seed=args.seed_problem
     )
@@ -62,11 +63,11 @@ if __name__ == "__main__":
     print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
     print(f"Original rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
     print(f"Original rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
-    # features, theta = hlsutils.derank_hls(features=features, param=theta, newrank=6)
-    # rewards = features @ theta
-    # print(f"New rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
-    # print(f"New rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
-    # print(f"New rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
+    features, theta = hlsutils.derank_hls(features=features, param=theta, newrank=int(features.shape[2]/3   ))
+    rewards = features @ theta
+    print(f"New rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
+    print(f"New rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
+    print(f"New rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
 
     env = bandits.CBFinite(
         feature_matrix=features, 
@@ -87,6 +88,7 @@ if __name__ == "__main__":
     if not isinstance(args.layers, list):
         hid_dim = [args.layers]
     layers = [(el, nn.Tanh()) for el in hid_dim]
+    # layers = None
     net = MLLinearNetwork(env.feature_dim, layers).to(args.device)
     # net = Network(env.feature_dim, layers).to(args.device)
 

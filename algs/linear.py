@@ -33,6 +33,7 @@ class LinUCB(XBModule):
         dim = self.env.feature_dim
         self.b_vec = np.zeros(dim)
         self.inv_A = np.eye(dim) / self.ucb_regularizer
+        self.A = np.zeros_like(self.inv_A)
         self.theta = np.zeros(dim)
         self.new_b_vec = np.zeros(dim)
         self.new_inv_A = np.eye(dim) / self.ucb_regularizer
@@ -66,6 +67,7 @@ class LinUCB(XBModule):
         self.features_bound = max(self.features_bound, np.linalg.norm(v, 2).item())
         self.writer.add_scalar('features_bound', self.features_bound, self.t)
 
+        self.A += np.outer(v,v)
         self.new_b_vec = self.new_b_vec + v * reward
         self.new_inv_A, den = inv_sherman_morrison(v, self.new_inv_A)
         # self.A_logdet += np.log(den)
@@ -73,15 +75,18 @@ class LinUCB(XBModule):
         self.param_bound = np.linalg.norm(self.theta, 2).item()
         self.writer.add_scalar('param_bound', self.param_bound, self.t)
 
-        self.inv_A = self.new_inv_A
-        self.theta = self.new_theta
-        self.b_vec = self.new_b_vec
+        # self.inv_A = self.new_inv_A
+        # self.theta = self.new_theta
+        # self.b_vec = self.new_b_vec
 
     def train(self) -> float:
         if self.t % self.update_every_n_steps == 0:
             self.inv_A = self.new_inv_A
             self.theta = self.new_theta
             self.b_vec = self.new_b_vec
+
+            min_eig = np.linalg.eigvalsh(self.A/(self.t+1)).min() / self.features_bound
+            self.writer.add_scalar('min_eig', min_eig, self.t)
         
         return 0
 

@@ -50,6 +50,7 @@ class NNLinUCB(XBModule):
         dim = self.model.embedding_dim
         self.b_vec = torch.zeros(dim, dtype=torch.float).to(self.device)
         self.inv_A = torch.eye(dim, dtype=torch.float).to(self.device) / self.ucb_regularizer
+        self.A = torch.zeros_like(self.inv_A)
         self.theta = torch.zeros(dim, dtype=torch.float).to(self.device)
         self.param_bound = np.sqrt(self.env.feature_dim)
         self.features_bound = np.sqrt(self.env.feature_dim)
@@ -71,6 +72,7 @@ class NNLinUCB(XBModule):
         beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
                                                       *self.t/self.ucb_regularizer)/self.delta))\
                + self.param_bound * np.sqrt(self.ucb_regularizer)
+        # beta = np.sqrt(dim * np.log(self.t+1))
 
         # get features for each action and make it tensor
         xt = torch.FloatTensor(features).to(self.device)
@@ -97,7 +99,7 @@ class NNLinUCB(XBModule):
             # self.features_bound = max(self.features_bound, torch.norm(v, p=2).cpu().item())
             # self.writer.add_scalar('features_bound', self.features_bound, self.t)
 
-
+            self.A += torch.outer(v.ravel(),v.ravel()   )
             self.b_vec = self.b_vec + v * reward
             self.inv_A, den = inv_sherman_morrison(v, self.inv_A)
             # self.A_logdet += np.log(den)
@@ -112,6 +114,7 @@ class NNLinUCB(XBModule):
             dim = self.model.embedding_dim
             self.b_vec = torch.zeros(dim).to(self.device)
             self.inv_A = torch.eye(dim).to(self.device) / self.ucb_regularizer
+            self.A = torch.zeros_like(self.inv_A)
             self.features_bound = 0
             for b_features, b_rewards in loader:
                 phi = self.model.embedding(b_features) #.cpu().detach().numpy()
@@ -123,6 +126,7 @@ class NNLinUCB(XBModule):
                 #SM
                 for v in phi:
                     self.inv_A = inv_sherman_morrison(v.ravel(), self.inv_A)[0]
+                    self.A += torch.outer(v.ravel(),v.ravel())
             #     A = A + np.sum(phi[...,None]*phi[:,None], axis=0)
             # # strange issue with making operations directly in pytorch
             # self.inv_A = torch.tensor(np.linalg.inv(A), dtype=torch.float)
@@ -130,3 +134,5 @@ class NNLinUCB(XBModule):
             self.param_bound = torch.linalg.norm(self.theta, 2).item()
             self.writer.add_scalar('param_bound', self.param_bound, self.t)
             self.writer.add_scalar('features_bound', self.features_bound, self.t)
+            min_eig = torch.linalg.eigvalsh(self.A/(self.t+1)).min() / self.features_bound
+            self.writer.add_scalar('min_eig', min_eig, self.t)

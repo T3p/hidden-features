@@ -113,7 +113,7 @@ class XBModule(nn.Module):
 
         self._continue(horizon)
         postfix = {
-            'total regret': 0.0,
+            # 'total regret': 0.0,
             '% optimal arm (last 100 steps)': 0.0,
             'train loss': 0.0,
             'expected regret': 0.0
@@ -144,7 +144,7 @@ class XBModule(nn.Module):
                 self.best_action_history[self.t] = best_action
                 
                 # log
-                postfix['total regret'] += self.best_reward[self.t] - self.instant_reward[self.t]
+                # postfix['total regret'] += self.best_reward[self.t] - self.instant_reward[self.t]
                 postfix['expected regret'] += self.best_reward[self.t] - self.expected_reward[self.t]
                 p_optimal_arm = np.mean(
                     self.action_history[max(0,self.t-100):self.t+1] == self.best_action_history[max(0,self.t-100):self.t+1]
@@ -153,7 +153,7 @@ class XBModule(nn.Module):
                 if train_loss:
                     postfix['train loss'] = train_loss
 
-                self.writer.add_scalar("regret", postfix['total regret'], self.t)
+                # self.writer.add_scalar("regret", postfix['total regret'], self.t)
                 self.writer.add_scalar("expected regret", postfix['expected regret'], self.t)
                 self.writer.add_scalar('perc optimal pulls (last 100 steps)', p_optimal_arm, self.t)
                 self.writer.add_scalar('optimal arm?', 1 if self.action_history[self.t] == self.best_action_history[self.t] else 0, self.t)
