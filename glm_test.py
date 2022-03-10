@@ -1,15 +1,17 @@
 import envs as bandits
 import matplotlib.pyplot as plt
 from algs.linear import LinUCB
-from algs.generalized_linear import UCBGLM, OL2M
+from algs.generalized_linear import UCBGLM, UCBGLM_general, OL2M
 from algs.batched.nnlinucb import NNLinUCB
 from algs.linear import LinUCB
+from envs.hlsutils import is_hls, derank_hls
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
 import argparse
 import json
 import os
+from scipy.special import logit
 #from algs.nnmodel import Network
 
 if __name__ == "__main__":
@@ -34,54 +36,62 @@ if __name__ == "__main__":
 
 
     args = parser.parse_args()
-    noise_std = 1.
+    rng = np.random.RandomState(seed=args.seed)
     
-    """
-    env = bandits.LinearContinuous(
-        context_dim=args.dim, num_actions=args.narms, context_generation=args.contextgeneration,
-        feature_expansion=None, seed=args.seed, noise="bernoulli", noise_param=noise_std
-    )
-    """
-    std = 0.3
-    instance_generator = np.random.RandomState(seed=args.seed)
-    n_contexts = 20
-    n_actions = 5
-    dim = 6
-    #features = instance_generator.normal(size=(n_actions, n_contexts, dim))
-    features = np.load("basic_features.npy") #.swapaxes(0,1)
-    #param = instance_generator.uniform(low=-1, high=1, size=dim)
-    #param = param / np.linalg.norm(param)
-    #features = features * np.linalg.norm(param)
+    #"""
+    features = np.load("basic_features.npy")
+    dim = features.shape[-1]
     param = np.load("basic_param.npy")
+    #"""
+
     rewards = features @ param
+    assert is_hls(features, rewards)
+    #"""
+    
+    original_env = bandits.CBFinite(feature_matrix=features,
+                    rewards=rewards,
+                    noise="gaussian",
+                    seed=args.seed)
+    print(original_env.min_suboptimality_gap())
+ 
     env = bandits.CBFinite(feature_matrix=features,
                            rewards=rewards,
                            noise="bernoulli",
-                           seed=args.seed,
-                           noise_param=std)
+                           seed=args.seed)
+    print(env.min_suboptimality_gap())
 
-    #"""
-    algo = OL2M(
+    algo = UCBGLM_general(
         env=env,
         seed=args.seed,
         update_every_n_steps=1,
         delta=0.01,
-        ucb_regularizer=1,
+        ucb_regularizer=1.,
         bonus_scale=1.,
         #step_size=0.01
     )
-    """
-    algo = LinUCB(
-        env=env,
-        seed=args.seed,
-        update_every_n_steps=1,
-        noise_std=std,
-        delta=0.01,
-        ucb_regularizer=1,
-        bonus_scale=1.
-    )
-    #"""
     algo.reset()
     result = algo.run(horizon=args.horizon)
     regrets = result['expected_regret']
     plt.plot(regrets)
+    #"""
+    #"""
+    new_features, _ = derank_hls(features, param, newrank=dim-1)
+    new_env = bandits.CBFinite(feature_matrix=new_features,
+                           rewards=rewards,
+                           noise="bernoulli",
+                           seed=args.seed)
+    algo = UCBGLM_general(
+        env=new_env,
+        seed=args.seed,
+        update_every_n_steps=1,
+        delta=0.01,
+        ucb_regularizer=1.,
+        bonus_scale=1.,
+        #step_size=0.01
+    )
+    algo.reset()
+    result = algo.run(horizon=args.horizon)
+    regrets = result['expected_regret']
+    plt.plot(regrets)
+#"""  
+    
