@@ -23,16 +23,17 @@ if __name__ == "__main__":
     # env options
     parser.add_argument('--dim', type=int, default=20, metavar='Context dimension')
     parser.add_argument('--narms', type=int, default=5, metavar='Number of actions')
-    parser.add_argument('--ncontexts', type=int, default=20000, metavar='Number of contexts')
-    parser.add_argument('--horizon', type=int, default=20000, metavar='Horizon of the bandit problem')
+    parser.add_argument('--ncontexts', type=int, default=1000, metavar='Number of contexts')
+    parser.add_argument('--newrank', type=int, default=None, metavar='New HLS rank, should be in [0,dim]')
+    parser.add_argument('--horizon', type=int, default=30000, metavar='Horizon of the bandit problem')
     parser.add_argument('--seed', type=int, default=0, metavar='Seed for noise')
     parser.add_argument('--seed-problem', type=int, default=0, metavar='Seed used for the generation of the bandit problem')
-    parser.add_argument('--bandittype', default="expanded", help="None, expanded, onehot")
-    parser.add_argument('--contextgeneration', default="uniform", help="uniform, gaussian, bernoulli")
+    parser.add_argument('--bandittype', default=None, help="None, expanded, onehot")
+    parser.add_argument('--contextgeneration', default="gaussian", help="uniform, gaussian, bernoulli")
     # algo options
-    parser.add_argument('--algo', type=str, default="linucb", help='algorithm [linucb, nnlinucb, nnleader]')
+    parser.add_argument('--algo', type=str, default="nnlinucb", help='algorithm [linucb, nnlinucb, nnleader]')
     parser.add_argument('--bonus_scale', type=float, default=0.1)
-    parser.add_argument('--layers', nargs='+', type=int, default=100,
+    parser.add_argument('--layers', nargs='+', type=int, default=None,
                         help="dimension of each layer (example --layers 100 200)")
     parser.add_argument('--weight_spectral', type=float, default=0.1)
     parser.add_argument('--max_epochs', type=int, default=20, help="maximum number of epochs")
@@ -62,12 +63,15 @@ if __name__ == "__main__":
     rewards = features @ theta
     print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
     print(f"Original rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
+    print(f"Original rep -> HLS min eig: {hlsutils.hls_lambda(features, rewards)}")
     print(f"Original rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
-    features, theta = hlsutils.derank_hls(features=features, param=theta, newrank=int(features.shape[2]/3   ))
-    rewards = features @ theta
-    print(f"New rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
-    print(f"New rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
-    print(f"New rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
+    if args.newrank:
+        features, theta = hlsutils.derank_hls(features=features, param=theta, newrank=args.newrank)
+        rewards = features @ theta
+        print(f"New rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
+        print(f"New rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
+        print(f"New rep -> HLS min eig: {hlsutils.hls_lambda(features, rewards)}")
+        print(f"New rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
 
     env = bandits.CBFinite(
         feature_matrix=features, 
@@ -83,16 +87,17 @@ if __name__ == "__main__":
     random.seed(args.seed)
 
 
-    print('layers: ', args.layers)
-    hid_dim = args.layers
-    if not isinstance(args.layers, list):
-        hid_dim = [args.layers]
-    layers = [(el, nn.Tanh()) for el in hid_dim]
-    # layers = None
-    net = MLLinearNetwork(env.feature_dim, layers).to(args.device)
-    # net = Network(env.feature_dim, layers).to(args.device)
-
-    print(net)
+    if not args.algo == "linucb":
+        print('layers: ', args.layers)
+        if args.layers:
+            hid_dim = args.layers
+            if not isinstance(args.layers, list):
+                hid_dim = [args.layers]
+            layers = [(el, nn.Tanh()) for el in hid_dim]
+        else:
+            layers = None # linear in the features
+        net = MLLinearNetwork(env.feature_dim, layers).to(args.device)
+        print(net)
 
     print(f'Input features dim: {env.feature_dim}')
     if args.algo == "nnlinucb":
@@ -159,6 +164,8 @@ if __name__ == "__main__":
             weight_spectral=args.weight_spectral,
             weight_l2features=0
         )
+
+    print(type(algo).__name__)
 
     algo.reset()
     result = algo.run(horizon=args.horizon, log_path=args.log_dir)
