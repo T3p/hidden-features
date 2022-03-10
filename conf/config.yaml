@@ -1,0 +1,41 @@
+defaults:
+  - override hydra/launcher: joblib
+
+horizon: 20000
+algo: linucb
+update_every_n_steps: 100
+noise_std: 1
+delta: 0.01
+ucb_regularizer: 1
+bonus_scale: 0.1
+batch_size: 128
+max_updates: 20
+lr: 1e-3,
+buffer_capacity: ${horizon}
+weight_decay: 1e-4
+reset_model_at_train: true
+
+# problem
+ncontexts: 1000
+dim: 20
+narms: 5
+contextgeneration: gaussian
+feature_expansion: none
+newrank: none
+
+# noise problem
+noise_type: gaussian
+noise_param: 0.2
+
+# misc
+seed: 1
+seed_problem: 0
+device: cuda
+use_tb: true
+
+hydra:
+  run:
+    dir: ./output/${now:%Y.%m.%d}/${now:%H%M%S}_${algo}
+  sweep:
+    dir: ./multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}_${algo}
+    subdir: ${hydra.job.num}

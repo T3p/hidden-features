@@ -88,7 +88,8 @@ def make_synthetic_features(
     min_value:float=-1, max_value=1,
     features_sigma=1, features_mean=0, feature_proba=0.5
 ):
-
+    if feature_expansion in ["none", "None"]:
+        feature_expansion = None
     assert context_generation in ["gaussian", "bernoulli", "uniform"]
     assert feature_expansion in [None, "expanded", "onehot"]
     random_problem = np.random.RandomState(seed=seed)
@@ -97,7 +98,7 @@ def make_synthetic_features(
         if context_generation == "uniform":
             features = random_problem.uniform(low=min_value, high=max_value, size=(n_contexts, n_actions, dim))
         elif context_generation == "gaussian":
-            features = random_problem.randn((n_contexts, n_actions, dim)) * features_sigma + features_mean
+            features = random_problem.randn(n_contexts* n_actions* dim).reshape(n_contexts, n_actions, dim) * features_sigma + features_mean
         elif context_generation == "bernoulli":
             features = random_problem.binomial(1, p=feature_proba, size=(n_contexts, n_actions, dim))
     else:

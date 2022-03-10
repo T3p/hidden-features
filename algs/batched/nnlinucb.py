@@ -69,10 +69,10 @@ class NNLinUCB(XBModule):
     def play_action(self, features: np.ndarray):
         assert features.shape[0] == self.env.action_space.n
         dim = self.model.embedding_dim
-        beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
-                                                      *self.t/self.ucb_regularizer)/self.delta))\
-               + self.param_bound * np.sqrt(self.ucb_regularizer)
-        # beta = np.sqrt(dim * np.log(self.t+1))
+        # beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
+        #                                               *self.t/self.ucb_regularizer)/self.delta))\
+        #        + self.param_bound * np.sqrt(self.ucb_regularizer)
+        beta = np.sqrt(np.log(self.t+1))
 
         # get features for each action and make it tensor
         xt = torch.FloatTensor(features).to(self.device)
