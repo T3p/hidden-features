@@ -104,20 +104,20 @@ def random_transform(features, param, normalize=True, seed=0):
 def derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=0):
     nc = features.shape[0]
 
-    rewards = features @ param
+    rewards = features @ param #SxA
     # compute optimal arms
-    opt_arms = np.argmax(rewards, axis=1)
+    opt_arms = np.argmax(rewards, axis=1) #S
+    
     # compute features of optimal arms
-    opt_feats = features[np.arange(nc), opt_arms, :]
-    opt_rews = rewards[np.arange(nc), opt_arms].reshape((nc, 1)) 
+    opt_feats = features[np.arange(nc), opt_arms, :] #SxD
+    opt_rews = rewards[np.arange(nc), opt_arms].reshape((nc, 1)) #Sx1
     remove = min(max(nc - newrank + 1, 0), nc)
     
-    new_features = np.array(features)
-    outer = np.matmul(opt_rews[:remove], opt_rews[:remove].T)
-    xx = np.matmul(outer, opt_feats[:remove, :]) \
-        / np.linalg.norm(opt_rews[:remove])**2
+    new_features = np.array(features, dtype=np.float32)
+    outer = np.outer(opt_rews[:remove], opt_rews[:remove])
+    xx = outer @ opt_feats[:remove, :] \
+        / np.linalg.norm(opt_rews[:remove], 2)**2
     new_features[np.arange(remove), opt_arms[:remove], :] = xx
-    
     new_param = param.copy()
     
     if transform:
@@ -127,3 +127,20 @@ def derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=
         
     assert np.allclose(features @ param, new_features @ new_param)
     return new_features, new_param
+
+
+if __name__=="__main__":
+    seed = 1234
+    rng = np.random.RandomState(seed=seed)
+    nc = 100
+    na = 5
+    d = 10
+    features = rng.binomial(1, 0.5, size=(nc, na, d))
+    #features = rng.normal(0, 1, size=(nc, na, d))
+    param = rng.uniform(-1., 1., size=d)
+    rewards = features @ param
+
+    assert is_hls(features, rewards)
+    
+    
+    f1, p1 = derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=seed)
