@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Optional, Any
 from .batched.templates import XBModule
+from ..envs.hlsutils import optimal_features, min_eig_outer
 
 def inv_sherman_morrison(u, A_inv):
     """Inverse of a matrix with rank 1 update.
@@ -88,7 +89,14 @@ class LinUCB(XBModule):
             self.b_vec = self.new_b_vec
 
             min_eig = np.linalg.eigvalsh(self.A/(self.t+1)).min() / self.features_bound
-            self.writer.add_scalar('min_eig', min_eig, self.t)
+            self.writer.add_scalar('min_eig_empirical_design', min_eig, self.t)
+
+            if hasattr(self.env, 'feature_matrix'):
+                phi = optimal_features(self.env.feature_matrix, self.env.rewards)
+                assert len(phi.shape) == 2
+                norm_v=np.linalg.norm(phi, p=2, dim=1).max()
+                mineig = min_eig_outer(phi, False) / phi.shape[0]
+                self.writer.add_scalar('min_eig_design_opt', mineig/norm_v, self.t)
         
         return 0
 

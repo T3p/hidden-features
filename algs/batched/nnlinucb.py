@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from .templates import XBModule
+from ...envs.hlsutils import optimal_features, min_eig_outer
 
 
 def inv_sherman_morrison(u, A_inv):
@@ -99,7 +100,7 @@ class NNLinUCB(XBModule):
             # self.features_bound = max(self.features_bound, torch.norm(v, p=2).cpu().item())
             # self.writer.add_scalar('features_bound', self.features_bound, self.t)
 
-            self.A += torch.outer(v.ravel(),v.ravel()   )
+            self.A += torch.outer(v.ravel(),v.ravel())
             self.b_vec = self.b_vec + v * reward
             self.inv_A, den = inv_sherman_morrison(v, self.inv_A)
             # self.A_logdet += np.log(den)
@@ -135,4 +136,16 @@ class NNLinUCB(XBModule):
             self.writer.add_scalar('param_bound', self.param_bound, self.t)
             self.writer.add_scalar('features_bound', self.features_bound, self.t)
             min_eig = torch.linalg.eigvalsh(self.A/(self.t+1)).min() / self.features_bound
-            self.writer.add_scalar('min_eig', min_eig, self.t)
+            self.writer.add_scalar('min_eig_empirical_design', min_eig, self.t)
+
+            # debug metric
+            if hasattr(self.env, 'feature_matrix'):
+                xx = optimal_features(self.env.feature_matrix, self.env.rewards)
+                assert len(xx.shape) == 2
+                xt = torch.FloatTensor(xx)
+                phi = self.model.embedding(xt).detach().numpy()
+                norm_v=np.linalg.norm(phi, p=2, dim=1).max()
+                mineig = min_eig_outer(phi, False) / phi.shape[0]
+                self.writer.add_scalar('min_eig_design_opt', mineig/norm_v, self.t)
+
+
