@@ -61,6 +61,7 @@ def my_app(cfg: DictConfig) -> None:
         rewards=rewards, seed=cfg.seed, 
         noise=cfg.domain.noise_type, noise_param=cfg.domain.noise_param
     )
+    print(f"min gap: {env.min_suboptimality_gap()}")
 
     if not cfg.algo == "linucb":
         print('layers: ', cfg.layers)
