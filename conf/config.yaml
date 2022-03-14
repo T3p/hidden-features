@@ -16,6 +16,8 @@ buffer_capacity: ${horizon}
 weight_decay: 1e-4
 reset_model_at_train: true
 layers: 150
+weight_l2features: 0.
+weight_spectral: -0.1
 
 # misc
 seed: 1

@@ -21,7 +21,6 @@ class NNLeader(NNLinUCB):
 
     def _train_loss(self, b_features, b_rewards):
         loss = 0
-        N = b_features.shape[0]
         # MSE LOSS
         if not np.isclose(self.weight_mse,0):
             prediction = self.model(b_features)
@@ -36,7 +35,7 @@ class NNLeader(NNLinUCB):
             A = torch.matmul(phi.transpose(1, 0), phi)
             # det_loss = torch.logdet(A)
             spectral_loss = torch.linalg.eigvalsh(A).min()
-            self.writer.add_scalar('spectral_loss', spectral_loss, self.batch_counter)
+            self.writer.add_scalar('spectral_loss', self.weight_spectral * spectral_loss, self.batch_counter)
             loss = loss + self.weight_spectral * spectral_loss
 
         # FEATURES NORM LOSS

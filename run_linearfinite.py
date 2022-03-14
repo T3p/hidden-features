@@ -102,6 +102,28 @@ def my_app(cfg: DictConfig) -> None:
             ucb_regularizer=cfg.ucb_regularizer,
             bonus_scale=cfg.bonus_scale
         )
+    elif cfg.algo == "nnleader":
+        algo = NNLeader(
+            env=env,
+            model=net,
+            device=cfg.device,
+            batch_size=cfg.batch_size,
+            max_updates=cfg.max_updates,
+            update_every_n_steps=cfg.update_every_n_steps,
+            learning_rate=cfg.lr,
+            buffer_capacity=cfg.buffer_capacity,
+            noise_std=cfg.noise_std,
+            delta=cfg.delta,
+            weight_decay=cfg.weight_decay,
+            ucb_regularizer=cfg.ucb_regularizer,
+            bonus_scale=cfg.bonus_scale,
+            reset_model_at_train=cfg.reset_model_at_train,
+            weight_spectral=cfg.weight_spectral,
+            weight_l2features=cfg.weight_l2features,
+            weight_mse=1.
+        )
+    else:
+        raise ValueError("Unknown algorithm {cfg.algo}")
     print(type(algo).__name__)
     algo.reset()
     result = algo.run(horizon=cfg.horizon, log_path=work_dir)#cfg.log_dir)
