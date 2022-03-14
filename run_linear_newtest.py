@@ -1,12 +1,12 @@
-import envs as bandits
-import envs.hlsutils as hlsutils
+import xbrl.envs as bandits
+import xbrl.envs.hlsutils as hlsutils
 import matplotlib.pyplot as plt
-from algs.linear import LinUCB
-from algs.batched.nnlinucb import NNLinUCB
-from algs.batched.nnleader import NNLeader
-from algs.nnmodel import LinearNetwork
-from algs.batched.nnepsilongreedy import NNEpsGreedy
-from algs.linear import LinUCB
+from xbrl.algs.linear import LinUCB
+from xbrl.algs.batched.nnlinucb import NNLinUCB
+from xbrl.algs.batched.nnleader import NNLeader
+from xbrl.algs.nnmodel import LinearNetwork
+from xbrl.algs.batched.nnepsilongreedy import NNEpsGreedy
+from xbrl.algs.linear import LinUCB
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
@@ -14,7 +14,7 @@ import argparse
 import json
 import os
 import pickle
-from algs.nnmodel import MLLinearNetwork, MLLogisticNetwork
+from xbrl.algs.nnmodel import MLLinearNetwork, MLLogisticNetwork
 import torch
 import random
 

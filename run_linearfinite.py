@@ -11,14 +11,14 @@ import numpy as np
 import torch
 import random
 
-import envs as bandits
-import envs.hlsutils as hlsutils
-from algs.linear import LinUCB
-from algs.batched.nnlinucb import NNLinUCB
-from algs.batched.nnleader import NNLeader
+import xbrl.envs as bandits
+import xbrl.envs.hlsutils as hlsutils
+from xbrl.algs.linear import LinUCB
+from xbrl.algs.batched.nnlinucb import NNLinUCB
+from xbrl.algs.batched.nnleader import NNLeader
 import pickle
 import json
-from algs.nnmodel import MLLinearNetwork, MLLogisticNetwork
+from xbrl.algs.nnmodel import MLLinearNetwork, MLLogisticNetwork
 import torch.nn as nn
 
 def set_seed_everywhere(seed):
@@ -39,17 +39,17 @@ def my_app(cfg: DictConfig) -> None:
     device = torch.device(cfg.device)
 
     features, theta = bandits.make_synthetic_features(
-        n_contexts=cfg.ncontexts, n_actions=cfg.narms, dim=cfg.dim,
-        context_generation=cfg.contextgeneration, feature_expansion=cfg.feature_expansion,
-        seed=cfg.seed_problem
+        n_contexts=cfg.domain.ncontexts, n_actions=cfg.domain.narms, dim=cfg.domain.dim,
+        context_generation=cfg.domain.contextgeneration, feature_expansion=cfg.domain.feature_expansion,
+        seed=cfg.domain.seed_problem
     )
     rewards = features @ theta
     print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
     print(f"Original rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
     print(f"Original rep -> HLS min eig: {hlsutils.hls_lambda(features, rewards)}")
     print(f"Original rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
-    if cfg.newrank not in [None, "none", "None"]:
-        features, theta = hlsutils.derank_hls(features=features, param=theta, newrank=cfg.newrank)
+    if cfg.domain.newrank not in [None, "none", "None"]:
+        features, theta = hlsutils.derank_hls(features=features, param=theta, newrank=cfg.domain.newrank)
         rewards = features @ theta
         print(f"New rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
         print(f"New rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
@@ -59,7 +59,7 @@ def my_app(cfg: DictConfig) -> None:
     env = bandits.CBFinite(
         feature_matrix=features, 
         rewards=rewards, seed=cfg.seed, 
-        noise=cfg.noise_type, noise_param=cfg.noise_param
+        noise=cfg.domain.noise_type, noise_param=cfg.domain.noise_param
     )
 
     if not cfg.algo == "linucb":
