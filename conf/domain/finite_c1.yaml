@@ -1,0 +1,13 @@
+# problem
+ncontexts: 1000
+dim: 20
+narms: 5
+contextgeneration: gaussian
+feature_expansion: none
+newrank: none
+
+# noise problem
+noise_type: gaussian
+noise_param: 0.2
+
+seed_problem: 0
