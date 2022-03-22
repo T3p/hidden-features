@@ -1,10 +1,10 @@
-import envs as bandits
+import xbrl.envs as bandits
 import matplotlib.pyplot as plt
-from algs.linear import LinUCB
-from algs.generalized_linear import UCBGLM, UCBGLM_general, OL2M
-from algs.batched.nnlinucb import NNLinUCB
-from algs.linear import LinUCB
-from envs.hlsutils import is_hls, derank_hls
+from xbrl.algs.linear import LinUCB
+from xbrl.algs.generalized_linear import UCBGLM, UCBGLM_general, OL2M
+from xbrl.algs.batched.nnlinucb import NNLinUCB
+from xbrl.algs.linear import LinUCB
+from xbrl.envs.hlsutils import is_hls, derank_hls
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # env options
     parser.add_argument('--dim', type=int, default=6, metavar='Context dimension')
     parser.add_argument('--narms', type=int, default=5, metavar='Number of actions')
-    parser.add_argument('--horizon', type=int, default=100000, metavar='Horizon of the bandit problem')
+    parser.add_argument('--horizon', type=int, default=10000, metavar='Horizon of the bandit problem')
     parser.add_argument('--seed', type=int, default=0, metavar='Seed used for the generation of the bandit problem')
     parser.add_argument('--bandittype', default="expanded", help="None, expanded, onehot")
     parser.add_argument('--contextgeneration', default="uniform", help="uniform, gaussian, bernoulli")
@@ -51,7 +51,8 @@ if __name__ == "__main__":
     original_env = bandits.CBFinite(feature_matrix=features,
                     rewards=rewards,
                     noise="gaussian",
-                    seed=args.seed)
+                    seed=args.seed,
+                    noise_param=1.)
     print(original_env.min_suboptimality_gap())
  
     env = bandits.CBFinite(feature_matrix=features,
@@ -67,31 +68,10 @@ if __name__ == "__main__":
         delta=0.01,
         ucb_regularizer=1.,
         bonus_scale=1.,
-        #step_size=0.01
     )
     algo.reset()
     result = algo.run(horizon=args.horizon)
     regrets = result['expected_regret']
     plt.plot(regrets)
-    #"""
-    #"""
-    new_features, _ = derank_hls(features, param, newrank=dim-1)
-    new_env = bandits.CBFinite(feature_matrix=new_features,
-                           rewards=rewards,
-                           noise="bernoulli",
-                           seed=args.seed)
-    algo = UCBGLM_general(
-        env=new_env,
-        seed=args.seed,
-        update_every_n_steps=1,
-        delta=0.01,
-        ucb_regularizer=1.,
-        bonus_scale=1.,
-        #step_size=0.01
-    )
-    algo.reset()
-    result = algo.run(horizon=args.horizon)
-    regrets = result['expected_regret']
-    plt.plot(regrets)
-#"""  
+    #""" 
     

@@ -1,9 +1,10 @@
 import numpy as np
 from typing import Optional, Any, Callable
-from .batched.templates import XBModule
-from .linear import inv_sherman_morrison
+from xbrl.algs.batched.templates import XBModule
+from xbrl.algs.linear import inv_sherman_morrison
 from scipy.optimize import root
 from scipy.special import expit as sigmoid
+from sklearn.linear_model import LogisticRegression
 import warnings
 import cvxpy as cp
 
@@ -35,6 +36,9 @@ class UCBGLM(XBModule):
         self.link_function = sigmoid
         self.nonlinearity_function = sigmoid_nonlinearity
         self.link_derivative = sigmoid_derivative
+        self.solver = LogisticRegression(penalty='none',
+                                         fit_intercept=False,
+                                         random_state=np.random.RandomState(seed=seed))
         
     def reset(self) -> None:
         super().reset()
@@ -46,14 +50,15 @@ class UCBGLM(XBModule):
         self.new_inv_A = np.eye(dim) / self.ucb_regularizer
         self.param_bound = 1
         self.features_bound = 1
-        self.features_history = []
+        self.features_history = [np.zeros(dim)]
+        self.reward_history = [0.]
 
     def play_action(self, features: np.ndarray) -> int:
         assert features.shape[0] == self.env.action_space.n
         dim = features.shape[1]
         nonlinearity_coeff = self.nonlinearity_function(1. + self.param_bound, self.features_bound)
-        beta = nonlinearity_coeff * self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2*self.t/self.ucb_regularizer)/self.delta)) + self.param_bound * np.sqrt(self.ucb_regularizer)
-
+        #beta = nonlinearity_coeff * self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2*self.t/self.ucb_regularizer)/self.delta)) + self.param_bound * np.sqrt(self.ucb_regularizer)
+        beta = np.sqrt(np.log(self.t+1))
         # get features for each action and make it tensor
         bonus = ((features @ self.inv_A)*features).sum(axis=1)
         bonus = self.bonus_scale * beta * np.sqrt(bonus)
@@ -68,6 +73,7 @@ class UCBGLM(XBModule):
         assert reward==0 or reward==1
 
         self.features_history.append(features)
+        self.reward_history.append(reward)
         #self.features_bound = max(self.features_bound, np.linalg.norm(v, 2).item())
         self.writer.add_scalar('features_bound', self.features_bound, self.t)
         
@@ -77,19 +83,13 @@ class UCBGLM(XBModule):
         # self.A_logdet += np.log(den)
         
     def train(self) -> float:
-        if self.t % self.update_every_n_steps == 0 or self.retry_root_finding:
+        if self.t % self.update_every_n_steps == 0:
             
-            #Compute new parameter by solving convex problem
-            theta = cp.Variable(self.dim) #d
-            b = self.new_b_vec #d
             X = np.stack(self.features_history, axis=0) #txd
+            y = np.array(self.reward_history)
+            self.solver.fit(X, y)
             
-            theta.value = self.theta
-            objective = b@theta + cp.sum(cp.logistic(-X @ theta)) #logistic loss
-            problem = cp.Problem(cp.Minimize(objective), [cp.norm(theta,2)<=self.param_bound])
-            problem.solve(warm_start=True)
-            assert(problem.status=="optimal")
-            self.theta = theta.value 
+            self.theta = self.solver.coef_.ravel()
             self.b_vec = self.new_b_vec
             self.inv_A = self.new_inv_A
         
@@ -237,12 +237,12 @@ class UCBGLM_general(XBModule):
         assert features.shape[0] == self.env.action_space.n
         dim = features.shape[1]
         nonlinearity_coeff = self.nonlinearity_function(1. + self.param_bound, self.features_bound)
-        beta = nonlinearity_coeff * self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2*self.t/self.ucb_regularizer)/self.delta)) + self.param_bound * np.sqrt(self.ucb_regularizer)
-
+        #beta = nonlinearity_coeff * self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2*self.t/self.ucb_regularizer)/self.delta)) + self.param_bound * np.sqrt(self.ucb_regularizer)
+        beta = np.sqrt(np.log(self.t+1))
         # get features for each action and make it tensor
         bonus = ((features @ self.inv_A)*features).sum(axis=1)
         bonus = self.bonus_scale * beta * np.sqrt(bonus)
-        ucb = self.link_function(features @ self.theta) + bonus
+        ucb = features @ self.theta + bonus
         action = np.argmax(ucb).item()
         self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
         #print(bonus[action].item())
