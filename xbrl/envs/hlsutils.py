@@ -1,3 +1,5 @@
+import pdb
+
 import numpy as np
 
 
@@ -124,6 +126,7 @@ def derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=
         new_features, new_param = normalize_linrep(new_features, new_param)
         
     assert np.allclose(features @ param, new_features @ new_param)
+
     return new_features, new_param
 
 

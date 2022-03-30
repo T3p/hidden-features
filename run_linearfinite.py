@@ -118,9 +118,10 @@ def my_app(cfg: DictConfig) -> None:
             ucb_regularizer=cfg.ucb_regularizer,
             bonus_scale=cfg.bonus_scale,
             reset_model_at_train=cfg.reset_model_at_train,
+            weight_mse=cfg.weight_mse,
             weight_spectral=cfg.weight_spectral,
             weight_l2features=cfg.weight_l2features,
-            weight_mse=1.
+            weight_orth=cfg.weight_orth
         )
     else:
         raise ValueError("Unknown algorithm {cfg.algo}")

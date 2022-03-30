@@ -1,6 +1,7 @@
 defaults:
+  - _self_
   - domain: finite_c1.yaml
-  - override hydra/launcher: joblib
+  - override hydra/launcher: joblib # submitit_local
 
 horizon: 20000
 algo: nnlinucb
@@ -18,6 +19,8 @@ reset_model_at_train: true
 layers: 150
 weight_l2features: 0.
 weight_spectral: -0.1
+weight_orth: 0
+weight_mse: 1
 
 # misc
 seed: 1
@@ -30,3 +33,5 @@ hydra:
   sweep:
     dir: ./multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}_${algo}
     subdir: ${hydra.job.num}
+  launcher:
+    timeout_min: 4000
