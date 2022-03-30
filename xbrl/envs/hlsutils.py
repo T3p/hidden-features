@@ -86,18 +86,16 @@ def normalize_linrep(features, param, scale=1.):
 def random_transform(features, param, normalize=True, seed=0):
     rng = np.random.RandomState(seed)
     dim = len(param)
-    A = rng.normal(size=(dim, dim))
 
     A = rng.normal(size=(dim, dim))
     q, r = np.linalg.qr(A)
-    
+        
     new_features = features @ q
     new_param = q.T @ param
-        
+            
     if normalize:
         new_features, new_param = normalize_linrep(new_features, new_param)
     
-    val = features @ param - new_features @ new_param
     assert np.allclose(features @ param, new_features @ new_param)
     return new_features, new_param
 
@@ -123,7 +121,7 @@ def derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=
     if transform:
         new_features, new_param = random_transform(new_features, new_param, normalize=normalize, seed=seed)
     elif normalize:
-        new_features, new_param = normalize_linrep(new_features, new_param, seed=seed)
+        new_features, new_param = normalize_linrep(new_features, new_param)
         
     assert np.allclose(features @ param, new_features @ new_param)
     return new_features, new_param
@@ -132,15 +130,16 @@ def derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=
 if __name__=="__main__":
     seed = 1234
     rng = np.random.RandomState(seed=seed)
-    nc = 100
-    na = 5
-    d = 10
-    features = rng.binomial(1, 0.5, size=(nc, na, d))
-    #features = rng.normal(0, 1, size=(nc, na, d))
+    nc = 2
+    na = 2
+    d = 2
+    #features = rng.binomial(1, 0.5, size=(nc, na, d))
+    features = rng.normal(0, 1, size=(nc, na, d))
     param = rng.uniform(-1., 1., size=d)
     rewards = features @ param
 
     assert is_hls(features, rewards)
     
     
-    f1, p1 = derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=seed)
+    f1, p1 = derank_hls(features, param, newrank=1, transform=True, normalize=False, seed=seed)
+    print(hls_rank(f1, f1@p1, tol=1e-6))

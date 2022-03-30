@@ -26,6 +26,8 @@ class UCBGLM(XBModule):
         delta: Optional[float]=0.01,
         ucb_regularizer: Optional[float]=1,
         bonus_scale: Optional[float]=1.,
+        opt_tolerance=1e-8,
+        true_param=None #for testing purposes!
     ) -> None:
         super().__init__(env, None, None, None, None, None, None, 0, seed, None, update_every_n_steps)
         self.np_random = np.random.RandomState(seed)
@@ -36,27 +38,31 @@ class UCBGLM(XBModule):
         self.link_function = sigmoid
         self.nonlinearity_function = sigmoid_nonlinearity
         self.link_derivative = sigmoid_derivative
-        self.solver = LogisticRegression(penalty='none',
-                                         fit_intercept=False,
-                                         random_state=np.random.RandomState(seed=seed))
+        self.solver = LogisticRegression(fit_intercept=False,
+                                         random_state=np.random.RandomState(seed=seed),
+                                         solver='lbfgs',
+                                         warm_start=True,
+                                         tol=opt_tolerance,
+                                         max_iter=1000)
+        self.true_param = true_param
         
     def reset(self) -> None:
         super().reset()
         dim = self.dim = self.env.feature_dim
-        self.b_vec = np.zeros(dim)
         self.inv_A = np.eye(dim) / self.ucb_regularizer
-        self.theta = np.zeros(dim)
-        self.new_b_vec = np.zeros(dim)
+        self.theta = np.zeros(dim) if self.true_param is None else self.true_param
         self.new_inv_A = np.eye(dim) / self.ucb_regularizer
         self.param_bound = 1
         self.features_bound = 1
-        self.features_history = [np.zeros(dim)]
-        self.reward_history = [0.]
+        self.features_history = [np.zeros(dim), np.zeros(dim)]
+        self.reward_history = [0., 1.]
+        self.A_logdet = dim*np.log(self.ucb_regularizer)
 
     def play_action(self, features: np.ndarray) -> int:
         assert features.shape[0] == self.env.action_space.n
         dim = features.shape[1]
         nonlinearity_coeff = self.nonlinearity_function(1. + self.param_bound, self.features_bound)
+        #beta = nonlinearity_coeff * self.noise_std * np.sqrt(self.A_logdet - 2*np.log(self.ucb_regularizer**(dim / 2) * self.delta )) + np.sqrt(self.ucb_regularizer) * self.param_bound
         #beta = nonlinearity_coeff * self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2*self.t/self.ucb_regularizer)/self.delta)) + self.param_bound * np.sqrt(self.ucb_regularizer)
         beta = np.sqrt(np.log(self.t+1))
         # get features for each action and make it tensor
@@ -64,6 +70,7 @@ class UCBGLM(XBModule):
         bonus = self.bonus_scale * beta * np.sqrt(bonus)
         ucb = features @ self.theta + bonus
         action = np.argmax(ucb).item()
+        #print(bonus[action].item())
         self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
         assert 0 <= action < self.env.action_space.n, ucb
 
@@ -77,20 +84,19 @@ class UCBGLM(XBModule):
         #self.features_bound = max(self.features_bound, np.linalg.norm(v, 2).item())
         self.writer.add_scalar('features_bound', self.features_bound, self.t)
         
-        if reward==0: #multiplication by (1-reward)
-            self.new_b_vec = self.new_b_vec + features
         self.new_inv_A, den = inv_sherman_morrison(features, self.new_inv_A)
-        # self.A_logdet += np.log(den)
+        self.A_logdet += np.log(den)
         
     def train(self) -> float:
         if self.t % self.update_every_n_steps == 0:
-            
-            X = np.stack(self.features_history, axis=0) #txd
-            y = np.array(self.reward_history)
-            self.solver.fit(X, y)
-            
-            self.theta = self.solver.coef_.ravel()
-            self.b_vec = self.new_b_vec
+            if self.true_param is None:
+                X = np.stack(self.features_history, axis=0) #txd
+                y = np.array(self.reward_history)
+                self.solver.fit(X, y)
+                
+                
+                
+                self.theta = self.solver.coef_.ravel()
             self.inv_A = self.new_inv_A
         
         return 0
@@ -142,10 +148,8 @@ class OL2M(XBModule):
                      max(1,self.t)**2 / self.delta)
         logdet = np.log(self.det_ratio)
         #logdet = self.dim * np.log(1 + self.step_size/(2*self.nl_coeff*self.dim*self.ucb_regularizer)*self.t)
-        beta = np.sqrt(2*self.step_size*(4*self.param_bound + 
-                (4*self.nl_coeff+8./3*self.param_bound)*tau + 
-                self.nl_coeff*logdet) + self.bonus_const)
-
+        #beta = np.sqrt(2*self.step_size*(4*self.param_bound + (4*self.nl_coeff+8./3*self.param_bound)*tau + self.nl_coeff*logdet) + self.bonus_const)
+        beta = np.sqrt(np.log(self.t+1))
         # get features for each action and make it tensor
         bonus = ((features @ self.inv_A)*features).sum(axis=1)
         bonus = self.bonus_scale * beta * np.sqrt(bonus)

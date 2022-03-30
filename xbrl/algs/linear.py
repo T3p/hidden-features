@@ -49,12 +49,14 @@ class LinUCB(XBModule):
         # beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
         #                                               *self.t/self.ucb_regularizer)/self.delta)) \
         #        + self.param_bound * np.sqrt(self.ucb_regularizer)
+        #beta=self.noise_std * np.sqrt(-2 * np.log(np.sqrt(np.linalg.det(self.inv_A)) * self.ucb_regularizer**(dim / 2) * self.delta )) + np.sqrt(self.ucb_regularizer) * self.param_bound
         beta = np.sqrt(np.log(self.t+1))
 
         # get features for each action and make it tensor
         bonus = ((features @ self.inv_A)*features).sum(axis=1)
         bonus = self.bonus_scale * beta * np.sqrt(bonus)
         ucb = features @ self.theta + bonus
+        #print(np.max(bonus))
         action = np.argmax(ucb).item()
         self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
         assert 0 <= action < self.env.action_space.n, ucb

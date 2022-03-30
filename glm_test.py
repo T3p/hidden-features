@@ -4,7 +4,7 @@ from xbrl.algs.linear import LinUCB
 from xbrl.algs.generalized_linear import UCBGLM, UCBGLM_general, OL2M
 from xbrl.algs.batched.nnlinucb import NNLinUCB
 from xbrl.algs.linear import LinUCB
-from xbrl.envs.hlsutils import is_hls, derank_hls
+from xbrl.envs.hlsutils import is_hls, derank_hls, normalize_linrep
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
@@ -12,66 +12,66 @@ import argparse
 import json
 import os
 from scipy.special import logit
+from scipy.special import expit as sigmoid
 #from algs.nnmodel import Network
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Linear Bandit Test')
-    # env options
-    parser.add_argument('--dim', type=int, default=6, metavar='Context dimension')
-    parser.add_argument('--narms', type=int, default=5, metavar='Number of actions')
-    parser.add_argument('--horizon', type=int, default=10000, metavar='Horizon of the bandit problem')
-    parser.add_argument('--seed', type=int, default=0, metavar='Seed used for the generation of the bandit problem')
-    parser.add_argument('--bandittype', default="expanded", help="None, expanded, onehot")
-    parser.add_argument('--contextgeneration', default="uniform", help="uniform, gaussian, bernoulli")
-    # algo options
-    parser.add_argument('--algo', type=str, default="ucbglm", help='algorithm [nnlinucb, nnleader]')
-    parser.add_argument('--bonus-scale', type=float, default=0.1)
-    parser.add_argument('--layers', nargs='+', type=int, default=100,
-                        help="dimension of each layer (example --layers 100 200)")
-    parser.add_argument('--max_epochs', type=int, default=10, help="maximum number of epochs")
-    parser.add_argument('--update_every', type=int, default=100, help="Update every N samples")
-    parser.add_argument('--config_name', type=str, default="", help='configuration name used to create the log')
-    parser.add_argument('--lr', type=float, default=1e-3, help="learning rate")
-    parser.add_argument('--batch_size', type=int, default=256, help="batch size")
-
-
-    args = parser.parse_args()
-    rng = np.random.RandomState(seed=args.seed)
+    seed = 0
+    horizon = 10000
+    rng = np.random.RandomState(seed=seed)
     
     #"""
-    features = np.load("basic_features.npy")
+    #nc = 20
+    #na = 4
+    #dim = 5
+    features = np.load("problem_data/basic_features.npy")
     dim = features.shape[-1]
-    param = np.load("basic_param.npy")
+    #features = rng.uniform(low=-1., high=1., size=(nc, na, dim))
+    param = np.load("problem_data/basic_param.npy")
+    #param = rng.uniform(low=-1., high=1., size=dim)
     #"""
 
     rewards = features @ param
     assert is_hls(features, rewards)
-    #"""
     
-    original_env = bandits.CBFinite(feature_matrix=features,
-                    rewards=rewards,
-                    noise="gaussian",
-                    seed=args.seed,
-                    noise_param=1.)
-    print(original_env.min_suboptimality_gap())
- 
+    #"""
     env = bandits.CBFinite(feature_matrix=features,
                            rewards=rewards,
                            noise="bernoulli",
-                           seed=args.seed)
-    print(env.min_suboptimality_gap())
+                           seed=seed)
+    min_gap=env.min_suboptimality_gap()
 
-    algo = UCBGLM_general(
+    algo = UCBGLM(
+        env=env,
+        seed=seed,
+        update_every_n_steps=1,
+        delta=0.01,
+        ucb_regularizer=1.,
+        bonus_scale=1.,
+        opt_tolerance=1e-8,
+        true_param=None
+    )
+    algo.reset()
+    result = algo.run(horizon=horizon)
+    regrets = result['expected_regret']
+    plt.plot(regrets)
+    """ 
+    env = bandits.CBFinite(feature_matrix=features,
+                           rewards=rewards,
+                           noise="gaussian",
+                           seed=args.seed,
+                           noise_param=1.)
+    min_gap=env.min_suboptimality_gap()
+    algo = LinUCB(
         env=env,
         seed=args.seed,
         update_every_n_steps=1,
         delta=0.01,
         ucb_regularizer=1.,
-        bonus_scale=1.,
+        bonus_scale=1.
     )
     algo.reset()
     result = algo.run(horizon=args.horizon)
     regrets = result['expected_regret']
     plt.plot(regrets)
-    #""" 
-    
+    #"""

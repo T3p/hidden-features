@@ -7,6 +7,7 @@ from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 from ..replaybuffer import SimpleBuffer
 from ..nnmodel import initialize_weights
+import time
 
 
 class XBModule(nn.Module):
@@ -46,6 +47,7 @@ class XBModule(nn.Module):
         self.action_gap = np.zeros(1)
         self.action_history = np.zeros(1, dtype=int)
         self.best_action_history = np.zeros(1, dtype=int)
+        self.runtime = np.zeros(1)
 
         self.batch_counter = 0
         if self.model:
@@ -104,6 +106,7 @@ class XBModule(nn.Module):
         self.action_history = np.resize(self.action_history, horizon)
         self.best_action_history = np.resize(self.best_action_history, horizon)
         self.action_gap = np.resize(self.action_gap, horizon)
+        self.runtime = np.resize(self.runtime, horizon)
 
     def run(self, horizon: int, throttle: int=100, log_path: str=None) -> None:
         if log_path is None:
@@ -120,6 +123,7 @@ class XBModule(nn.Module):
         }
         with tqdm(initial=self.t, total=horizon, postfix=postfix) as pbar:
             while (self.t < horizon):
+                start = time.time()
                 context = self.env.sample_context()
                 features = self.env.features() #shape na x dim
                 action = self.play_action(features=features)
@@ -127,6 +131,7 @@ class XBModule(nn.Module):
                 # update
                 self.add_sample(context, action, reward, features[action])
                 train_loss = self.train()
+                self.runtime[self.t] = time.time() - start
 
                 # log regret
                 best_reward, best_action = self.env.best_reward_and_action()
@@ -159,7 +164,6 @@ class XBModule(nn.Module):
                 self.writer.add_scalar('optimal arm?', 1 if self.action_history[self.t] == self.best_action_history[self.t] else 0, self.t)
 
                 self.writer.flush()
-
                 if self.t % throttle == 0:
                     pbar.set_postfix(postfix)
                     pbar.update(throttle)
@@ -171,6 +175,7 @@ class XBModule(nn.Module):
             "regret": np.cumsum(self.best_reward - self.instant_reward),
             "optimal_arm": np.cumsum(self.action_history == self.best_action_history) / np.arange(1, len(self.action_history)+1),
             "expected_regret": np.cumsum(self.best_reward - self.expected_reward),
-            "action_gap": self.action_gap
+            "action_gap": self.action_gap,
+            "runtime": self.runtime
 
         }
