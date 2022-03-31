@@ -121,7 +121,8 @@ def my_app(cfg: DictConfig) -> None:
             weight_mse=cfg.weight_mse,
             weight_spectral=cfg.weight_spectral,
             weight_l2features=cfg.weight_l2features,
-            weight_orth=cfg.weight_orth
+            weight_orth=cfg.weight_orth,
+            weight_rayleigh=cfg.weight_rayleigh
         )
     else:
         raise ValueError("Unknown algorithm {cfg.algo}")
@@ -140,6 +141,9 @@ def my_app(cfg: DictConfig) -> None:
         json.dump(OmegaConf.to_container(cfg), f, indent=4, sort_keys=True)
     with open(os.path.join(work_dir, "result.pkl"), 'wb') as f:
         pickle.dump(result, f)
+    payload = {'model': algo.model, 'features': algo.env.feature_matrix, 'rewards': algo.env.rewards}
+    with open(os.path.join(work_dir, "algo.pt"), 'wb') as f:
+        torch.save(payload, f)
 
 
 if __name__ == "__main__":

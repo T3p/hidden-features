@@ -10,15 +10,27 @@ from .nnlinucb import NNLinUCB
 class NNLeader(NNLinUCB):
 
     def __init__(
-        self, env: Any, model: nn.Module, device: Optional[str] = "cpu", batch_size: Optional[int] = 256, max_updates: Optional[int] = 1, learning_rate: Optional[float] = 0.001, weight_decay: Optional[float] = 0, buffer_capacity: Optional[int] = 10000, seed: Optional[int] = 0, reset_model_at_train: Optional[bool] = True, update_every_n_steps: Optional[int] = 100, noise_std: float = 1, delta: Optional[float] = 0.01, ucb_regularizer: Optional[float] = 1, weight_mse: Optional[float] = 1, bonus_scale: Optional[float] = 1,
-        weight_spectral: Optional[float]=-0.001,
-        weight_l2features: Optional[float]=0,
-        weight_orth: Optional[float] = 0,
+        self, env: Any, model: nn.Module, device: Optional[str] = "cpu", batch_size: Optional[int] = 256,
+            max_updates: Optional[int] = 1, learning_rate: Optional[float] = 0.001,
+            weight_decay: Optional[float] = 0, buffer_capacity: Optional[int] = 10000,
+            seed: Optional[int] = 0, reset_model_at_train: Optional[bool] = True,
+            update_every_n_steps: Optional[int] = 100, noise_std: float = 1,
+            delta: Optional[float] = 0.01, ucb_regularizer: Optional[float] = 1,
+            weight_mse: Optional[float] = 1, bonus_scale: Optional[float] = 1,
+            weight_spectral: Optional[float]=-0.001,
+            weight_l2features: Optional[float]=0,
+            weight_orth: Optional[float] = 0,
+            weight_rayleigh: Optional[float] = 0
     ) -> None:
         super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train, update_every_n_steps, noise_std, delta, ucb_regularizer, weight_mse, bonus_scale)
         self.weight_spectral = weight_spectral
         self.weight_l2features = weight_l2features
         self.weight_orth = weight_orth
+        self.weight_rayleigh = weight_rayleigh
+        if self.weight_rayleigh > 0:
+            self.unit_vector = torch.ones(self.model.embedding_dim).to(self.device) / np.sqrt(self.model.embedding_dim)
+            self.unit_vector.requires_grad = True
+            self.unit_vector_optimizer = torch.optim.Adam([self.unit_vector], lr=self.learning_rate)
 
 
     def _train_loss(self, b_features, b_rewards):
@@ -53,6 +65,25 @@ class NNLeader(NNLinUCB):
             orth_loss = phi_1_2.pow(2).mean() - (phi_1_1.mean() + phi_2_2.mean())
 
             loss += self.weight_orth * orth_loss
+
+        if not np.isclose(self.weight_rayleigh, 0):
+            phi = self.model.embedding(b_features)
+            A = torch.matmul(phi.T, phi) / phi.shape[0]
+            # import pdb
+            # pdb.set_trace()
+            # compute loss to update the unit vector
+            unit_vector_loss = torch.dot(self.unit_vector, torch.matmul(A.detach(), self.unit_vector))
+            self.unit_vector_optimizer.zero_grad()
+            unit_vector_loss.backward()
+            self.unit_vector_optimizer.step()
+            self.unit_vector.data = F.normalize(self.unit_vector.data, dim=0)
+            # recompute the loss to update embedding
+            phi = self.model.embedding(b_features)
+            A = torch.matmul(phi.T, phi) / phi.shape[0]
+            rayleigh_loss = - torch.dot(self.unit_vector.detach(), torch.matmul(A, self.unit_vector.detach()))
+            loss += self.weight_rayleigh * rayleigh_loss
+
+
 
 
         # FEATURES NORM LOSS

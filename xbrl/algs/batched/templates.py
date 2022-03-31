@@ -38,6 +38,7 @@ class XBModule(nn.Module):
         self.seed = seed
         self.reset_model_at_train = reset_model_at_train
         self.update_every_n_steps = update_every_n_steps
+        self.unit_vector: Optional[torch.tensor] = None
 
     def reset(self) -> None:
         self.t = 0
@@ -64,6 +65,11 @@ class XBModule(nn.Module):
         if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
             if self.reset_model_at_train:
                 initialize_weights(self.model)
+                if self.unit_vector is not None:
+                    self.unit_vector = torch.ones(self.model.embedding_dim).to(self.device) / np.sqrt(
+                        self.model.embedding_dim)
+                    self.unit_vector.requires_grad = True
+                    self.unit_vector_optimizer = torch.optim.Adam([self.unit_vector], lr=self.learning_rate)
                 # for layer in self.model.children():
                 #     if hasattr(layer, 'reset_parameters'):
                 #         layer.reset_parameters()
@@ -92,7 +98,6 @@ class XBModule(nn.Module):
                     break
             self.writer.add_scalar('epoch_mse_loss', last_loss, self.t)
             self.model.eval()
-
             self._post_train(loader)
             return last_loss
         return None
