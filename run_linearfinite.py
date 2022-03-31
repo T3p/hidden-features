@@ -72,14 +72,14 @@ def my_app(cfg: DictConfig) -> None:
             layers = [(el, nn.Tanh()) for el in hid_dim]
         else:
             layers = None # linear in the features
-        net = MLLinearNetwork(env.feature_dim, layers).to(cfg.device)
+        net = MLLinearNetwork(env.feature_dim, layers).to(device)
         print(net)
 
     if cfg.algo == "nnlinucb":
         algo = NNLinUCB(
             env=env,
             model=net,
-            device=cfg.device,
+            device=device,
             batch_size=cfg.batch_size,
             max_updates=cfg.max_updates,
             update_every_n_steps=cfg.update_every_n_steps,
@@ -106,7 +106,7 @@ def my_app(cfg: DictConfig) -> None:
         algo = NNLeader(
             env=env,
             model=net,
-            device=cfg.device,
+            device=device,
             batch_size=cfg.batch_size,
             max_updates=cfg.max_updates,
             update_every_n_steps=cfg.update_every_n_steps,

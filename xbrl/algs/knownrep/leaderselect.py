@@ -131,10 +131,8 @@ class LeaderSelectElim(XBModule):
                     self.SSE_D[i][idx] += 2*v[k]*v[j]
                     idx += 1
 
-
     def train(self) -> float:
         return 0
-
 
     def compute_mses(self):
         # SSE = \sum_i (y_i - x_i w)^2
