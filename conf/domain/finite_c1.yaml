@@ -1,4 +1,5 @@
 # problem
+type: finite
 ncontexts: 1000
 dim: 20
 narms: 5

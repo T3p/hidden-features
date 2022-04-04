@@ -1,0 +1,7 @@
+type: nn
+features: data/misspecified_example1/features.npy
+net: data/misspecified_example1/net0.pth
+
+# noise problem
+noise_type: gaussian
+noise_param: 0.2

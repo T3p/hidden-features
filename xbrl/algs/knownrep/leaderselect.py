@@ -70,7 +70,7 @@ class LeaderSelectElim(XBModule):
 
         min_eigs = np.zeros(nreps)
         for i in range(nreps):
-            dm = self.A
+            dm = self.A[i]
             eigs, _ = np.linalg.eig(dm)
             min_eigs[i] = np.real(eigs).min()
         mse, min_mse_plusoffset = self.compute_mses()

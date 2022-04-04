@@ -33,5 +33,5 @@ hydra:
   sweep:
     dir: ./multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}_${algo}
     subdir: ${hydra.job.num}
-  launcher:
-    timeout_min: 4000
+  # launcher:
+  #   timeout_min: 4000
