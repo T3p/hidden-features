@@ -21,6 +21,7 @@ weight_l2features: 0.
 weight_spectral: -0.1
 weight_orth: 0
 weight_mse: 1
+random_init_weights: True
 
 # misc
 seed: 1

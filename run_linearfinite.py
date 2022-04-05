@@ -96,9 +96,7 @@ def my_app(cfg: DictConfig) -> None:
 
     if not cfg.algo == "linucb":
         if cfg.domain.type == "nn":
-            net = copy.deepcopy(model)
-            print("randomly initializing weights of algorithm network")
-            initialize_weights(net)
+            net = copy.deepcopy(model).to(device)
         else:
             print('layers: ', cfg.layers)
             if cfg.layers not in [None, "none", "None"]:
@@ -109,6 +107,10 @@ def my_app(cfg: DictConfig) -> None:
             else:
                 layers = None # linear in the features
             net = MLLinearNetwork(env.feature_dim, layers).to(device)
+        
+        if cfg.random_init_weights:
+            print("randomly initializing weights of algorithm network")
+            initialize_weights(net)
         print(net)
 
     if cfg.algo == "nnlinucb":
