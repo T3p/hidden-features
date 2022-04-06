@@ -1,7 +1,7 @@
 defaults:
   - _self_
   - domain: finite_c1.yaml
-  - override hydra/launcher: joblib # submitit_local
+  - override hydra/launcher: submitit_slurm # joblib
 
 horizon: 20000
 algo: nnlinucb
@@ -18,10 +18,11 @@ weight_decay: 1e-4
 reset_model_at_train: true
 layers: 150
 weight_l2features: 0.
-weight_spectral: -0.1
+weight_spectral: 0
 weight_orth: 0
 weight_mse: 1
 random_init_weights: True
+weight_rayleigh: 0
 
 # misc
 seed: 1
@@ -36,3 +37,11 @@ hydra:
     subdir: ${hydra.job.num}
   # launcher:
   #   timeout_min: 4000
+  launcher:
+    timeout_min: 4000
+    cpus_per_task: 4
+    gpus_per_node: 1
+    tasks_per_node: 1
+    mem_gb: 160
+    nodes: 1
+    submitit_folder: ./multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}_${algo}/.slurm
