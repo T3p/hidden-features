@@ -75,7 +75,7 @@ def my_app(cfg: DictConfig) -> None:
     # non realizable
     n_nonrealizable = cfg.num_nonrealizable
     for i in range(n_nonrealizable):
-        idx = np.random.choice(len(rep_list), 1).item()
+        idx = problem_gen.choice(len(rep_list), 1).item()
         fi = rep_list[idx].features
         # mask = np.random.binomial(1, p=0.5, size=fi.shape)
         fi = fi + problem_gen.randn(*fi.shape) * 0.6

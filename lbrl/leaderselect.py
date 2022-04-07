@@ -83,9 +83,9 @@ class LEADERSelect:
 
             # select representation
             M_active, n_actions = len(active_reps), len(avail_actions)
-            if t % self.recompute_every == 0:
-            # if t == update_time:
-            #     update_time *= 2
+            # if t % self.recompute_every == 0:
+            if t == update_time:
+                update_time *= 2
                 hist_time_updates.append(t)
                 min_eigs = np.zeros(M_active)
                 normalized_rep_scores = np.zeros(M_active)
