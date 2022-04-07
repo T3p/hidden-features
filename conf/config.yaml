@@ -23,6 +23,10 @@ weight_orth: 0
 weight_mse: 1
 random_init_weights: True
 weight_rayleigh: 0
+epsilon_min: 0.1
+epsilon_start: 1
+epsilon_decay: 8000
+time_random_exp: 1000
 
 # misc
 seed: 1

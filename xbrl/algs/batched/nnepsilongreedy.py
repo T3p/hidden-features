@@ -23,11 +23,13 @@ class NNEpsGreedy(XBModule):
             epsilon_min: float=0.05,
             epsilon_start: float=2,
             epsilon_decay: float=200,
+            time_random_exp: int=0
     ) -> None:
         super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train, update_every_n_steps)
         self.epsilon_min = epsilon_min
         self.epsilon_start = epsilon_start
         self.epsilon_decay = epsilon_decay
+        self.time_random_exp = time_random_exp
         self.np_random = np.random.RandomState(self.seed)
 
     def reset(self) -> None:
@@ -43,7 +45,7 @@ class NNEpsGreedy(XBModule):
     
     @torch.no_grad()
     def play_action(self, features: np.ndarray) -> int:
-        if self.epsilon > self.epsilon_min:
+        if self.t > self.time_random_exp and self.epsilon > self.epsilon_min:
             self.epsilon -= (self.epsilon_start - self.epsilon_min) / self.epsilon_decay
         self.writer.add_scalar('epsilon', self.epsilon, self.t)
         if self.np_random.rand() < self.epsilon:
@@ -52,4 +54,5 @@ class NNEpsGreedy(XBModule):
             xt = torch.FloatTensor(features).to(self.device)
             scores = self.model(xt)
             action = torch.argmax(scores).item()
+        assert 0 <= action < self.env.action_space.n
         return action

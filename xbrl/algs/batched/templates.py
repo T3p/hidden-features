@@ -53,6 +53,7 @@ class XBModule(nn.Module):
         self.batch_counter = 0
         if self.model:
             self.model.to(self.device)
+        self.update_time = 0
 
     def _post_train(self, loader=None) -> None:
         pass
@@ -62,14 +63,16 @@ class XBModule(nn.Module):
         self.buffer.append(exp)
 
     def train(self) -> float:
-        if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
+        # if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
+        if self.t == self.update_time and self.t > self.batch_size:
+            self.update_time = max(1, self.update_time) * 2
             if self.reset_model_at_train:
                 initialize_weights(self.model)
                 if self.unit_vector is not None:
                     self.unit_vector = torch.ones(self.model.embedding_dim).to(self.device) / np.sqrt(
                         self.model.embedding_dim)
                     self.unit_vector.requires_grad = True
-                    self.unit_vector_optimizer = torch.optim.Adam([self.unit_vector], lr=self.learning_rate)
+                    self.unit_vector_optimizer = torch.optim.SGD([self.unit_vector], lr=self.learning_rate)
                 # for layer in self.model.children():
                 #     if hasattr(layer, 'reset_parameters'):
                 #         layer.reset_parameters()
@@ -80,7 +83,7 @@ class XBModule(nn.Module):
                 )
 
             loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
-            optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+            optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
             self.model.train()
             last_loss = 0.0
             for epoch in range(self.max_updates):
