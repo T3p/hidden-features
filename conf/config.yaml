@@ -4,7 +4,7 @@ defaults:
   - override hydra/launcher: submitit_slurm # joblib
 
 horizon: 20000
-algo: nnlinucb
+algo: nnegreedy
 update_every_n_steps: 100
 noise_std: 1
 delta: 0.01
