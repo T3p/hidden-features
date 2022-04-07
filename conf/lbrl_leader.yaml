@@ -23,7 +23,7 @@ num_nonrealizable: 5
 noise_type: gaussian
 noise_param: 0.2
 
-seed_problem: 0
+seed_problem: 3
 
 # misc
 seed: 1
