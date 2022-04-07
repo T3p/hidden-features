@@ -1,0 +1,36 @@
+defaults:
+    - override hydra/launcher: joblib
+
+horizon: 20000
+algo: leaderselect
+check_every: 1
+noise_std: 1
+delta: 0.01
+ucb_regularizer: 1
+bonus_scale: 0.1
+normalize_mineig: True
+linucb_rep: 0
+
+# problem
+ncontexts: 100
+dim: 10
+narms: 5
+contextgeneration: gaussian
+feature_expansion: none
+num_nonrealizable: 5
+
+# noise problem
+noise_type: gaussian
+noise_param: 0.2
+
+seed_problem: 0
+
+# misc
+seed: 1
+
+hydra:
+  run:
+    dir: ./lbrl_output/${now:%Y.%m.%d}/${now:%H%M%S}_${algo}
+  sweep:
+    dir: ./lbrl_multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}_${algo}
+    subdir: ${hydra.job.num}
