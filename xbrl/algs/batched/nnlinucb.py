@@ -142,8 +142,8 @@ class NNLinUCB(XBModule):
             if hasattr(self.env, 'feature_matrix'):
                 xx = optimal_features(self.env.feature_matrix, self.env.rewards)
                 assert len(xx.shape) == 2
-                xt = torch.FloatTensor(xx)
-                phi = self.model.embedding(xt).detach().numpy()
+                xt = torch.FloatTensor(xx).to(self.device)
+                phi = self.model.embedding(xt).detach().cpu().numpy()
                 norm_v=np.linalg.norm(phi, ord=2, axis=1).max()
                 mineig = min_eig_outer(phi, False) / phi.shape[0]
                 self.writer.add_scalar('min_eig_design_opt', mineig/norm_v, self.t)
