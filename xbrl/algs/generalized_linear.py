@@ -27,6 +27,8 @@ class UCBGLM(XBModule):
         ucb_regularizer: Optional[float]=1,
         bonus_scale: Optional[float]=1.,
         opt_tolerance=1e-8,
+        param_bound = 1.,
+        features_bound = 1.,
         true_param=None #for testing purposes!
     ) -> None:
         super().__init__(env, None, None, None, None, None, None, 0, seed, None, update_every_n_steps)
@@ -44,6 +46,8 @@ class UCBGLM(XBModule):
                                          warm_start=True,
                                          tol=opt_tolerance,
                                          max_iter=1000)
+        self.param_bound = param_bound
+        self.features_bound = features_bound
         self.true_param = true_param
         
     def reset(self) -> None:
@@ -52,8 +56,6 @@ class UCBGLM(XBModule):
         self.inv_A = np.eye(dim) / self.ucb_regularizer
         self.theta = np.zeros(dim) if self.true_param is None else self.true_param
         self.new_inv_A = np.eye(dim) / self.ucb_regularizer
-        self.param_bound = 1
-        self.features_bound = 1
         self.features_history = [np.zeros(dim), np.zeros(dim)]
         self.reward_history = [0., 1.]
         self.A_logdet = dim*np.log(self.ucb_regularizer)
@@ -61,10 +63,10 @@ class UCBGLM(XBModule):
     def play_action(self, features: np.ndarray) -> int:
         assert features.shape[0] == self.env.action_space.n
         dim = features.shape[1]
-        nonlinearity_coeff = self.nonlinearity_function(1. + self.param_bound, self.features_bound)
-        #beta = nonlinearity_coeff * self.noise_std * np.sqrt(self.A_logdet - 2*np.log(self.ucb_regularizer**(dim / 2) * self.delta )) + np.sqrt(self.ucb_regularizer) * self.param_bound
+        nonlinearity_coeff = self.nonlinearity_function(self.param_bound, self.features_bound)
+        beta = nonlinearity_coeff * self.noise_std * np.sqrt(self.A_logdet - 2*np.log(self.ucb_regularizer**(dim / 2) * self.delta )) + np.sqrt(self.ucb_regularizer) * self.param_bound
         #beta = nonlinearity_coeff * self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2*self.t/self.ucb_regularizer)/self.delta)) + self.param_bound * np.sqrt(self.ucb_regularizer)
-        beta = np.sqrt(np.log(self.t+1))
+        #beta = np.sqrt(np.log(self.t+1))
         # get features for each action and make it tensor
         bonus = ((features @ self.inv_A)*features).sum(axis=1)
         bonus = self.bonus_scale * beta * np.sqrt(bonus)
@@ -97,6 +99,8 @@ class UCBGLM(XBModule):
                 
                 
                 self.theta = self.solver.coef_.ravel()
+                if np.linalg.norm(self.theta) >= self.param_bound:
+                    self.theta = self.theta / np.linalg.norm(self.theta) * self.param_bound
             self.inv_A = self.new_inv_A
         
         return 0
