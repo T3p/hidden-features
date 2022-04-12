@@ -53,7 +53,10 @@ class XBModule(nn.Module):
         self.batch_counter = 0
         if self.model:
             self.model.to(self.device)
-        self.update_time = 0
+
+        # TODO: check the following lines: with initialization to 0 the training code is never called
+        # self.update_time = 0
+        self.update_time = 2**np.ceil(np.log2(self.batch_size)) + 1
 
     def _post_train(self, loader=None) -> None:
         pass
