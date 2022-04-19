@@ -54,6 +54,10 @@ class XBModule(nn.Module):
         if self.model:
             self.model.to(self.device)
 
+        # TODO: check the following lines: with initialization to 0 the training code is never called
+        # self.update_time = 0
+        self.update_time = 2**np.ceil(np.log2(self.batch_size)) + 1
+
     def _post_train(self, loader=None) -> None:
         pass
 
@@ -62,14 +66,16 @@ class XBModule(nn.Module):
         self.buffer.append(exp)
 
     def train(self) -> float:
-        if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
+        # if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
+        if self.t == self.update_time and self.t > self.batch_size:
+            self.update_time = max(1, self.update_time) * 2
             if self.reset_model_at_train:
                 initialize_weights(self.model)
                 if self.unit_vector is not None:
                     self.unit_vector = torch.ones(self.model.embedding_dim).to(self.device) / np.sqrt(
                         self.model.embedding_dim)
                     self.unit_vector.requires_grad = True
-                    self.unit_vector_optimizer = torch.optim.Adam([self.unit_vector], lr=self.learning_rate)
+                    self.unit_vector_optimizer = torch.optim.SGD([self.unit_vector], lr=self.learning_rate)
                 # for layer in self.model.children():
                 #     if hasattr(layer, 'reset_parameters'):
                 #         layer.reset_parameters()

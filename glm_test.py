@@ -27,7 +27,7 @@ if __name__ == "__main__":
     features = np.load("problem_data/basic_features.npy")
     dim = features.shape[-1]
     #features = rng.uniform(low=-1., high=1., size=(nc, na, dim))
-    param = np.load("problem_data/basic_param.npy")
+    param = 0.01 * np.load("problem_data/basic_param.npy")
     #param = rng.uniform(low=-1., high=1., size=dim)
     #"""
 
@@ -49,7 +49,8 @@ if __name__ == "__main__":
         ucb_regularizer=1.,
         bonus_scale=1.,
         opt_tolerance=1e-8,
-        true_param=None
+        true_param=None,
+        param_bound = np.linalg.norm(param)
     )
     algo.reset()
     result = algo.run(horizon=horizon)
