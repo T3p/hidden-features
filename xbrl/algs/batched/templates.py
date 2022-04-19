@@ -80,13 +80,15 @@ class XBModule(nn.Module):
                 )
 
             loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
-            optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+            optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
             self.model.train()
             last_loss = 0.0
             for epoch in range(self.max_updates):
                 lh = []
                 for b_features, b_rewards in loader:
                     loss = self._train_loss(b_features, b_rewards)
+                    if isinstance(loss, int):
+                        break
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
@@ -126,6 +128,7 @@ class XBModule(nn.Module):
             'train loss': 0.0,
             'expected regret': 0.0
         }
+        train_losses = []
         with tqdm(initial=self.t, total=horizon, postfix=postfix) as pbar:
             while (self.t < horizon):
                 start = time.time()
@@ -162,6 +165,7 @@ class XBModule(nn.Module):
                 postfix['% optimal arm (last 100 steps)'] = '{:.2%}'.format(p_optimal_arm)
                 if train_loss:
                     postfix['train loss'] = train_loss
+                    train_losses.append(train_loss)
 
                 # self.writer.add_scalar("regret", postfix['total regret'], self.t)
                 self.writer.add_scalar("expected regret", postfix['expected regret'], self.t)
@@ -181,6 +185,7 @@ class XBModule(nn.Module):
             "optimal_arm": np.cumsum(self.action_history == self.best_action_history) / np.arange(1, len(self.action_history)+1),
             "expected_regret": np.cumsum(self.best_reward - self.expected_reward),
             "action_gap": self.action_gap,
-            "runtime": self.runtime
+            "runtime": self.runtime,
+            "train_loss": train_losses
 
         }
