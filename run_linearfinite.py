@@ -16,7 +16,9 @@ import xbrl.envs.hlsutils as hlsutils
 from xbrl.algs.linear import LinUCB
 from xbrl.algs.batched.nnlinucb import NNLinUCB
 from xbrl.algs.batched.nnleader import NNLeader
+from xbrl.algs.nnlinucbinc import NNLinUCBInc
 from xbrl.algs.batched.nnepsilongreedy import NNEpsGreedy
+from xbrl.algs.nnegreedyinc import NNEGInc
 import pickle
 import json
 from xbrl.algs.nnmodel import MLLinearNetwork, MLLogisticNetwork, initialize_weights
@@ -141,6 +143,22 @@ def my_app(cfg: DictConfig) -> None:
             ucb_regularizer=cfg.ucb_regularizer,
             bonus_scale=cfg.bonus_scale
         )
+    elif cfg.algo == "nnlinucbinc":
+        algo = NNLinUCBInc(
+            env=env,
+            model=net,
+            device=device,
+            batch_size=cfg.batch_size,
+            max_updates=cfg.max_updates,
+            update_every_n_steps=cfg.update_every_n_steps,
+            learning_rate=cfg.lr,
+            buffer_capacity=cfg.buffer_capacity,
+            noise_std=cfg.noise_std,
+            delta=cfg.delta,
+            weight_decay=cfg.weight_decay,
+            ucb_regularizer=cfg.ucb_regularizer,
+            bonus_scale=cfg.bonus_scale
+        )
     elif cfg.algo == "nnleader":
         algo = NNLeader(
             env=env,
@@ -176,6 +194,22 @@ def my_app(cfg: DictConfig) -> None:
             seed=cfg.seed,
             reset_model_at_train=cfg.reset_model_at_train,
             update_every_n_steps=cfg.update_every_n_steps,
+            epsilon_min=cfg.epsilon_min,
+            epsilon_start=cfg.epsilon_start,
+            epsilon_decay=cfg.epsilon_decay,
+            time_random_exp=cfg.time_random_exp
+        )
+    elif cfg.algo == "nneginc":
+        algo = NNEGInc(
+            env=env,
+            model=net,
+            device=device,
+            batch_size=cfg.batch_size,
+            max_updates=cfg.max_updates,
+            learning_rate=cfg.lr,
+            weight_decay=cfg.weight_decay,
+            buffer_capacity=cfg.buffer_capacity,
+            seed=cfg.seed,
             epsilon_min=cfg.epsilon_min,
             epsilon_start=cfg.epsilon_start,
             epsilon_decay=cfg.epsilon_decay,
