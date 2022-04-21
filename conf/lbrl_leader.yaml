@@ -18,6 +18,7 @@ narms: 5
 contextgeneration: gaussian
 feature_expansion: none
 num_nonrealizable: 5
+mingap: 0.1
 
 # noise problem
 noise_type: gaussian
