@@ -19,6 +19,7 @@ from xbrl.algs.batched.nnleader import NNLeader
 from xbrl.algs.nnlinucbinc import NNLinUCBInc
 from xbrl.algs.batched.nnepsilongreedy import NNEpsGreedy
 from xbrl.algs.nnegreedyinc import NNEGInc
+from xbrl.algs.nnleaderinc import NNLeaderInc
 import pickle
 import json
 from xbrl.algs.nnmodel import MLLinearNetwork, MLLogisticNetwork, initialize_weights
@@ -157,6 +158,22 @@ def my_app(cfg: DictConfig) -> None:
         )
     elif cfg.algo == "nnlinucbinc":
         algo = NNLinUCBInc(
+            env=env,
+            model=net,
+            device=device,
+            batch_size=cfg.batch_size,
+            max_updates=cfg.max_updates,
+            update_every_n_steps=cfg.update_every_n_steps,
+            learning_rate=cfg.lr,
+            buffer_capacity=cfg.buffer_capacity,
+            noise_std=cfg.noise_std,
+            delta=cfg.delta,
+            weight_decay=cfg.weight_decay,
+            ucb_regularizer=cfg.ucb_regularizer,
+            bonus_scale=cfg.bonus_scale
+        )
+    elif cfg.algo == "nnleaderinc":
+        algo = NNLeaderInc(
             env=env,
             model=net,
             device=device,
