@@ -9,6 +9,7 @@ from .replaybuffer import SimpleBuffer
 from .nnmodel import initialize_weights
 import time
 import copy
+from .. import TORCH_FLOAT
 
 
 def inv_sherman_morrison(u, A_inv):
@@ -94,7 +95,7 @@ class NNLinUCBInc(nn.Module):
         beta = np.sqrt(np.log(self.t+1))
 
         # get features for each action and make it tensor
-        xt = torch.tensor(features).to(self.device)
+        xt = torch.tensor(features, dtype=TORCH_FLOAT).to(self.device)
         net_features = self.target_model.embedding(xt)
         #https://stackoverflow.com/questions/18541851/calculate-vt-a-v-for-a-matrix-of-vectors-v/18542314#18542314
         bonus = ((net_features @ self.inv_A)*net_features).sum(axis=1)
@@ -118,8 +119,8 @@ class NNLinUCBInc(nn.Module):
             self.A = torch.zeros_like(self.inv_A)
             self.features_bound = 0
             features, rewards = self.buffer.get_all()
-            features = torch.tensor(features, device=self.device)
-            rewards = torch.tensor(rewards.reshape(-1, 1), device=self.device)
+            features = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
+            rewards = torch.tensor(rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
 
             phi = self.target_model.embedding(features)
             # features
@@ -179,7 +180,7 @@ class NNLinUCBInc(nn.Module):
                 #############################
                 # estimate linear component on the embedding + UCB part
                 with torch.no_grad():
-                    xt = torch.tensor(features[action].reshape(1,-1)).to(self.device)
+                    xt = torch.tensor(features[action].reshape(1,-1), dtype=TORCH_FLOAT).to(self.device)
                     v = self.target_model.embedding(xt).squeeze()
                     self.A += torch.outer(v.ravel(),v.ravel())
                     self.b_vec = self.b_vec + v * reward
@@ -195,8 +196,8 @@ class NNLinUCBInc(nn.Module):
                     train_loss = []
                     for _ in range(self.max_updates):
                         features, rewards = self.buffer.sample(size=self.batch_size)
-                        features = torch.tensor(features, device=self.device)
-                        rewards = torch.tensor(rewards.reshape(-1, 1), device=self.device)
+                        features = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
+                        rewards = torch.tensor(rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
                         self.optimizer.zero_grad()
                         prediction = self.model(features)
                         mse_loss = F.mse_loss(prediction, rewards)

@@ -8,6 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 from ..replaybuffer import SimpleBuffer
 from ..nnmodel import initialize_weights
 import time
+from ... import TORCH_FLOAT
 
 
 class XBModule(nn.Module):
@@ -82,8 +83,8 @@ class XBModule(nn.Module):
                 #         layer.reset_parameters()
             features, rewards = self.buffer.get_all()
             torch_dataset = torch.utils.data.TensorDataset(
-                torch.tensor(features, device=self.device),
-                torch.tensor(rewards.reshape(-1, 1), device=self.device)
+                torch.tensor(features, dtype=TORCH_FLOAT, device=self.device),
+                torch.tensor(rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
                 )
 
             loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)

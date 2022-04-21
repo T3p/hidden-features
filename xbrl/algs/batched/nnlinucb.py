@@ -6,6 +6,7 @@ from torch.nn import functional as F
 
 from .templates import XBModule
 from ...envs.hlsutils import optimal_features, min_eig_outer
+from ... import TORCH_FLOAT
 
 
 class NNLinUCB(XBModule):
@@ -67,7 +68,7 @@ class NNLinUCB(XBModule):
         # beta = np.sqrt(np.log(self.t+1))
 
         # get features for each action and make it tensor
-        xt = torch.tensor(features).to(self.device)
+        xt = torch.tensor(features, dtype=TORCH_FLOAT).to(self.device)
         net_features = self.model.embedding(xt)
         #https://stackoverflow.com/questions/18541851/calculate-vt-a-v-for-a-matrix-of-vectors-v/18542314#18542314
         bonus = ((net_features @ self.inv_A)*net_features).sum(axis=1)
@@ -84,7 +85,7 @@ class NNLinUCB(XBModule):
 
         # estimate linear component on the embedding + UCB part
         with torch.no_grad():
-            xt = torch.tensor(features.reshape(1,-1)).to(self.device)
+            xt = torch.tensor(features.reshape(1,-1), dtype=TORCH_FLOAT).to(self.device)
             v = self.model.embedding(xt).squeeze()
 
             # self.features_bound = max(self.features_bound, torch.norm(v, p=2).cpu().item())
@@ -108,8 +109,8 @@ class NNLinUCB(XBModule):
             dim = self.model.embedding_dim
             f, r = self.buffer.get_all()
             inv_A = torch.eye(dim) / self.ucb_regularizer
-            torch_feat = torch.tensor(f)
-            torch_rew = torch.tensor(r.reshape(-1,1))
+            torch_feat = torch.tensor(f, dtype=TORCH_FLOAT)
+            torch_rew = torch.tensor(r.reshape(-1,1), dtype=TORCH_FLOAT)
             torch_phi = self.model.embedding(torch_feat)
             YYtt = (torch_phi.T @ torch_phi + self.ucb_regularizer *torch.eye(dim))
             BBtt = torch.sum(torch_phi * torch_rew, 0)
@@ -169,7 +170,7 @@ class NNLinUCB(XBModule):
             if hasattr(self.env, 'feature_matrix'):
                 xx = optimal_features(self.env.feature_matrix, self.env.rewards)
                 assert len(xx.shape) == 2
-                xt = torch.tensor(xx).to(self.device)
+                xt = torch.tensor(xx, dtype=TORCH_FLOAT).to(self.device)
                 phi = self.model.embedding(xt).detach().cpu().numpy()
                 norm_v=np.linalg.norm(phi, ord=2, axis=1).max()
                 mineig = min_eig_outer(phi, False) / phi.shape[0]

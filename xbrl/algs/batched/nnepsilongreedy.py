@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from .nnlinucb import NNLinUCB
+from .nnlinucb import NNLinUCB, TORCH_FLOAT
 
 
 class NNEpsGreedy(NNLinUCB):
@@ -45,7 +45,7 @@ class NNEpsGreedy(NNLinUCB):
         if self.np_random.rand() < self.epsilon:
             action = self.np_random.choice(self.env.action_space.n, size=1).item()
         else:
-            xt = torch.tensor(features).to(self.device)
+            xt = torch.tensor(features, dtype=TORCH_FLOAT).to(self.device)
             phi = self.model.embedding(xt)
             scores = phi @ self.theta
             action = torch.argmax(scores).item()
