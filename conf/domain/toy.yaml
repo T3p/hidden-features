@@ -1,0 +1,15 @@
+# problem
+type: toy
+ncontexts: 5
+dim: 5
+narms: 10
+contextgeneration: gaussian
+feature_expansion: none
+newrank: none
+mingap: 0.1
+
+# noise problem
+noise_type: gaussian
+noise_param: 0.2
+
+seed_problem: 0

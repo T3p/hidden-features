@@ -46,18 +46,30 @@ def my_app(cfg: DictConfig) -> None:
     # Problem creation
     ########################################################################
     
-    if cfg.domain.type == "finite":
-        features, theta = bandits.make_synthetic_features(
-            n_contexts=cfg.domain.ncontexts, n_actions=cfg.domain.narms, dim=cfg.domain.dim,
-            context_generation=cfg.domain.contextgeneration, feature_expansion=cfg.domain.feature_expansion,
-            seed=cfg.domain.seed_problem
-        )
+    if cfg.domain.type == "finite" or cfg.domain.type == "toy":
+        if cfg.domain.type == "finite":
+            features, theta = bandits.make_synthetic_features(
+                n_contexts=cfg.domain.ncontexts, n_actions=cfg.domain.narms, dim=cfg.domain.dim,
+                context_generation=cfg.domain.contextgeneration, feature_expansion=cfg.domain.feature_expansion,
+                seed=cfg.domain.seed_problem
+            )
+        else:
+            ncontexts, narms, dim = cfg.domain.ncontexts, cfg.domain.narms, cfg.domain.dim
+            assert ncontexts == dim
+            features = np.zeros((ncontexts, narms, dim))
+            for i in range(dim):
+                features[i,0,i] = 1
+                features[i,1,i+1 if i+1 < dim else 0] = 1 - cfg.domain.mingap
+                for j in range(2, narms):
+                    features[i,j,:] = (2 * np.random.rand(dim) - 1) / dim
+            theta = np.ones(dim)
+        
         rewards = features @ theta
         print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
         print(f"Original rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
         print(f"Original rep -> HLS min eig: {hlsutils.hls_lambda(features, rewards)}")
         print(f"Original rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
-        if cfg.domain.newrank not in [None, "none", "None"]:
+        if cfg.domain.type == "finite" and cfg.domain.newrank not in [None, "none", "None"]:
             features, theta = hlsutils.derank_hls(features=features, param=theta, newrank=cfg.domain.newrank)
             rewards = features @ theta
             print(f"New rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
