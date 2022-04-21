@@ -33,10 +33,10 @@ class NNLinUCBInc(nn.Module):
         buffer_capacity: Optional[int]=10000,
         seed: Optional[int]=0,
         update_every_n_steps: Optional[int] = 100,
-                    noise_std: float=1,
-            delta: Optional[float]=0.01,
-            ucb_regularizer: Optional[float]=1,
-            bonus_scale: Optional[float]=1.
+        noise_std: float=1,
+        delta: Optional[float]=0.01,
+        ucb_regularizer: Optional[float]=1,
+        bonus_scale: Optional[float]=1.
     ) -> None:
         super().__init__()
         self.env = env
@@ -72,14 +72,15 @@ class NNLinUCBInc(nn.Module):
             self.model.to(self.device)
 
         # TODO: check the following lines: with initialization to 0 the training code is never called
-        self.update_time = 0
+        # self.update_time = 0
+        self.update_time = 2**np.ceil(np.log2(self.batch_size)) + 1
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
         self.tot_update = 0 
         dim = self.model.embedding_dim
-        self.b_vec = torch.zeros(dim, dtype=torch.float).to(self.device)
-        self.inv_A = torch.eye(dim, dtype=torch.float).to(self.device) / self.ucb_regularizer
+        self.b_vec = torch.zeros(dim).to(self.device)
+        self.inv_A = torch.eye(dim).to(self.device) / self.ucb_regularizer
         self.A = torch.zeros_like(self.inv_A)
-        self.theta = torch.zeros(dim, dtype=torch.float).to(self.device)
+        self.theta = torch.zeros(dim).to(self.device)
         self.param_bound = np.sqrt(self.env.feature_dim)
         self.features_bound = np.sqrt(self.env.feature_dim)
     
@@ -93,7 +94,7 @@ class NNLinUCBInc(nn.Module):
         beta = np.sqrt(np.log(self.t+1))
 
         # get features for each action and make it tensor
-        xt = torch.FloatTensor(features).to(self.device)
+        xt = torch.tensor(features).to(self.device)
         net_features = self.target_model.embedding(xt)
         #https://stackoverflow.com/questions/18541851/calculate-vt-a-v-for-a-matrix-of-vectors-v/18542314#18542314
         bonus = ((net_features @ self.inv_A)*net_features).sum(axis=1)
@@ -117,8 +118,8 @@ class NNLinUCBInc(nn.Module):
             self.A = torch.zeros_like(self.inv_A)
             self.features_bound = 0
             features, rewards = self.buffer.get_all()
-            features = torch.tensor(features, dtype=torch.float, device=self.device)
-            rewards = torch.tensor(rewards.reshape(-1, 1), dtype=torch.float, device=self.device)
+            features = torch.tensor(features, device=self.device)
+            rewards = torch.tensor(rewards.reshape(-1, 1), device=self.device)
 
             phi = self.target_model.embedding(features)
             # features
@@ -175,7 +176,7 @@ class NNLinUCBInc(nn.Module):
                 #############################
                 # estimate linear component on the embedding + UCB part
                 with torch.no_grad():
-                    xt = torch.FloatTensor(features[action].reshape(1,-1)).to(self.device)
+                    xt = torch.tensor(features[action].reshape(1,-1)).to(self.device)
                     v = self.target_model.embedding(xt).squeeze()
                     self.A += torch.outer(v.ravel(),v.ravel())
                     self.b_vec = self.b_vec + v * reward
@@ -191,8 +192,8 @@ class NNLinUCBInc(nn.Module):
                     train_loss = []
                     for _ in range(self.max_updates):
                         features, rewards = self.buffer.sample(size=self.batch_size)
-                        features = torch.tensor(features, dtype=torch.float, device=self.device)
-                        rewards = torch.tensor(rewards.reshape(-1, 1), dtype=torch.float, device=self.device)
+                        features = torch.tensor(features, device=self.device)
+                        rewards = torch.tensor(rewards.reshape(-1, 1), device=self.device)
                         self.optimizer.zero_grad()
                         prediction = self.model(features)
                         mse_loss = F.mse_loss(prediction, rewards)
@@ -210,7 +211,8 @@ class NNLinUCBInc(nn.Module):
                     # copy to target
                     self.target_model.load_state_dict(self.model.state_dict())
                     self.target_model.eval()
-                    self.update_time = self.update_time + self.update_every_n_steps #max(1, self.update_time) * 2
+                    # self.update_time = self.update_time + self.update_every_n_steps 
+                    self.update_time = max(1, self.update_time) * 2
                     self._update_after_change_of_target()
                 
                 self.runtime[self.t] = time.time() - start

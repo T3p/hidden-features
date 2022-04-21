@@ -15,7 +15,7 @@ max_updates: 30
 lr: 1e-3
 buffer_capacity: ${horizon}
 weight_decay: 0
-reset_model_at_train: true
+reset_model_at_train: False
 layers: 150
 weight_l2features: 0.
 weight_spectral: 0

@@ -5,10 +5,10 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from .templates import XBModule
+from .nnlinucb import NNLinUCB
 
 
-class NNEpsGreedy(XBModule):
+class NNEpsGreedy(NNLinUCB):
     def __init__(
         self, env: Any, model: nn.Module,
             device: Optional[str] = "cpu",
@@ -23,9 +23,10 @@ class NNEpsGreedy(XBModule):
             epsilon_min: float=0.05,
             epsilon_start: float=2,
             epsilon_decay: float=200,
-            time_random_exp: int=0
+            time_random_exp: int=0,
+            ucb_regularizer: Optional[float]=1
     ) -> None:
-        super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train, update_every_n_steps)
+        super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train, update_every_n_steps, 0, 0.01, ucb_regularizer, 1, 0)
         self.epsilon_min = epsilon_min
         self.epsilon_start = epsilon_start
         self.epsilon_decay = epsilon_decay
@@ -35,13 +36,6 @@ class NNEpsGreedy(XBModule):
     def reset(self) -> None:
         super().reset()
         self.epsilon = self.epsilon_start
-
-    def _train_loss(self, b_features, b_rewards):
-        # MSE LOSS
-        prediction = self.model(b_features)
-        mse_loss = F.mse_loss(prediction, b_rewards)
-        self.writer.add_scalar('mse_loss', mse_loss, self.batch_counter)
-        return mse_loss
     
     @torch.no_grad()
     def play_action(self, features: np.ndarray) -> int:
@@ -51,8 +45,9 @@ class NNEpsGreedy(XBModule):
         if self.np_random.rand() < self.epsilon:
             action = self.np_random.choice(self.env.action_space.n, size=1).item()
         else:
-            xt = torch.FloatTensor(features).to(self.device)
-            scores = self.model(xt)
+            xt = torch.tensor(features).to(self.device)
+            phi = self.model.embedding(xt)
+            scores = phi @ self.theta
             action = torch.argmax(scores).item()
         assert 0 <= action < self.env.action_space.n
         return action

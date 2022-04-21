@@ -69,6 +69,7 @@ class XBModule(nn.Module):
         # if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
         if self.t == self.update_time and self.t > self.batch_size:
             self.update_time = max(1, self.update_time) * 2
+            # self.update_time = self.update_time + self.update_every_n_steps 
             if self.reset_model_at_train:
                 initialize_weights(self.model)
                 if self.unit_vector is not None:
