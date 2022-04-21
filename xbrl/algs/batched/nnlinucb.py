@@ -8,15 +8,6 @@ from .templates import XBModule
 from ...envs.hlsutils import optimal_features, min_eig_outer
 
 
-def inv_sherman_morrison(u, A_inv):
-    """Inverse of a matrix with rank 1 update.
-    """
-    Au = A_inv @ u
-    den = 1 + torch.dot(u.T, Au)
-    A_inv -= torch.outer(Au, Au) / (den)
-    return A_inv, den
-
-
 class NNLinUCB(XBModule):
 
     def __init__(
@@ -49,10 +40,10 @@ class NNLinUCB(XBModule):
     def reset(self) -> None:
         super().reset()
         dim = self.model.embedding_dim
-        self.b_vec = torch.zeros(dim, dtype=torch.float).to(self.device)
-        self.inv_A = torch.eye(dim, dtype=torch.float).to(self.device) / self.ucb_regularizer
+        self.b_vec = torch.zeros(dim).to(self.device)
+        self.inv_A = torch.eye(dim).to(self.device) / self.ucb_regularizer
         self.A = torch.zeros_like(self.inv_A)
-        self.theta = torch.zeros(dim, dtype=torch.float).to(self.device)
+        self.theta = torch.zeros(dim).to(self.device)
         self.param_bound = np.sqrt(self.env.feature_dim)
         self.features_bound = np.sqrt(self.env.feature_dim)
 
@@ -70,13 +61,13 @@ class NNLinUCB(XBModule):
     def play_action(self, features: np.ndarray):
         assert features.shape[0] == self.env.action_space.n
         dim = self.model.embedding_dim
-        # beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
-        #                                               *self.t/self.ucb_regularizer)/self.delta))\
-        #        + self.param_bound * np.sqrt(self.ucb_regularizer)
-        beta = np.sqrt(np.log(self.t+1))
+        beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
+                                                      *self.t/self.ucb_regularizer)/self.delta))\
+               + self.param_bound * np.sqrt(self.ucb_regularizer)
+        # beta = np.sqrt(np.log(self.t+1))
 
         # get features for each action and make it tensor
-        xt = torch.FloatTensor(features).to(self.device)
+        xt = torch.tensor(features).to(self.device)
         net_features = self.model.embedding(xt)
         #https://stackoverflow.com/questions/18541851/calculate-vt-a-v-for-a-matrix-of-vectors-v/18542314#18542314
         bonus = ((net_features @ self.inv_A)*net_features).sum(axis=1)
@@ -85,7 +76,6 @@ class NNLinUCB(XBModule):
         action = torch.argmax(ucb).item()
         self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
         assert 0 <= action < self.env.action_space.n, ucb
-
         return action
 
     def add_sample(self, context: np.ndarray, action: int, reward: float, features: np.ndarray) -> None:
@@ -94,7 +84,7 @@ class NNLinUCB(XBModule):
 
         # estimate linear component on the embedding + UCB part
         with torch.no_grad():
-            xt = torch.FloatTensor(features.reshape(1,-1)).to(self.device)
+            xt = torch.tensor(features.reshape(1,-1)).to(self.device)
             v = self.model.embedding(xt).squeeze()
 
             # self.features_bound = max(self.features_bound, torch.norm(v, p=2).cpu().item())
@@ -102,7 +92,10 @@ class NNLinUCB(XBModule):
 
             self.A += torch.outer(v.ravel(),v.ravel())
             self.b_vec = self.b_vec + v * reward
-            self.inv_A, den = inv_sherman_morrison(v, self.inv_A)
+            # self.inv_A, den = inv_sherman_morrison(v, self.inv_A)
+            Au = self.inv_A @ v
+            den = 1 + torch.dot(v.T, Au)
+            self.inv_A -= torch.outer(Au, Au) / (den)
             # self.A_logdet += np.log(den)
             self.theta = self.inv_A @ self.b_vec
 
@@ -111,8 +104,24 @@ class NNLinUCB(XBModule):
     
     def _post_train(self, loader=None):
         with torch.no_grad():
-            # A = np.eye(dim) * self.ucb_regularizer
+            
             dim = self.model.embedding_dim
+            f, r = self.buffer.get_all()
+            inv_A = torch.eye(dim) / self.ucb_regularizer
+            torch_feat = torch.tensor(f)
+            torch_rew = torch.tensor(r.reshape(-1,1))
+            torch_phi = self.model.embedding(torch_feat)
+            YYtt = (torch_phi.T @ torch_phi + self.ucb_regularizer *torch.eye(dim))
+            BBtt = torch.sum(torch_phi * torch_rew, 0)
+            thetatt = torch.linalg.solve(YYtt, BBtt)
+            for el in torch_phi:
+                # el = el.squeeze()
+                Au = inv_A @ el
+                den = 1 + torch.dot(el.T, Au)
+                inv_A -= torch.outer(Au, Au) / (den)
+            theta2 = inv_A @ BBtt
+
+            # A = np.eye(dim) * self.ucb_regularizer
             self.b_vec = torch.zeros(dim).to(self.device)
             self.inv_A = torch.eye(dim).to(self.device) / self.ucb_regularizer
             self.A = torch.zeros_like(self.inv_A)
@@ -126,7 +135,9 @@ class NNLinUCB(XBModule):
                 self.b_vec = self.b_vec + (phi * b_rewards).sum(dim=0)
                 #SM
                 for v in phi:
-                    self.inv_A = inv_sherman_morrison(v.ravel(), self.inv_A)[0]
+                    Au = self.inv_A @ v
+                    den = 1 + torch.dot(v.T, Au)
+                    self.inv_A -= torch.outer(Au, Au) / (den)
                     self.A += torch.outer(v.ravel(),v.ravel())
             #     A = A + np.sum(phi[...,None]*phi[:,None], axis=0)
             # # strange issue with making operations directly in pytorch
@@ -138,11 +149,27 @@ class NNLinUCB(XBModule):
             min_eig = torch.linalg.eigvalsh(self.A/(self.t+1)).min() / self.features_bound
             self.writer.add_scalar('min_eig_empirical_design', min_eig, self.t)
 
+            pred = torch_phi @ self.theta
+            mse_loss = F.mse_loss(pred.reshape(-1,1), torch_rew)
+            self.writer.add_scalar('mse_linear', mse_loss.item(), self.t)
+            print("mse1: ", mse_loss.item())
+            assert mse_loss.item() < 2
+
+            pred = torch_phi @ thetatt
+            mse_loss = F.mse_loss(pred.reshape(-1,1), torch_rew)
+            self.writer.add_scalar('mse_linear', mse_loss.item(), self.t)
+            print("mse2: ", mse_loss.item())
+
+            pred = torch_phi @ theta2
+            mse_loss = F.mse_loss(pred.reshape(-1,1), torch_rew)
+            self.writer.add_scalar('mse_linear', mse_loss.item(), self.t)
+            print("mse3: ", mse_loss.item())
+
             # debug metric
             if hasattr(self.env, 'feature_matrix'):
                 xx = optimal_features(self.env.feature_matrix, self.env.rewards)
                 assert len(xx.shape) == 2
-                xt = torch.FloatTensor(xx).to(self.device)
+                xt = torch.tensor(xx).to(self.device)
                 phi = self.model.embedding(xt).detach().cpu().numpy()
                 norm_v=np.linalg.norm(phi, ord=2, axis=1).max()
                 mineig = min_eig_outer(phi, False) / phi.shape[0]

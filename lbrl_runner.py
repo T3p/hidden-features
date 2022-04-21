@@ -41,21 +41,21 @@ def my_app(cfg: DictConfig) -> None:
     # Problem creation
     ########################################################################
     ncontexts, narms, dim = cfg.ncontexts, cfg.narms, cfg.dim
-    # features, theta = make_synthetic_features(
-    #     n_contexts=ncontexts, n_actions=narms, dim=dim,
-    #     context_generation=cfg.contextgeneration, feature_expansion=cfg.feature_expansion,
-    #     seed=cfg.seed_problem
-    # )
+    features, theta = make_synthetic_features(
+        n_contexts=ncontexts, n_actions=narms, dim=dim,
+        context_generation=cfg.contextgeneration, feature_expansion=cfg.feature_expansion,
+        seed=cfg.seed_problem
+    )
 
     
-    assert ncontexts == dim
-    features = np.zeros((ncontexts, narms, dim))
-    for i in range(dim):
-        features[i,0,i] = 1
-        features[i,1,i+1 if i+1 < dim else 0] = 1 - cfg.mingap
-        for j in range(2, narms):
-            features[i,j,:] = (2 * np.random.rand(dim) - 1) / dim
-    theta = np.ones(dim)
+    # assert ncontexts == dim
+    # features = np.zeros((ncontexts, narms, dim))
+    # for i in range(dim):
+    #     features[i,0,i] = 1
+    #     features[i,1,i+1 if i+1 < dim else 0] = 1 - cfg.mingap
+    #     for j in range(2, narms):
+    #         features[i,j,:] = (2 * np.random.rand(dim) - 1) / dim
+    # theta = np.ones(dim)
 
 
     env = LinearEnv(features=features.copy(), param=theta.copy(), rew_noise=cfg.noise_param, random_state=cfg.seed)

@@ -81,8 +81,8 @@ class XBModule(nn.Module):
                 #         layer.reset_parameters()
             features, rewards = self.buffer.get_all()
             torch_dataset = torch.utils.data.TensorDataset(
-                torch.tensor(features, dtype=torch.float, device=self.device),
-                torch.tensor(rewards.reshape(-1, 1), dtype=torch.float, device=self.device)
+                torch.tensor(features, device=self.device),
+                torch.tensor(rewards.reshape(-1, 1), device=self.device)
                 )
 
             loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
