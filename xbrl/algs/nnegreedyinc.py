@@ -5,12 +5,12 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
-from ..replaybuffer import SimpleBuffer
-from ..nnmodel import initialize_weights
+from .replaybuffer import SimpleBuffer
 import time
+import copy
 
 
-class XBModule(nn.Module):
+class NNEGInc(nn.Module):
 
     def __init__(
         self,
@@ -23,8 +23,10 @@ class XBModule(nn.Module):
         weight_decay: Optional[float]=0,
         buffer_capacity: Optional[int]=10000,
         seed: Optional[int]=0,
-        reset_model_at_train: Optional[bool]=True,
-        update_every_n_steps: Optional[int] = 100
+            epsilon_min: float=0.05,
+            epsilon_start: float=2,
+            epsilon_decay: float=200,
+            time_random_exp: int=0
     ) -> None:
         super().__init__()
         self.env = env
@@ -36,9 +38,11 @@ class XBModule(nn.Module):
         self.weight_decay = weight_decay
         self.buffer_capacity = buffer_capacity
         self.seed = seed
-        self.reset_model_at_train = reset_model_at_train
-        self.update_every_n_steps = update_every_n_steps
-        self.unit_vector: Optional[torch.tensor] = None
+        self.epsilon_min = epsilon_min
+        self.epsilon_start = epsilon_start
+        self.epsilon_decay = epsilon_decay
+        self.time_random_exp = time_random_exp
+        self.np_random = np.random.RandomState(self.seed)
 
     def reset(self) -> None:
         self.t = 0
@@ -55,72 +59,24 @@ class XBModule(nn.Module):
             self.model.to(self.device)
 
         # TODO: check the following lines: with initialization to 0 the training code is never called
-        # self.update_time = 0
-        self.update_time = 2**np.ceil(np.log2(self.batch_size)) + 1
-
-    def _post_train(self, loader=None) -> None:
-        pass
-
-    def add_sample(self, context: np.ndarray, action: int, reward: float, features: np.ndarray) -> None:
-        exp = (features, reward)
-        self.buffer.append(exp)
-
-    def train(self) -> float:
-        # if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
-        if self.t == self.update_time and self.t > self.batch_size:
-            self.update_time = max(1, self.update_time) * 2
-            if self.reset_model_at_train:
-                initialize_weights(self.model)
-                if self.unit_vector is not None:
-                    self.unit_vector = torch.ones(self.model.embedding_dim).to(self.device) / np.sqrt(
-                        self.model.embedding_dim)
-                    self.unit_vector.requires_grad = True
-                    self.unit_vector_optimizer = torch.optim.SGD([self.unit_vector], lr=self.learning_rate)
-                # for layer in self.model.children():
-                #     if hasattr(layer, 'reset_parameters'):
-                #         layer.reset_parameters()
-            features, rewards = self.buffer.get_all()
-            torch_dataset = torch.utils.data.TensorDataset(
-                torch.tensor(features, dtype=torch.float, device=self.device),
-                torch.tensor(rewards.reshape(-1, 1), dtype=torch.float, device=self.device)
-                )
-
-            loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
-            optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
-            self.model.train()
-            last_loss = 0.0
-            for epoch in range(self.max_updates):
-                lh = []
-                for b_features, b_rewards in loader:
-                    loss = self._train_loss(b_features, b_rewards)
-                    if isinstance(loss, int):
-                        break
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-                    self.writer.flush()
-                    self.batch_counter += 1
-                    lh.append(loss.item())
-                last_loss = np.mean(lh)
-                if last_loss < 1e-3:
-                    break
-            self.writer.add_scalar('epoch_mse_loss', last_loss, self.t)
-            self.model.eval()
-            self._post_train(loader)
-            return last_loss
-        return None
-
-    def _continue(self, horizon: int) -> None:
-        """Continue learning from the point where we stopped
-        """
-        self.instant_reward = np.resize(self.instant_reward, horizon)
-        self.expected_reward = np.resize(self.instant_reward, horizon)
-        self.best_reward = np.resize(self.best_reward, horizon)
-        self.action_history = np.resize(self.action_history, horizon)
-        self.best_action_history = np.resize(self.best_action_history, horizon)
-        self.action_gap = np.resize(self.action_gap, horizon)
-        self.runtime = np.resize(self.runtime, horizon)
-
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        self.tot_update = 0
+        self.epsilon = self.epsilon_start
+    
+    @torch.no_grad()
+    def play_action(self, features: np.ndarray) -> int:
+        if self.t > self.time_random_exp and self.epsilon > self.epsilon_min:
+            self.epsilon -= (self.epsilon_start - self.epsilon_min) / self.epsilon_decay
+        self.writer.add_scalar('epsilon', self.epsilon, self.t)
+        if self.np_random.rand() < self.epsilon:
+            action = self.np_random.choice(self.env.action_space.n, size=1).item()
+        else:
+            xt = torch.FloatTensor(features).to(self.device)
+            scores = self.model(xt)
+            action = torch.argmax(scores).item()
+        assert 0 <= action < self.env.action_space.n
+        return action
+    
     def run(self, horizon: int, throttle: int=100, log_path: str=None) -> None:
         if log_path is None:
             log_path = f"tblogs/{type(self).__name__}_{self.env.dataset_name}"
@@ -142,9 +98,32 @@ class XBModule(nn.Module):
                 features = self.env.features() #shape na x dim
                 action = self.play_action(features=features)
                 reward = self.env.step(action)
-                # update
-                self.add_sample(context, action, reward, features[action])
-                train_loss = self.train()
+                #############################
+                # add sample to replay buffer
+                exp = (features[action], reward)
+                self.buffer.append(exp)
+                
+                train_loss = 0
+                if self.t > self.batch_size:
+                    #############################
+                    # train
+                    self.model.train()
+                    train_loss = []
+                    for _ in range(self.max_updates):
+                        features, rewards = self.buffer.sample(size=self.batch_size)
+                        features = torch.tensor(features, dtype=torch.float, device=self.device)
+                        rewards = torch.tensor(rewards.reshape(-1, 1), dtype=torch.float, device=self.device)
+                        self.optimizer.zero_grad()
+                        prediction = self.model(features)
+                        mse_loss = F.mse_loss(prediction, rewards)
+                        mse_loss.backward()
+                        self.optimizer.step()
+                        self.writer.add_scalar('mse_loss', mse_loss.item(), self.tot_update)
+                        self.writer.flush()
+                        self.tot_update += 1 
+                        train_loss.append(mse_loss.item())
+                    train_loss = np.mean(train_loss)
+                    self.model.eval()
                 self.runtime[self.t] = time.time() - start
 
                 # log regret
@@ -169,9 +148,9 @@ class XBModule(nn.Module):
                     self.action_history[max(0,self.t-100):self.t+1] == self.best_action_history[max(0,self.t-100):self.t+1]
                 )
                 postfix['% optimal arm (last 100 steps)'] = '{:.2%}'.format(p_optimal_arm)
-                if train_loss:
-                    postfix['train loss'] = train_loss
-                    train_losses.append(train_loss)
+ 
+                postfix['train loss'] = train_loss
+                train_losses.append(train_loss)
 
                 # self.writer.add_scalar("regret", postfix['total regret'], self.t)
                 self.writer.add_scalar("expected regret", postfix['expected regret'], self.t)
@@ -195,3 +174,14 @@ class XBModule(nn.Module):
             "train_loss": train_losses
 
         }
+
+    def _continue(self, horizon: int) -> None:
+        """Continue learning from the point where we stopped
+        """
+        self.instant_reward = np.resize(self.instant_reward, horizon)
+        self.expected_reward = np.resize(self.instant_reward, horizon)
+        self.best_reward = np.resize(self.best_reward, horizon)
+        self.action_history = np.resize(self.action_history, horizon)
+        self.best_action_history = np.resize(self.best_action_history, horizon)
+        self.action_gap = np.resize(self.action_gap, horizon)
+        self.runtime = np.resize(self.runtime, horizon)
