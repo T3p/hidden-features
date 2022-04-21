@@ -134,6 +134,9 @@ class NNEGInc(nn.Module):
             # min_eig = torch.linalg.eigvalsh(self.A/(self.t+1)).min() / self.features_bound
             # self.writer.add_scalar('min_eig_empirical_design', min_eig, self.t)
 
+            pred = phi @ self.theta
+            mse_loss = F.mse_loss(pred.reshape(-1,1), rewards)
+            self.writer.add_scalar('mse_linear', mse_loss.item(), self.t)
             # # debug metric
             # if hasattr(self.env, 'feature_matrix'):
             #     xx = optimal_features(self.env.feature_matrix, self.env.rewards)
