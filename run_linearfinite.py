@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import random
+from xbrl import TORCH_FLOAT
 
 import xbrl.envs as bandits
 import xbrl.envs.hlsutils as hlsutils
@@ -290,4 +291,5 @@ def my_app(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
+    torch.set_default_dtype(TORCH_FLOAT)
     my_app()
