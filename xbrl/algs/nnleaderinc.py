@@ -33,7 +33,7 @@ class NNLeaderInc(nn.Module):
         weight_decay: Optional[float]=0,
         buffer_capacity: Optional[int]=10000,
         seed: Optional[int]=0,
-        update_every_n_steps: Optional[int] = 100,
+        update_every: Optional[int] = 100,
         noise_std: float=1,
         delta: Optional[float]=0.01,
         ucb_regularizer: Optional[float]=1,
@@ -51,7 +51,7 @@ class NNLeaderInc(nn.Module):
         self.weight_decay = weight_decay
         self.buffer_capacity = buffer_capacity
         self.seed = seed
-        self.update_every_n_steps = update_every_n_steps
+        self.update_every = update_every
         self.unit_vector: Optional[torch.tensor] = None
         self.noise_std = noise_std
         self.delta = delta
@@ -73,7 +73,8 @@ class NNLeaderInc(nn.Module):
             self.model.to(self.device)
 
         # TODO: check the following lines: with initialization to 0 the training code is never called
-        self.update_time = 0
+        # self.update_time = 0
+        self.update_time = int(2**np.ceil(np.log(self.batch_size) / np.log(self.update_every)) + 1)
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
         self.tot_update = 0 
         dim = self.model.embedding_dim
@@ -225,7 +226,8 @@ class NNLeaderInc(nn.Module):
                     # copy to target
                     self.target_model.load_state_dict(self.model.state_dict())
                     self.target_model.eval()
-                    self.update_time = self.update_time + self.update_every_n_steps #max(1, self.update_time) * 2
+                    # self.update_time = self.update_time + self.update_every 
+                    self.update_time = int(np.ceil(max(1, self.update_time) * self.update_every))
                     self._update_after_change_of_target()
                 
                 self.runtime[self.t] = time.time() - start

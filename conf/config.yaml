@@ -5,7 +5,7 @@ defaults:
 
 horizon: 20000
 algo: nnegreedy
-update_every_n_steps: 100
+update_every: 1.2
 noise_std: 1
 delta: 0.01
 ucb_regularizer: 1
@@ -32,6 +32,8 @@ time_random_exp: 1000
 seed: 1
 device: cpu
 use_tb: true
+use_wandb: false
+exp_name: "default_name"
 
 hydra:
   run:

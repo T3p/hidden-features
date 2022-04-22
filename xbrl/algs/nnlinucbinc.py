@@ -10,6 +10,7 @@ from .nnmodel import initialize_weights
 import time
 import copy
 from .. import TORCH_FLOAT
+import wandb
 
 
 def inv_sherman_morrison(u, A_inv):
@@ -33,11 +34,13 @@ class NNLinUCBInc(nn.Module):
         weight_decay: Optional[float]=0,
         buffer_capacity: Optional[int]=10000,
         seed: Optional[int]=0,
-        update_every_n_steps: Optional[int] = 100,
+        update_every: Optional[int] = 100,
         noise_std: float=1,
         delta: Optional[float]=0.01,
         ucb_regularizer: Optional[float]=1,
-        bonus_scale: Optional[float]=1.
+        bonus_scale: Optional[float]=1.,
+        use_tb: Optional[bool]=True,
+        use_wandb: Optional[bool]=False
     ) -> None:
         super().__init__()
         self.env = env
@@ -51,12 +54,14 @@ class NNLinUCBInc(nn.Module):
         self.weight_decay = weight_decay
         self.buffer_capacity = buffer_capacity
         self.seed = seed
-        self.update_every_n_steps = update_every_n_steps
+        self.update_every = update_every
         self.unit_vector: Optional[torch.tensor] = None
         self.noise_std = noise_std
         self.delta = delta
         self.ucb_regularizer = ucb_regularizer
         self.bonus_scale = bonus_scale
+        self.use_tb = use_tb
+        self.use_wandb = use_wandb
 
     def reset(self) -> None:
         self.t = 0
@@ -74,7 +79,8 @@ class NNLinUCBInc(nn.Module):
 
         # TODO: check the following lines: with initialization to 0 the training code is never called
         # self.update_time = 0
-        self.update_time = 2**np.ceil(np.log2(self.batch_size)) + 1
+        self.update_time = int(2**np.ceil(np.log(self.batch_size) / np.log(self.update_every)) + 1)
+
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
         self.tot_update = 0 
         dim = self.model.embedding_dim
@@ -102,7 +108,10 @@ class NNLinUCBInc(nn.Module):
         bonus = self.bonus_scale * beta * torch.sqrt(bonus)
         ucb = net_features @ self.theta + bonus
         action = torch.argmax(ucb).item()
-        self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
+        if self.use_tb:
+            self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
+        if self.use_wandb:
+            wandb.log({'bonus selected action': bonus[action].item()}, step=self.t)
         assert 0 <= action < self.env.action_space.n, ucb
 
         return action
@@ -140,7 +149,10 @@ class NNLinUCBInc(nn.Module):
 
             pred = phi @ self.theta
             mse_loss = F.mse_loss(pred.reshape(-1,1), rewards)
-            self.writer.add_scalar('mse_linear', mse_loss.item(), self.t)
+            if self.use_tb:
+                self.writer.add_scalar('mse_linear', mse_loss.item(), self.t)
+            if self.use_wandb:
+                wandb.log({'mse_linear': mse_loss.item()}, step=self.t)
             # # debug metric
             # if hasattr(self.env, 'feature_matrix'):
             #     xx = optimal_features(self.env.feature_matrix, self.env.rewards)
@@ -203,7 +215,10 @@ class NNLinUCBInc(nn.Module):
                         mse_loss = F.mse_loss(prediction, rewards)
                         mse_loss.backward()
                         self.optimizer.step()
-                        self.writer.add_scalar('mse_loss', mse_loss.item(), self.tot_update)
+                        if self.use_tb:
+                            self.writer.add_scalar('mse_loss', mse_loss.item(), self.tot_update)
+                        if self.use_wandb:
+                            wandb.log({'mse_loss': mse_loss.item()}, step=self.tot_update)
                         self.writer.flush()
                         self.tot_update += 1 
                         train_loss.append(mse_loss.item())
@@ -215,8 +230,8 @@ class NNLinUCBInc(nn.Module):
                     # copy to target
                     self.target_model.load_state_dict(self.model.state_dict())
                     self.target_model.eval()
-                    # self.update_time = self.update_time + self.update_every_n_steps 
-                    self.update_time = max(1, self.update_time) * 2
+                    # self.update_time = self.update_time + self.update_every 
+                    self.update_time = int(np.ceil(max(1, self.update_time) * self.update_every))
                     self._update_after_change_of_target()
                 
                 self.runtime[self.t] = time.time() - start
@@ -230,7 +245,11 @@ class NNLinUCBInc(nn.Module):
                 rewards = [self.env.expected_reward(a) for a in range(self.env.action_space.n)]
                 sorted = np.sort(rewards)
                 self.action_gap[self.t] = sorted[-1]-sorted[-2]
-                self.writer.add_scalar('action gap', self.action_gap[self.t], self.t)
+
+                if self.use_tb:
+                    self.writer.add_scalar('action gap', self.action_gap[self.t], self.t)
+                if self.use_wandb:
+                    wandb.log({'action_gap': self.action_gap[self.t]}, step=self.t)
 
                 # log accuracy
                 self.action_history[self.t] = action
@@ -248,9 +267,18 @@ class NNLinUCBInc(nn.Module):
                 train_losses.append(train_loss)
 
                 # self.writer.add_scalar("regret", postfix['total regret'], self.t)
-                self.writer.add_scalar("expected regret", postfix['expected regret'], self.t)
-                self.writer.add_scalar('perc optimal pulls (last 100 steps)', p_optimal_arm, self.t)
-                self.writer.add_scalar('optimal arm?', 1 if self.action_history[self.t] == self.best_action_history[self.t] else 0, self.t)
+
+                if self.use_tb:
+                    self.writer.add_scalar("expected regret", postfix['expected regret'], self.t)
+                    self.writer.add_scalar('perc optimal pulls (last 100 steps)', p_optimal_arm, self.t)
+                    self.writer.add_scalar('optimal arm?', 1 if self.action_history[self.t] == self.best_action_history[self.t] else 0, self.t)
+                if self.use_wandb:
+                    wandb.log({
+                        "expected regret": postfix['expected regret'], 
+                        'perc optimal pulls (last 100 steps)': p_optimal_arm,
+                        'optimal arm?': 1 if self.action_history[self.t] == self.best_action_history[self.t] else 0}, step=self.t
+                    )
+
 
                 self.writer.flush()
                 if self.t % throttle == 0:

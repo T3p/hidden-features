@@ -21,7 +21,7 @@ class NNLinUCB(XBModule):
             buffer_capacity: Optional[int] = 10000,
             seed: Optional[int] = 0,
             reset_model_at_train: Optional[bool] = True,
-            update_every_n_steps: Optional[int] = 100,
+            update_every: Optional[int] = 100,
             noise_std: float=1,
             delta: Optional[float]=0.01,
             ucb_regularizer: Optional[float]=1,
@@ -30,7 +30,7 @@ class NNLinUCB(XBModule):
     ) -> None:
         super().__init__(env, model, device, batch_size, max_updates, learning_rate,
                          weight_decay, buffer_capacity, seed, reset_model_at_train,
-                         update_every_n_steps)
+                         update_every)
         self.noise_std = noise_std
         self.delta = delta
         self.ucb_regularizer = ucb_regularizer

@@ -16,15 +16,14 @@ import xbrl.envs.hlsutils as hlsutils
 from xbrl.algs.linear import LinUCB
 from xbrl.algs.batched.nnlinucb import NNLinUCB
 from xbrl.algs.batched.nnleader import NNLeader
-from xbrl.algs.nnlinucbinc import NNLinUCBInc
 from xbrl.algs.batched.nnepsilongreedy import NNEpsGreedy
-from xbrl.algs.nnegreedyinc import NNEGInc
-from xbrl.algs.nnleaderinc import NNLeaderInc
+import xbrl.algs.incremental as incalg
 import pickle
 import json
 from xbrl.algs.nnmodel import MLLinearNetwork, MLLogisticNetwork, initialize_weights
 import torch.nn as nn
 import copy
+import wandb
 
 def set_seed_everywhere(seed):
     torch.manual_seed(seed)
@@ -44,6 +43,17 @@ def my_app(cfg: DictConfig) -> None:
 
     set_seed_everywhere(cfg.seed)
     device = torch.device(cfg.device)
+
+
+    if cfg.use_wandb:
+        wandb.init(
+            # Set the project where this run will be logged
+            project="run_linearfinite", 
+            # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
+            name=f"{cfg.exp_name}", 
+            # Track hyperparameters and run metadata
+            config=OmegaConf.to_container(cfg)
+        )
 
     ########################################################################
     # Problem creation
@@ -136,7 +146,7 @@ def my_app(cfg: DictConfig) -> None:
             device=device,
             batch_size=cfg.batch_size,
             max_updates=cfg.max_updates,
-            update_every_n_steps=cfg.update_every_n_steps,
+            update_every=cfg.update_every,
             learning_rate=cfg.lr,
             buffer_capacity=cfg.buffer_capacity,
             noise_std=cfg.noise_std,
@@ -150,43 +160,47 @@ def my_app(cfg: DictConfig) -> None:
         algo = LinUCB(
             env=env,
             seed=cfg.seed,
-            update_every_n_steps=cfg.update_every_n_steps,
+            update_every=cfg.update_every,
             noise_std=cfg.noise_std,
             delta=cfg.delta,
             ucb_regularizer=cfg.ucb_regularizer,
             bonus_scale=cfg.bonus_scale
         )
     elif cfg.algo == "nnlinucbinc":
-        algo = NNLinUCBInc(
+        algo = incalg.NNLinUCBInc(
             env=env,
             model=net,
             device=device,
             batch_size=cfg.batch_size,
             max_updates=cfg.max_updates,
-            update_every_n_steps=cfg.update_every_n_steps,
+            update_every=cfg.update_every,
             learning_rate=cfg.lr,
             buffer_capacity=cfg.buffer_capacity,
             noise_std=cfg.noise_std,
             delta=cfg.delta,
             weight_decay=cfg.weight_decay,
             ucb_regularizer=cfg.ucb_regularizer,
-            bonus_scale=cfg.bonus_scale
+            bonus_scale=cfg.bonus_scale,
+            use_tb=cfg.use_tb,
+            use_wandb=cfg.use_wandb
         )
     elif cfg.algo == "nnleaderinc":
-        algo = NNLeaderInc(
+        algo = incalg.NNLeaderInc(
             env=env,
             model=net,
             device=device,
             batch_size=cfg.batch_size,
             max_updates=cfg.max_updates,
-            update_every_n_steps=cfg.update_every_n_steps,
+            update_every=cfg.update_every,
             learning_rate=cfg.lr,
             buffer_capacity=cfg.buffer_capacity,
             noise_std=cfg.noise_std,
             delta=cfg.delta,
             weight_decay=cfg.weight_decay,
             ucb_regularizer=cfg.ucb_regularizer,
-            bonus_scale=cfg.bonus_scale
+            bonus_scale=cfg.bonus_scale,
+            use_tb=cfg.use_tb,
+            use_wandb=cfg.use_wandb
         )
     elif cfg.algo == "nnleader":
         algo = NNLeader(
@@ -195,7 +209,7 @@ def my_app(cfg: DictConfig) -> None:
             device=device,
             batch_size=cfg.batch_size,
             max_updates=cfg.max_updates,
-            update_every_n_steps=cfg.update_every_n_steps,
+            update_every=cfg.update_every,
             learning_rate=cfg.lr,
             buffer_capacity=cfg.buffer_capacity,
             noise_std=cfg.noise_std,
@@ -222,7 +236,7 @@ def my_app(cfg: DictConfig) -> None:
             buffer_capacity=cfg.buffer_capacity,
             seed=cfg.seed,
             reset_model_at_train=cfg.reset_model_at_train,
-            update_every_n_steps=cfg.update_every_n_steps,
+            update_every=cfg.update_every,
             ucb_regularizer=cfg.ucb_regularizer,
             epsilon_min=cfg.epsilon_min,
             epsilon_start=cfg.epsilon_start,
@@ -230,7 +244,7 @@ def my_app(cfg: DictConfig) -> None:
             time_random_exp=cfg.time_random_exp
         )
     elif cfg.algo == "nneginc":
-        algo = NNEGInc(
+        algo = incalg.NNEGInc(
             env=env,
             model=net,
             device=device,
@@ -240,11 +254,13 @@ def my_app(cfg: DictConfig) -> None:
             weight_decay=cfg.weight_decay,
             buffer_capacity=cfg.buffer_capacity,
             seed=cfg.seed,
-            update_every_n_steps=cfg.update_every_n_steps,
+            update_every=cfg.update_every,
             epsilon_min=cfg.epsilon_min,
             epsilon_start=cfg.epsilon_start,
             epsilon_decay=cfg.epsilon_decay,
-            time_random_exp=cfg.time_random_exp
+            time_random_exp=cfg.time_random_exp,
+            use_tb=cfg.use_tb,
+            use_wandb=cfg.use_wandb
         )
     else:
         raise ValueError("Unknown algorithm {cfg.algo}")
@@ -266,6 +282,10 @@ def my_app(cfg: DictConfig) -> None:
     payload = {'model': algo.model, 'features': algo.env.feature_matrix, 'rewards': algo.env.rewards}
     with open(os.path.join(work_dir, "algo.pt"), 'wb') as f:
         torch.save(payload, f)
+
+    
+    if cfg.use_wandb:
+        wandb.finish()
 
 
 if __name__ == "__main__":
