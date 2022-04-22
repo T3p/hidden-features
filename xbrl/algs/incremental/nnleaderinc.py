@@ -47,7 +47,7 @@ class NNLeaderInc(NNLinUCBInc):
         spectral_loss = torch.log(torch.linalg.eigvalsh(A).min())
         self.writer.add_scalar('spectral_loss', spectral_loss, self.tot_update)
 
-        mse_weight = self.tot_update / (self.horizon/4) 
+        mse_weight = self.tot_update / (self.horizon/2) 
         # mse_weight = (self.tot_update) / (self.tot_update + 10)
         self.writer.add_scalar('mse_weight', mse_weight, self.tot_update)
 

@@ -63,10 +63,10 @@ class NNLinUCBInc(IncBase):
     def play_action(self, features: np.ndarray):
         assert features.shape[0] == self.env.action_space.n
         dim = self.target_model.embedding_dim
-        # beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
-        #                                               *self.t/self.ucb_regularizer)/self.delta))\
-        #        + self.param_bound * np.sqrt(self.ucb_regularizer)
-        beta = np.sqrt(np.log(self.t+1))
+        beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
+                                                      *self.t/self.ucb_regularizer)/self.delta))\
+               + self.param_bound * np.sqrt(self.ucb_regularizer)
+        # beta = np.sqrt(np.log(self.t+1))
 
         # get features for each action and make it tensor
         xt = torch.tensor(features, dtype=TORCH_FLOAT).to(self.device)
@@ -108,8 +108,8 @@ class NNLinUCBInc(IncBase):
                 self.A += torch.outer(v.ravel(),v.ravel())
             self.theta = self.inv_A @ self.b_vec
             self.param_bound = torch.linalg.norm(self.theta, 2).item()
-            # self.writer.add_scalar('param_bound', self.param_bound, self.t)
-            # self.writer.add_scalar('features_bound', self.features_bound, self.t)
+            self.writer.add_scalar('param_bound', self.param_bound, self.t)
+            self.writer.add_scalar('features_bound', self.features_bound, self.t)
             # min_eig = torch.linalg.eigvalsh(self.A/(self.t+1)).min() / self.features_bound
             # self.writer.add_scalar('min_eig_empirical_design', min_eig, self.t)
 
