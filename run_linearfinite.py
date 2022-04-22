@@ -18,6 +18,7 @@ from xbrl.algs.batched.nnlinucb import NNLinUCB
 from xbrl.algs.batched.nnleader import NNLeader
 from xbrl.algs.batched.nnepsilongreedy import NNEpsGreedy
 import xbrl.algs.incremental as incalg
+# import xbrl.algs.nnleaderinc as incalg
 import pickle
 import json
 from xbrl.algs.nnmodel import MLLinearNetwork, MLLogisticNetwork, initialize_weights

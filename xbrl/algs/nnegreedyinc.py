@@ -38,7 +38,9 @@ class NNEGInc(nn.Module):
         epsilon_min: float=0.05,
         epsilon_start: float=2,
         epsilon_decay: float=200,
-        time_random_exp: int=0
+        time_random_exp: int=0,
+        use_tb: Optional[bool]=True,
+        use_wandb: Optional[bool]=False
     ) -> None:
         super().__init__()
         self.env = env
@@ -60,6 +62,8 @@ class NNEGInc(nn.Module):
         self.epsilon_decay = epsilon_decay
         self.time_random_exp = time_random_exp
         self.np_random = np.random.RandomState(self.seed)
+        self.use_tb = use_tb
+        self.use_wandb = use_wandb
 
     def reset(self) -> None:
         self.t = 0
@@ -77,7 +81,7 @@ class NNEGInc(nn.Module):
 
         # TODO: check the following lines: with initialization to 0 the training code is never called
         # self.update_time = 0
-        self.update_time = 2**np.ceil(np.log2(self.batch_size)) + 1
+        self.update_time = self.batch_size + 1
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
         self.tot_update = 0 
         dim = self.model.embedding_dim
@@ -213,7 +217,7 @@ class NNEGInc(nn.Module):
                     self.target_model.load_state_dict(self.model.state_dict())
                     self.target_model.eval()
                     # self.update_time = self.update_time + self.update_every
-                    self.update_time = max(1, self.update_time) * 2
+                    self.update_time = int(np.ceil(max(1, self.update_time) * self.update_every))
                     self._update_after_change_of_target()
                 
                 self.runtime[self.t] = time.time() - start

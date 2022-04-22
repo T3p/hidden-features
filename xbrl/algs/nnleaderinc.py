@@ -11,6 +11,8 @@ import time
 import copy
 from .. import TORCH_FLOAT
 
+from .nnegreedyinc import NNEGInc
+from .nnlinucbinc import NNLinUCBInc
 
 def inv_sherman_morrison(u, A_inv):
     """Inverse of a matrix with rank 1 update.
@@ -37,7 +39,9 @@ class NNLeaderInc(nn.Module):
         noise_std: float=1,
         delta: Optional[float]=0.01,
         ucb_regularizer: Optional[float]=1,
-        bonus_scale: Optional[float]=1.
+        bonus_scale: Optional[float]=1.,
+        use_tb: Optional[bool]=True,
+        use_wandb: Optional[bool]=False
     ) -> None:
         super().__init__()
         self.env = env
@@ -57,6 +61,8 @@ class NNLeaderInc(nn.Module):
         self.delta = delta
         self.ucb_regularizer = ucb_regularizer
         self.bonus_scale = bonus_scale
+        self.use_tb = use_tb
+        self.use_wandb = use_wandb
 
     def reset(self) -> None:
         self.t = 0

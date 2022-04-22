@@ -68,7 +68,7 @@ class IncBase(nn.Module):
 
         # TODO: check the following lines: with initialization to 0 the training code is never called
         # self.update_time = 0
-        self.update_time = int(2**np.ceil(np.log(self.batch_size) / np.log(self.update_every)) + 1)
+        self.update_time = self.batch_size + 1
 
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
         self.tot_update = 0
