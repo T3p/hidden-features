@@ -17,13 +17,13 @@ class LinUCB(XBModule):
         self,
         env: Any,
         seed: Optional[int] = 0, 
-        update_every_n_steps: Optional[int] = 1,
+        update_every: Optional[int] = 1,
         noise_std: float=1,
         delta: Optional[float]=0.01,
         ucb_regularizer: Optional[float]=1,
         bonus_scale: Optional[float]=1.
     ) -> None:
-        super().__init__(env, None, None, None, None, None, None, 0, seed, None, update_every_n_steps)
+        super().__init__(env, None, None, None, None, None, None, 0, seed, None, update_every)
         self.np_random = np.random.RandomState(seed)
         self.noise_std = noise_std
         self.delta = delta
@@ -85,7 +85,7 @@ class LinUCB(XBModule):
         self.b_vec = self.new_b_vec
 
     def train(self) -> float:
-        if self.t % self.update_every_n_steps == 0:
+        if self.t % self.update_every == 0:
             self.inv_A = self.new_inv_A
             self.theta = self.new_theta
             self.b_vec = self.new_b_vec
