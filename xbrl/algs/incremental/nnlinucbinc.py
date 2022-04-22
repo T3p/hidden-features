@@ -12,6 +12,7 @@ import copy
 from ... import TORCH_FLOAT
 import wandb
 from .core import IncBase
+from ...envs import hlsutils
 
 
 def inv_sherman_morrison(u, A_inv):
@@ -120,7 +121,7 @@ class NNLinUCBInc(IncBase):
             if self.use_wandb:
                 wandb.log({'mse_linear': mse_loss.item()}, step=self.t)
             # # debug metric
-            # if hasattr(self.env, 'feature_matrix'):
+            if hasattr(self.env, 'feature_matrix'):
             #     xx = optimal_features(self.env.feature_matrix, self.env.rewards)
             #     assert len(xx.shape) == 2
             #     xt = torch.FloatTensor(xx).to(self.device)
@@ -128,6 +129,25 @@ class NNLinUCBInc(IncBase):
             #     norm_v=np.linalg.norm(phi, ord=2, axis=1).max()
             #     mineig = min_eig_outer(phi, False) / phi.shape[0]
             #     self.writer.add_scalar('min_eig_design_opt', mineig/norm_v, self.t)
+
+                # compute misspecification error on all samples
+                nc,na,nd = self.env.feature_matrix.shape
+                U = self.env.feature_matrix.reshape(-1, nd)
+                xt = torch.tensor(U, dtype=TORCH_FLOAT) 
+                H = self.model.embedding(xt)
+                newfeatures = H.reshape(nc, na, self.model.embedding_dim)
+                newreward = newfeatures @ self.theta
+                max_err = np.abs(self.env.rewards - newreward.cpu().detach().numpy()).max()
+                self.writer.add_scalar('max miss-specification', max_err, self.t)
+
+                # IS HLS
+                newfeatures = newfeatures.cpu().detach().numpy()
+                hls_rank = hlsutils.hls_rank(newfeatures, self.env.rewards)
+                ishls = 1 if hlsutils.is_hls(newfeatures, self.env.rewards) else 0
+                hls_lambda = hlsutils.hls_lambda(newfeatures, self.env.rewards)
+                self.writer.add_scalar('hls_lambda', hls_lambda, self.t)
+                self.writer.add_scalar('hls_rank', hls_rank, self.t)
+                self.writer.add_scalar('hls?', ishls, self.t)
     
     def add_sample(self, context: np.ndarray, action: int, reward: float, features: np.ndarray) -> None:
         exp = (features, reward)

@@ -5,7 +5,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from .templates import XBModule
-from ...envs.hlsutils import optimal_features, min_eig_outer
+from ...envs import hlsutils
 from ... import TORCH_FLOAT
 
 
@@ -153,27 +153,55 @@ class NNLinUCB(XBModule):
             pred = torch_phi @ self.theta
             mse_loss = F.mse_loss(pred.reshape(-1,1), torch_rew)
             self.writer.add_scalar('mse_linear', mse_loss.item(), self.t)
-            print("mse1: ", mse_loss.item())
+            print("mse1 (used): ", mse_loss.item())
             assert mse_loss.item() < 2
 
             pred = torch_phi @ thetatt
             mse_loss = F.mse_loss(pred.reshape(-1,1), torch_rew)
-            self.writer.add_scalar('mse_linear', mse_loss.item(), self.t)
             print("mse2: ", mse_loss.item())
 
             pred = torch_phi @ theta2
             mse_loss = F.mse_loss(pred.reshape(-1,1), torch_rew)
-            self.writer.add_scalar('mse_linear', mse_loss.item(), self.t)
             print("mse3: ", mse_loss.item())
+
+            jjj = torch.linalg.inv(YYtt)
+            pred = torch_phi @ (jjj @ BBtt)
+            mse_loss = F.mse_loss(pred.reshape(-1,1), torch_rew)
+            print("mse4: ", mse_loss.item())
+
+            # self.inv_A = jjj
+            # self.b_vec = BBtt
+            # self.theta = jjj @ BBtt
 
             # debug metric
             if hasattr(self.env, 'feature_matrix'):
-                xx = optimal_features(self.env.feature_matrix, self.env.rewards)
+                xx = hlsutils.optimal_features(self.env.feature_matrix, self.env.rewards)
                 assert len(xx.shape) == 2
                 xt = torch.tensor(xx, dtype=TORCH_FLOAT).to(self.device)
                 phi = self.model.embedding(xt).detach().cpu().numpy()
                 norm_v=np.linalg.norm(phi, ord=2, axis=1).max()
-                mineig = min_eig_outer(phi, False) / phi.shape[0]
+                mineig = hlsutils.min_eig_outer(phi, False) / phi.shape[0]
                 self.writer.add_scalar('min_eig_design_opt', mineig/norm_v, self.t)
+
+
+                # compute misspecification error on all samples
+                nc,na,nd = self.env.feature_matrix.shape
+                U = self.env.feature_matrix.reshape(-1, nd)
+                xt = torch.tensor(U, dtype=TORCH_FLOAT) 
+                H = self.model.embedding(xt)
+                newfeatures = H.reshape(nc, na, self.model.embedding_dim)
+                newreward = newfeatures @ self.theta
+                max_err = np.abs(self.env.rewards - newreward.cpu().detach().numpy()).max()
+                self.writer.add_scalar('max miss-specification', max_err, self.t)
+
+                # IS HLS
+                newfeatures = newfeatures.cpu().detach().numpy()
+                hls_rank = hlsutils.hls_rank(newfeatures, self.env.rewards)
+                ishls = 1 if hlsutils.is_hls(newfeatures, self.env.rewards) else 0
+                hls_lambda = hlsutils.hls_lambda(newfeatures, self.env.rewards)
+                self.writer.add_scalar('hls_lambda', hls_lambda, self.t)
+                self.writer.add_scalar('hls_rank', hls_rank, self.t)
+                self.writer.add_scalar('hls?', ishls, self.t)
+
 
 
