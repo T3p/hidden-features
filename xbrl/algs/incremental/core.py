@@ -68,7 +68,7 @@ class IncBase(nn.Module):
 
         # TODO: check the following lines: with initialization to 0 the training code is never called
         # self.update_time = 0
-        self.update_time = self.batch_size + 1
+        self.update_time = 2
 
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
         self.tot_update = 0
@@ -141,12 +141,13 @@ class IncBase(nn.Module):
 
                 if self.t == self.update_time:
                     #############################
-                    # copy to target
-                    self.target_model.load_state_dict(self.model.state_dict())
-                    self.target_model.eval()
                     # self.update_time = self.update_time + self.update_every 
                     self.update_time = int(np.ceil(max(1, self.update_time) * self.update_every))
-                    self._update_after_change_of_target()
+                    if self.t > self.batch_size:
+                        # copy to target
+                        self.target_model.load_state_dict(self.model.state_dict())
+                        self.target_model.eval()
+                        self._update_after_change_of_target()
                 
                 self.runtime[self.t] = time.time() - start
 
