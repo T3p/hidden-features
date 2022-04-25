@@ -94,9 +94,9 @@ class XBModule(nn.Module):
                     with torch.no_grad():
                         xt = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
                         pred = self.model(xt)
-                        err = (pred.cpu().detach().numpy() - rewards)**2
-                        z = 1/(1 + np.exp(-err))
-                        # z = err**3
+                        z = (pred.cpu().detach().numpy() - rewards)**2
+                        # z = 1/(1 + np.exp(-z))
+                        # z = z**3
                         weights = torch.tensor(z, dtype=TORCH_FLOAT, device=self.device)
                 print(torch.mean(weights), torch.max(weights), torch.min(weights))
 
