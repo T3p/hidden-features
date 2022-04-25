@@ -1,2 +1,2 @@
 import torch
-TORCH_FLOAT = torch.float64
+TORCH_FLOAT = torch.float32
