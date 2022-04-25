@@ -156,7 +156,8 @@ def my_app(cfg: DictConfig) -> None:
             weight_decay=cfg.weight_decay,
             ucb_regularizer=cfg.ucb_regularizer,
             bonus_scale=cfg.bonus_scale,
-            reset_model_at_train=cfg.reset_model_at_train
+            reset_model_at_train=cfg.reset_model_at_train,
+            train_reweight=cfg.train_reweight
         )
     elif cfg.algo == "linucb":
         algo = LinUCB(
@@ -184,8 +185,7 @@ def my_app(cfg: DictConfig) -> None:
             ucb_regularizer=cfg.ucb_regularizer,
             bonus_scale=cfg.bonus_scale,
             use_tb=cfg.use_tb,
-            use_wandb=cfg.use_wandb,
-            train_reweight=cfg.train_reweight
+            use_wandb=cfg.use_wandb
         )
     elif cfg.algo == "nnleaderinc":
         algo = incalg.NNLeaderInc(

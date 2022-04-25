@@ -1,4 +1,4 @@
-import numpy as np
+:qimport numpy as np
 from typing import Optional, Any
 from tqdm import tqdm
 import torch
@@ -95,7 +95,9 @@ class XBModule(nn.Module):
                         pred = self.model(xt)
                         err = (pred.cpu().detach().numpy() - rewards)**2
                         z = 1/(1 + np.exp(-err))
+                        # z = err**3
                         weights = torch.tensor(z, dtype=TORCH_FLOAT, device=self.device)
+                print(torch.mean(weights), torch.max(weights), torch.min(weights))
 
                 torch_dataset = torch.utils.data.TensorDataset(
                     torch.tensor(features, dtype=TORCH_FLOAT, device=self.device),
