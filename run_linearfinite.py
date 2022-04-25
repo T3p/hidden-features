@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import random
+from xbrl import TORCH_FLOAT
 
 import xbrl.envs as bandits
 import xbrl.envs.hlsutils as hlsutils
@@ -17,11 +18,14 @@ from xbrl.algs.linear import LinUCB
 from xbrl.algs.batched.nnlinucb import NNLinUCB
 from xbrl.algs.batched.nnleader import NNLeader
 from xbrl.algs.batched.nnepsilongreedy import NNEpsGreedy
+import xbrl.algs.incremental as incalg
+# import xbrl.algs.nnleaderinc as incalg
 import pickle
 import json
 from xbrl.algs.nnmodel import MLLinearNetwork, MLLogisticNetwork, initialize_weights
 import torch.nn as nn
 import copy
+import wandb
 
 def set_seed_everywhere(seed):
     torch.manual_seed(seed)
@@ -42,22 +46,45 @@ def my_app(cfg: DictConfig) -> None:
     set_seed_everywhere(cfg.seed)
     device = torch.device(cfg.device)
 
+
+    if cfg.use_wandb:
+        wandb.init(
+            # Set the project where this run will be logged
+            project="run_linearfinite", 
+            # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
+            name=f"{cfg.exp_name}", 
+            # Track hyperparameters and run metadata
+            config=OmegaConf.to_container(cfg)
+        )
+
     ########################################################################
     # Problem creation
     ########################################################################
     
-    if cfg.domain.type == "finite":
-        features, theta = bandits.make_synthetic_features(
-            n_contexts=cfg.domain.ncontexts, n_actions=cfg.domain.narms, dim=cfg.domain.dim,
-            context_generation=cfg.domain.contextgeneration, feature_expansion=cfg.domain.feature_expansion,
-            seed=cfg.domain.seed_problem
-        )
+    if cfg.domain.type == "finite" or cfg.domain.type == "toy":
+        if cfg.domain.type == "finite":
+            features, theta = bandits.make_synthetic_features(
+                n_contexts=cfg.domain.ncontexts, n_actions=cfg.domain.narms, dim=cfg.domain.dim,
+                context_generation=cfg.domain.contextgeneration, feature_expansion=cfg.domain.feature_expansion,
+                seed=cfg.domain.seed_problem
+            )
+        else:
+            ncontexts, narms, dim = cfg.domain.ncontexts, cfg.domain.narms, cfg.domain.dim
+            assert ncontexts == dim
+            features = np.zeros((ncontexts, narms, dim))
+            for i in range(dim):
+                features[i,0,i] = 1
+                features[i,1,i+1 if i+1 < dim else 0] = 1 - cfg.domain.mingap
+                for j in range(2, narms):
+                    features[i,j,:] = (2 * np.random.rand(dim) - 1) / dim
+            theta = np.ones(dim)
+        
         rewards = features @ theta
         print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
         print(f"Original rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
         print(f"Original rep -> HLS min eig: {hlsutils.hls_lambda(features, rewards)}")
         print(f"Original rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
-        if cfg.domain.newrank not in [None, "none", "None"]:
+        if cfg.domain.type == "finite" and cfg.domain.newrank not in [None, "none", "None"]:
             features, theta = hlsutils.derank_hls(features=features, param=theta, newrank=cfg.domain.newrank)
             rewards = features @ theta
             print(f"New rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
@@ -121,7 +148,7 @@ def my_app(cfg: DictConfig) -> None:
             device=device,
             batch_size=cfg.batch_size,
             max_updates=cfg.max_updates,
-            update_every_n_steps=cfg.update_every_n_steps,
+            update_every=cfg.update_every,
             learning_rate=cfg.lr,
             buffer_capacity=cfg.buffer_capacity,
             noise_std=cfg.noise_std,
@@ -129,17 +156,54 @@ def my_app(cfg: DictConfig) -> None:
             weight_decay=cfg.weight_decay,
             ucb_regularizer=cfg.ucb_regularizer,
             bonus_scale=cfg.bonus_scale,
-            reset_model_at_train=cfg.reset_model_at_train
+            reset_model_at_train=cfg.reset_model_at_train,
+            train_reweight=cfg.train_reweight
         )
     elif cfg.algo == "linucb":
         algo = LinUCB(
             env=env,
             seed=cfg.seed,
-            update_every_n_steps=cfg.update_every_n_steps,
+            update_every=cfg.update_every,
             noise_std=cfg.noise_std,
             delta=cfg.delta,
             ucb_regularizer=cfg.ucb_regularizer,
             bonus_scale=cfg.bonus_scale
+        )
+    elif cfg.algo == "nnlinucbinc":
+        algo = incalg.NNLinUCBInc(
+            env=env,
+            model=net,
+            device=device,
+            batch_size=cfg.batch_size,
+            max_updates=cfg.max_updates,
+            update_every=cfg.update_every,
+            learning_rate=cfg.lr,
+            buffer_capacity=cfg.buffer_capacity,
+            noise_std=cfg.noise_std,
+            delta=cfg.delta,
+            weight_decay=cfg.weight_decay,
+            ucb_regularizer=cfg.ucb_regularizer,
+            bonus_scale=cfg.bonus_scale,
+            use_tb=cfg.use_tb,
+            use_wandb=cfg.use_wandb
+        )
+    elif cfg.algo == "nnleaderinc":
+        algo = incalg.NNLeaderInc(
+            env=env,
+            model=net,
+            device=device,
+            batch_size=cfg.batch_size,
+            max_updates=cfg.max_updates,
+            update_every=cfg.update_every,
+            learning_rate=cfg.lr,
+            buffer_capacity=cfg.buffer_capacity,
+            noise_std=cfg.noise_std,
+            delta=cfg.delta,
+            weight_decay=cfg.weight_decay,
+            ucb_regularizer=cfg.ucb_regularizer,
+            bonus_scale=cfg.bonus_scale,
+            use_tb=cfg.use_tb,
+            use_wandb=cfg.use_wandb
         )
     elif cfg.algo == "nnleader":
         algo = NNLeader(
@@ -148,7 +212,7 @@ def my_app(cfg: DictConfig) -> None:
             device=device,
             batch_size=cfg.batch_size,
             max_updates=cfg.max_updates,
-            update_every_n_steps=cfg.update_every_n_steps,
+            update_every=cfg.update_every,
             learning_rate=cfg.lr,
             buffer_capacity=cfg.buffer_capacity,
             noise_std=cfg.noise_std,
@@ -161,7 +225,8 @@ def my_app(cfg: DictConfig) -> None:
             weight_spectral=cfg.weight_spectral,
             weight_l2features=cfg.weight_l2features,
             weight_orth=cfg.weight_orth,
-            weight_rayleigh=cfg.weight_rayleigh
+            weight_rayleigh=cfg.weight_rayleigh,
+            train_reweight=cfg.train_reweight
         )
     elif cfg.algo == "nnegreedy":
         algo = NNEpsGreedy(
@@ -175,11 +240,32 @@ def my_app(cfg: DictConfig) -> None:
             buffer_capacity=cfg.buffer_capacity,
             seed=cfg.seed,
             reset_model_at_train=cfg.reset_model_at_train,
-            update_every_n_steps=cfg.update_every_n_steps,
+            update_every=cfg.update_every,
+            ucb_regularizer=cfg.ucb_regularizer,
             epsilon_min=cfg.epsilon_min,
             epsilon_start=cfg.epsilon_start,
             epsilon_decay=cfg.epsilon_decay,
-            time_random_exp=cfg.time_random_exp
+            time_random_exp=cfg.time_random_exp,
+            train_reweight=cfg.train_reweight
+        )
+    elif cfg.algo == "nneginc":
+        algo = incalg.NNEGInc(
+            env=env,
+            model=net,
+            device=device,
+            batch_size=cfg.batch_size,
+            max_updates=cfg.max_updates,
+            learning_rate=cfg.lr,
+            weight_decay=cfg.weight_decay,
+            buffer_capacity=cfg.buffer_capacity,
+            seed=cfg.seed,
+            update_every=cfg.update_every,
+            epsilon_min=cfg.epsilon_min,
+            epsilon_start=cfg.epsilon_start,
+            epsilon_decay=cfg.epsilon_decay,
+            time_random_exp=cfg.time_random_exp,
+            use_tb=cfg.use_tb,
+            use_wandb=cfg.use_wandb
         )
     else:
         raise ValueError("Unknown algorithm {cfg.algo}")
@@ -202,6 +288,11 @@ def my_app(cfg: DictConfig) -> None:
     with open(os.path.join(work_dir, "algo.pt"), 'wb') as f:
         torch.save(payload, f)
 
+    
+    if cfg.use_wandb:
+        wandb.finish()
+
 
 if __name__ == "__main__":
+    # torch.set_default_dtype(TORCH_FLOAT)
     my_app()

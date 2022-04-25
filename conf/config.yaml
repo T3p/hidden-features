@@ -5,7 +5,7 @@ defaults:
 
 horizon: 20000
 algo: nnegreedy
-update_every_n_steps: 100
+update_every: 1.2
 noise_std: 1
 delta: 0.01
 ucb_regularizer: 1
@@ -15,7 +15,7 @@ max_updates: 30
 lr: 1e-3
 buffer_capacity: ${horizon}
 weight_decay: 0
-reset_model_at_train: true
+reset_model_at_train: False
 layers: 150
 weight_l2features: 0.
 weight_spectral: 0
@@ -23,15 +23,18 @@ weight_orth: 0
 weight_mse: 1
 random_init_weights: True
 weight_rayleigh: 0
-epsilon_min: 0.1
+epsilon_min: 0.001
 epsilon_start: 1
-epsilon_decay: 8000
+epsilon_decay: 20000
 time_random_exp: 1000
+train_reweight: False
 
 # misc
 seed: 1
 device: cpu
 use_tb: true
+use_wandb: false
+exp_name: "default_name"
 
 hydra:
   run:

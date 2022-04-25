@@ -40,17 +40,31 @@ def my_app(cfg: DictConfig) -> None:
     ########################################################################
     # Problem creation
     ########################################################################
-    dim = cfg.dim
+    ncontexts, narms, dim = cfg.ncontexts, cfg.narms, cfg.dim
     features, theta = make_synthetic_features(
-        n_contexts=cfg.ncontexts, n_actions=cfg.narms, dim=dim,
+        n_contexts=ncontexts, n_actions=narms, dim=dim,
         context_generation=cfg.contextgeneration, feature_expansion=cfg.feature_expansion,
         seed=cfg.seed_problem
     )
+
+    
+    # assert ncontexts == dim
+    # features = np.zeros((ncontexts, narms, dim))
+    # for i in range(dim):
+    #     features[i,0,i] = 1
+    #     features[i,1,i+1 if i+1 < dim else 0] = 1 - cfg.mingap
+    #     for j in range(2, narms):
+    #         features[i,j,:] = (2 * np.random.rand(dim) - 1) / dim
+    # theta = np.ones(dim)
+
+
     env = LinearEnv(features=features.copy(), param=theta.copy(), rew_noise=cfg.noise_param, random_state=cfg.seed)
     problem_gen = np.random.RandomState(cfg.seed_problem)
 
     rep_list = []
     param_list = []
+    rep_list.append(LinearRepresentation(features))
+    param_list.append(theta)
     for i in range(1, dim):
         fi, pi = derank_hls(features=features, param=theta, newrank=i, transform=True, normalize=True, seed=cfg.seed_problem)
         # if np.random.binomial(1, p=0.1):
@@ -58,8 +72,6 @@ def my_app(cfg: DictConfig) -> None:
         #     fi = fi + np.random.randn(*fi.shape)
         rep_list.append(LinearRepresentation(fi))
         param_list.append(pi)
-    rep_list.append(LinearRepresentation(features))
-    param_list.append(theta)
 
     true_reward = features @ theta
 

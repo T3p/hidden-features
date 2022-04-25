@@ -8,6 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 from ..replaybuffer import SimpleBuffer
 from ..nnmodel import initialize_weights
 import time
+from ... import TORCH_FLOAT
 
 
 class XBModule(nn.Module):
@@ -24,7 +25,8 @@ class XBModule(nn.Module):
         buffer_capacity: Optional[int]=10000,
         seed: Optional[int]=0,
         reset_model_at_train: Optional[bool]=True,
-        update_every_n_steps: Optional[int] = 100
+        update_every: Optional[int] = 100,
+        train_reweight: Optional[bool]=False
     ) -> None:
         super().__init__()
         self.env = env
@@ -37,8 +39,9 @@ class XBModule(nn.Module):
         self.buffer_capacity = buffer_capacity
         self.seed = seed
         self.reset_model_at_train = reset_model_at_train
-        self.update_every_n_steps = update_every_n_steps
+        self.update_every = update_every
         self.unit_vector: Optional[torch.tensor] = None
+        self.train_reweight = train_reweight
 
     def reset(self) -> None:
         self.t = 0
@@ -53,10 +56,12 @@ class XBModule(nn.Module):
         self.batch_counter = 0
         if self.model:
             self.model.to(self.device)
+            self.model.to(TORCH_FLOAT)
 
         # TODO: check the following lines: with initialization to 0 the training code is never called
-        # self.update_time = 0
-        self.update_time = 2**np.ceil(np.log2(self.batch_size)) + 1
+        self.update_time = 2
+        # self.update_time = 2**np.ceil(np.log2(self.batch_size)) + 1
+        # self.update_time = int(self.batch_size + 1)
 
     def _post_train(self, loader=None) -> None:
         pass
@@ -66,48 +71,64 @@ class XBModule(nn.Module):
         self.buffer.append(exp)
 
     def train(self) -> float:
-        # if self.t % self.update_every_n_steps == 0 and self.t > self.batch_size:
-        if self.t == self.update_time and self.t > self.batch_size:
-            self.update_time = max(1, self.update_time) * 2
-            if self.reset_model_at_train:
-                initialize_weights(self.model)
-                if self.unit_vector is not None:
-                    self.unit_vector = torch.ones(self.model.embedding_dim).to(self.device) / np.sqrt(
-                        self.model.embedding_dim)
-                    self.unit_vector.requires_grad = True
-                    self.unit_vector_optimizer = torch.optim.SGD([self.unit_vector], lr=self.learning_rate)
-                # for layer in self.model.children():
-                #     if hasattr(layer, 'reset_parameters'):
-                #         layer.reset_parameters()
-            features, rewards = self.buffer.get_all()
-            torch_dataset = torch.utils.data.TensorDataset(
-                torch.tensor(features, dtype=torch.float, device=self.device),
-                torch.tensor(rewards.reshape(-1, 1), dtype=torch.float, device=self.device)
-                )
+        # if self.t % self.update_every == 0 and self.t > self.batch_size:
+        if self.t == self.update_time:
+            # self.update_time = max(1, self.update_time) * 2
+            self.update_time = int(np.ceil(max(1, self.update_time) * self.update_every))
+            if self.t > self.batch_size:
+                # self.update_time = self.update_time + self.update_every 
+                if self.reset_model_at_train:
+                    initialize_weights(self.model)
+                    if self.unit_vector is not None:
+                        self.unit_vector = torch.ones(self.model.embedding_dim).to(self.device) / np.sqrt(
+                            self.model.embedding_dim)
+                        self.unit_vector.requires_grad = True
+                        self.unit_vector_optimizer = torch.optim.SGD([self.unit_vector], lr=self.learning_rate)
+                    # for layer in self.model.children():
+                    #     if hasattr(layer, 'reset_parameters'):
+                    #         layer.reset_parameters()
+                features, rewards = self.buffer.get_all()
 
-            loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
-            optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
-            self.model.train()
-            last_loss = 0.0
-            for epoch in range(self.max_updates):
-                lh = []
-                for b_features, b_rewards in loader:
-                    loss = self._train_loss(b_features, b_rewards)
-                    if isinstance(loss, int):
+                weights = torch.ones((features.shape[0], 1)).to(self.device)
+                if self.train_reweight:
+                    with torch.no_grad():
+                        xt = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
+                        pred = self.model(xt)
+                        z = (pred.cpu().detach().numpy() - rewards)**2
+                        # z = 1/(1 + np.exp(-z))
+                        # z = z**3
+                        weights = torch.tensor(z, dtype=TORCH_FLOAT, device=self.device)
+                print(torch.mean(weights), torch.max(weights), torch.min(weights))
+
+                torch_dataset = torch.utils.data.TensorDataset(
+                    torch.tensor(features, dtype=TORCH_FLOAT, device=self.device),
+                    torch.tensor(rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device),
+                    weights
+                    )
+
+                loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
+                optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+                self.model.train()
+                last_loss = 0.0
+                for epoch in range(self.max_updates):
+                    lh = []
+                    for b_features, b_rewards, b_weights in loader:
+                        loss = self._train_loss(b_features, b_rewards, b_weights)
+                        if isinstance(loss, int):
+                            break
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+                        self.writer.flush()
+                        self.batch_counter += 1
+                        lh.append(loss.item())
+                    last_loss = np.mean(lh)
+                    if last_loss < 1e-3:
                         break
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-                    self.writer.flush()
-                    self.batch_counter += 1
-                    lh.append(loss.item())
-                last_loss = np.mean(lh)
-                if last_loss < 1e-3:
-                    break
-            self.writer.add_scalar('epoch_mse_loss', last_loss, self.t)
-            self.model.eval()
-            self._post_train(loader)
-            return last_loss
+                self.writer.add_scalar('epoch_mse_loss', last_loss, self.t)
+                self.model.eval()
+                self._post_train(loader)
+                return last_loss
         return None
 
     def _continue(self, horizon: int) -> None:

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import numpy as np
 from dataclasses import dataclass
 from typing import Any, Optional, Tuple
-from sklearn.utils import shuffle
+import sklearn
 from scipy.special import expit as sigmoid
 from .spaces import DiscreteFix
 
@@ -20,8 +20,8 @@ class CBFinite:
 
     def __post_init__(self) -> None:
         self.np_random = np.random.RandomState(seed=self.seed)
-        if shuffle:
-            self.feature_matrix, self.rewards = shuffle(self.feature_matrix, self.rewards, random_state=self.seed)
+        if self.shuffle:
+            self.feature_matrix, self.rewards = sklearn.utils.shuffle(self.feature_matrix, self.rewards, random_state=self.seed)
         assert self.noise in [None, "bernoulli", "gaussian"]
         self.idx = -1
         assert len(self.feature_matrix.shape) == 3
