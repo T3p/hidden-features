@@ -17,18 +17,18 @@ from scipy.special import expit as sigmoid
 
 if __name__ == "__main__":
     seed = 0
-    horizon = 10000
+    horizon = 500000
     rng = np.random.RandomState(seed=seed)
     
     #"""
-    #nc = 20
-    #na = 4
-    #dim = 5
-    features = np.load("problem_data/basic_features.npy")
-    dim = features.shape[-1]
-    #features = rng.uniform(low=-1., high=1., size=(nc, na, dim))
-    param = 0.01 * np.load("problem_data/basic_param.npy")
-    #param = rng.uniform(low=-1., high=1., size=dim)
+    nc = 20
+    na = 4
+    dim = 5
+    #features = np.load("problem_data/basic_features.npy")
+    #dim = features.shape[-1]
+    features = rng.uniform(low=-1., high=1., size=(nc, na, dim))
+    #param = 0.01 * np.load("problem_data/basic_param.npy")
+    param = rng.uniform(low=-1., high=1., size=dim)
     #"""
 
     rewards = features @ param
@@ -40,6 +40,8 @@ if __name__ == "__main__":
                            noise="bernoulli",
                            seed=seed)
     min_gap=env.min_suboptimality_gap()
+    exploration_rounds = np.sqrt(dim*horizon)
+    print(exploration_rounds)
 
     algo = UCBGLM(
         env=env,
@@ -50,7 +52,8 @@ if __name__ == "__main__":
         bonus_scale=1.,
         opt_tolerance=1e-8,
         true_param=None,
-        param_bound = np.linalg.norm(param)
+        param_bound = np.linalg.norm(param),
+        exploration_rounds=exploration_rounds
     )
     algo.reset()
     result = algo.run(horizon=horizon)

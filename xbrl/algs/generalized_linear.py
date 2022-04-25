@@ -12,7 +12,7 @@ def sigmoid_derivative(x):
     return sigmoid(x) * (1 - sigmoid(x))
 
 def sigmoid_nonlinearity(param_bound, features_bound):
-    z = param_bound * features_bound
+    z = param_bound * features_bound + 1
     return 2 * (np.cosh(z) + 1)
 
 #optimized for logistic bandits
@@ -29,7 +29,8 @@ class UCBGLM(XBModule):
         opt_tolerance=1e-8,
         param_bound = 1.,
         features_bound = 1.,
-        true_param=None #for testing purposes!
+        true_param=None, #for testing purposes!
+        exploration_rounds=0
     ) -> None:
         super().__init__(env, None, None, None, None, None, None, 0, seed, None, update_every_n_steps)
         self.np_random = np.random.RandomState(seed)
@@ -49,6 +50,14 @@ class UCBGLM(XBModule):
         self.param_bound = param_bound
         self.features_bound = features_bound
         self.true_param = true_param
+        self.exploration_rounds = exploration_rounds
+        self.rng = np.random.RandomState(seed=seed)
+        
+        dim = self.env.dim
+        nonlinearity_coeff = self.nonlinearity_function(self.param_bound, self.features_bound)
+        min_rounds = 2*noise_std**2*nonlinearity_coeff**4 / dim * np.log(
+            noise_std**2*nonlinearity_coeff**4*self.env.n_arms/ (dim*delta))
+        print(min_rounds)
         
     def reset(self) -> None:
         super().reset()
@@ -59,23 +68,27 @@ class UCBGLM(XBModule):
         self.features_history = [np.zeros(dim), np.zeros(dim)]
         self.reward_history = [0., 1.]
         self.A_logdet = dim*np.log(self.ucb_regularizer)
+        self.round = 1
 
     def play_action(self, features: np.ndarray) -> int:
         assert features.shape[0] == self.env.action_space.n
         dim = features.shape[1]
         nonlinearity_coeff = self.nonlinearity_function(self.param_bound, self.features_bound)
-        beta = nonlinearity_coeff * self.noise_std * np.sqrt(self.A_logdet - 2*np.log(self.ucb_regularizer**(dim / 2) * self.delta )) + np.sqrt(self.ucb_regularizer) * self.param_bound
-        #beta = nonlinearity_coeff * self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2*self.t/self.ucb_regularizer)/self.delta)) + self.param_bound * np.sqrt(self.ucb_regularizer)
-        #beta = np.sqrt(np.log(self.t+1))
-        # get features for each action and make it tensor
-        bonus = ((features @ self.inv_A)*features).sum(axis=1)
-        bonus = self.bonus_scale * beta * np.sqrt(bonus)
-        ucb = features @ self.theta + bonus
-        action = np.argmax(ucb).item()
-        #print(bonus[action].item())
-        self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
+        if self.round > np.ceil(self.exploration_rounds):
+            beta = nonlinearity_coeff * self.noise_std * np.sqrt(self.A_logdet - 2*np.log(self.ucb_regularizer**(dim / 2) * self.delta )) + np.sqrt(self.ucb_regularizer) * self.param_bound
+            #beta = nonlinearity_coeff * self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2*self.t/self.ucb_regularizer)/self.delta)) + self.param_bound * np.sqrt(self.ucb_regularizer)
+            #beta = np.sqrt(np.log(self.t+1))
+            # get features for each action and make it tensor
+            bonus = ((features @ self.inv_A)*features).sum(axis=1)
+            bonus = self.bonus_scale * beta * np.sqrt(bonus)
+            ucb = features @ self.theta + bonus
+            action = np.argmax(ucb).item()
+            #print(bonus[action].item())
+            self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
+        else:
+            action = self.rng.choice(self.env.action_space.n)
+        self.round = self.round + 1
         assert 0 <= action < self.env.action_space.n, ucb
-
         return action
 
     def add_sample(self, context: np.ndarray, action: int, reward: float, features: np.ndarray) -> None:

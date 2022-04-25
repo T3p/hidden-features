@@ -30,7 +30,7 @@ class XBModule(nn.Module):
         self.env = env
         self.model = model
         self.device = device
-        self.batch_size = batch_size
+        self.batch_size = batch_size if batch_size is not None else 1
         self.max_updates = max_updates
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
