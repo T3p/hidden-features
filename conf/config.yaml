@@ -27,6 +27,7 @@ epsilon_min: 0.001
 epsilon_start: 1
 epsilon_decay: 20000
 time_random_exp: 1000
+train_reweight: False
 
 # misc
 seed: 1
