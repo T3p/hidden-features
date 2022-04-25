@@ -65,6 +65,7 @@ class IncBase(nn.Module):
         self.runtime = np.zeros(1)
         if self.model:
             self.model.to(self.device)
+            self.model.to(TORCH_FLOAT)
 
         # TODO: check the following lines: with initialization to 0 the training code is never called
         # self.update_time = 0

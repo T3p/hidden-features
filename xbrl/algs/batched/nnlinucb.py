@@ -42,10 +42,10 @@ class NNLinUCB(XBModule):
     def reset(self) -> None:
         super().reset()
         dim = self.model.embedding_dim
-        self.b_vec = torch.zeros(dim).to(self.device)
-        self.inv_A = torch.eye(dim).to(self.device) / self.ucb_regularizer
+        self.b_vec = torch.zeros(dim, dtype=TORCH_FLOAT).to(self.device)
+        self.inv_A = torch.eye(dim, dtype=TORCH_FLOAT).to(self.device) / self.ucb_regularizer
         self.A = torch.zeros_like(self.inv_A)
-        self.theta = torch.zeros(dim).to(self.device)
+        self.theta = torch.zeros(dim, dtype=TORCH_FLOAT).to(self.device)
         self.param_bound = np.sqrt(self.env.feature_dim)
         self.features_bound = np.sqrt(self.env.feature_dim)
 
@@ -124,7 +124,7 @@ class NNLinUCB(XBModule):
             
             dim = self.model.embedding_dim
             f, r = self.buffer.get_all()
-            inv_A = torch.eye(dim) / self.ucb_regularizer
+            # inv_A = torch.eye(dim) / self.ucb_regularizer
             torch_feat = torch.tensor(f, dtype=TORCH_FLOAT)
             torch_rew = torch.tensor(r.reshape(-1,1), dtype=TORCH_FLOAT)
             torch_phi = self.model.embedding(torch_feat)
