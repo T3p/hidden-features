@@ -25,7 +25,8 @@ class XBModule(nn.Module):
         buffer_capacity: Optional[int]=10000,
         seed: Optional[int]=0,
         reset_model_at_train: Optional[bool]=True,
-        update_every: Optional[int] = 100
+        update_every: Optional[int] = 100,
+        train_reweight: Optional[bool]=False
     ) -> None:
         super().__init__()
         self.env = env
@@ -40,6 +41,7 @@ class XBModule(nn.Module):
         self.reset_model_at_train = reset_model_at_train
         self.update_every = update_every
         self.unit_vector: Optional[torch.tensor] = None
+        self.train_reweight = train_reweight
 
     def reset(self) -> None:
         self.t = 0
@@ -85,9 +87,20 @@ class XBModule(nn.Module):
                     #     if hasattr(layer, 'reset_parameters'):
                     #         layer.reset_parameters()
                 features, rewards = self.buffer.get_all()
+
+                weights = torch.ones((features.shape[0], 1)).to(self.device)
+                if self.train_reweight:
+                    with torch.no_grad():
+                        xt = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
+                        pred = self.model(xt)
+                        err = (pred.cpu().detach().numpy() - rewards)**2
+                        z = 1/(1 + np.exp(-err))
+                        weights = torch.tensor(z, dtype=TORCH_FLOAT, device=self.device)
+
                 torch_dataset = torch.utils.data.TensorDataset(
                     torch.tensor(features, dtype=TORCH_FLOAT, device=self.device),
-                    torch.tensor(rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
+                    torch.tensor(rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device),
+                    weights
                     )
 
                 loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
@@ -96,8 +109,8 @@ class XBModule(nn.Module):
                 last_loss = 0.0
                 for epoch in range(self.max_updates):
                     lh = []
-                    for b_features, b_rewards in loader:
-                        loss = self._train_loss(b_features, b_rewards)
+                    for b_features, b_rewards, b_weights in loader:
+                        loss = self._train_loss(b_features, b_rewards, b_weights)
                         if isinstance(loss, int):
                             break
                         optimizer.zero_grad()

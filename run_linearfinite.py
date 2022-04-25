@@ -184,7 +184,8 @@ def my_app(cfg: DictConfig) -> None:
             ucb_regularizer=cfg.ucb_regularizer,
             bonus_scale=cfg.bonus_scale,
             use_tb=cfg.use_tb,
-            use_wandb=cfg.use_wandb
+            use_wandb=cfg.use_wandb,
+            train_reweight=cfg.train_reweight
         )
     elif cfg.algo == "nnleaderinc":
         algo = incalg.NNLeaderInc(
@@ -224,7 +225,8 @@ def my_app(cfg: DictConfig) -> None:
             weight_spectral=cfg.weight_spectral,
             weight_l2features=cfg.weight_l2features,
             weight_orth=cfg.weight_orth,
-            weight_rayleigh=cfg.weight_rayleigh
+            weight_rayleigh=cfg.weight_rayleigh,
+            train_reweight=cfg.train_reweight
         )
     elif cfg.algo == "nnegreedy":
         algo = NNEpsGreedy(
@@ -243,7 +245,8 @@ def my_app(cfg: DictConfig) -> None:
             epsilon_min=cfg.epsilon_min,
             epsilon_start=cfg.epsilon_start,
             epsilon_decay=cfg.epsilon_decay,
-            time_random_exp=cfg.time_random_exp
+            time_random_exp=cfg.time_random_exp,
+            train_reweight=cfg.train_reweight
         )
     elif cfg.algo == "nneginc":
         algo = incalg.NNEGInc(

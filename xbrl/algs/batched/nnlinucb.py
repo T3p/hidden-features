@@ -26,11 +26,12 @@ class NNLinUCB(XBModule):
             delta: Optional[float]=0.01,
             ucb_regularizer: Optional[float]=1,
             weight_mse: Optional[float]=1,
-            bonus_scale: Optional[float]=1.
+            bonus_scale: Optional[float]=1.,
+            train_reweight: Optional[bool]=False
     ) -> None:
         super().__init__(env, model, device, batch_size, max_updates, learning_rate,
                          weight_decay, buffer_capacity, seed, reset_model_at_train,
-                         update_every)
+                         update_every, train_reweight)
         self.noise_std = noise_std
         self.delta = delta
         self.ucb_regularizer = ucb_regularizer
@@ -48,13 +49,15 @@ class NNLinUCB(XBModule):
         self.param_bound = np.sqrt(self.env.feature_dim)
         self.features_bound = np.sqrt(self.env.feature_dim)
 
-    def _train_loss(self, b_features, b_rewards):
+    def _train_loss(self, b_features, b_rewards, b_weights):
         loss = 0
         # MSE LOSS
         if not np.isclose(self.weight_mse,0):
             prediction = self.model(b_features)
             mse_loss = F.mse_loss(prediction, b_rewards)
             self.writer.add_scalar('mse_loss', self.weight_mse * mse_loss, self.batch_counter)
+            mse_loss = (b_weights * (prediction - b_rewards)**2).mean()
+            self.writer.add_scalar('weighted_mse_loss', self.weight_mse * mse_loss, self.batch_counter)
             loss = loss + self.weight_mse * mse_loss 
         return loss
     
@@ -127,7 +130,7 @@ class NNLinUCB(XBModule):
             self.inv_A = torch.eye(dim).to(self.device) / self.ucb_regularizer
             self.A = torch.zeros_like(self.inv_A)
             self.features_bound = 0
-            for b_features, b_rewards in loader:
+            for b_features, b_rewards, b_weights in loader:
                 phi = self.model.embedding(b_features) #.cpu().detach().numpy()
 
                 # features

@@ -24,9 +24,10 @@ class NNEpsGreedy(NNLinUCB):
             epsilon_start: float=2,
             epsilon_decay: float=200,
             time_random_exp: int=0,
-            ucb_regularizer: Optional[float]=1
+            ucb_regularizer: Optional[float]=1,
+            train_reweight: Optional[bool]=False
     ) -> None:
-        super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train, update_every, 0, 0.01, ucb_regularizer, 1, 0)
+        super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train, update_every, 0, 0.01, ucb_regularizer, 1, 0, train_reweight)
         self.epsilon_min = epsilon_min
         self.epsilon_start = epsilon_start
         self.epsilon_decay = epsilon_decay

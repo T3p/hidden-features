@@ -23,7 +23,7 @@ class LinUCB(XBModule):
         ucb_regularizer: Optional[float]=1,
         bonus_scale: Optional[float]=1.
     ) -> None:
-        super().__init__(env, None, None, None, None, None, None, 0, seed, None, update_every)
+        super().__init__(env, None, None, None, None, None, None, 0, seed, None, update_every, train_reweight=False)
         self.np_random = np.random.RandomState(seed)
         self.noise_std = noise_std
         self.delta = delta

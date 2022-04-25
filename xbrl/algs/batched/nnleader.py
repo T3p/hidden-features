@@ -20,9 +20,10 @@ class NNLeader(NNLinUCB):
             weight_spectral: Optional[float]=-0.001,
             weight_l2features: Optional[float]=0,
             weight_orth: Optional[float] = 0,
-            weight_rayleigh: Optional[float] = 0
+            weight_rayleigh: Optional[float] = 0,
+            train_reweight: Optional[bool]=False
     ) -> None:
-        super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train, update_every, noise_std, delta, ucb_regularizer, weight_mse, bonus_scale)
+        super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train, update_every, noise_std, delta, ucb_regularizer, weight_mse, bonus_scale, train_reweight)
         self.weight_spectral = weight_spectral
         self.weight_l2features = weight_l2features
         self.weight_orth = weight_orth
@@ -33,7 +34,7 @@ class NNLeader(NNLinUCB):
             self.unit_vector_optimizer = torch.optim.Adam([self.unit_vector], lr=self.learning_rate)
 
 
-    def _train_loss(self, b_features, b_rewards):
+    def _train_loss(self, b_features, b_rewards, b_weights):
         loss = 0
         # MSE LOSS
         if not np.isclose(self.weight_mse,0):
