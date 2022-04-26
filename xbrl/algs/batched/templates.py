@@ -75,7 +75,7 @@ class XBModule(nn.Module):
         if self.t == self.update_time:
             # self.update_time = max(1, self.update_time) * 2
             self.update_time = int(np.ceil(max(1, self.update_time) * self.update_every))
-            if self.t > self.batch_size:
+            if self.t > 10: #self.batch_size:
                 # self.update_time = self.update_time + self.update_every 
                 if self.reset_model_at_train:
                     initialize_weights(self.model)

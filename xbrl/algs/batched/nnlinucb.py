@@ -44,7 +44,7 @@ class NNLinUCB(XBModule):
         dim = self.model.embedding_dim
         self.b_vec = torch.zeros(dim, dtype=TORCH_FLOAT).to(self.device)
         self.inv_A = torch.eye(dim, dtype=TORCH_FLOAT).to(self.device) / self.ucb_regularizer
-        self.A = torch.zeros_like(self.inv_A)
+        self.A = torch.eye(dim, dtype=TORCH_FLOAT).to(self.device) * self.ucb_regularizer
         self.theta = torch.zeros(dim, dtype=TORCH_FLOAT).to(self.device)
         self.param_bound = np.sqrt(self.env.feature_dim)
         self.features_bound = np.sqrt(self.env.feature_dim)
@@ -180,8 +180,8 @@ class NNLinUCB(XBModule):
             self.param_bound = torch.linalg.norm(self.theta, 2).item()
             self.writer.add_scalar('param_bound', self.param_bound, self.t)
             self.writer.add_scalar('features_bound', self.features_bound, self.t)
-            min_eig = torch.linalg.eigvalsh(self.A/(self.t+1)).min() / self.features_bound
-            self.writer.add_scalar('min_eig_empirical_design', min_eig, self.t)
+            # min_eig = torch.linalg.eigvalsh(self.A/(self.t+1)).min() / self.features_bound
+            # self.writer.add_scalar('min_eig_empirical_design', min_eig, self.t)
 
             pred = torch_phi @ self.theta
             mse_loss = F.mse_loss(pred.reshape(-1,1), torch_rew)
