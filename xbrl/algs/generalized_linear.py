@@ -24,19 +24,16 @@ class UCBGLM(XBModule):
         update_every_n_steps: Optional[int] = 1,
         noise_std: float=1,
         delta: Optional[float]=0.01,
-        ucb_regularizer: Optional[float]=1,
         bonus_scale: Optional[float]=1.,
         opt_tolerance=1e-8,
         param_bound = 1.,
         features_bound = 1.,
         true_param=None, #for testing purposes!
-        exploration_rounds=0
     ) -> None:
         super().__init__(env, None, None, None, None, None, None, 0, seed, None, update_every_n_steps)
         self.np_random = np.random.RandomState(seed)
         self.noise_std = noise_std
         self.delta = delta
-        self.ucb_regularizer = ucb_regularizer
         self.bonus_scale = bonus_scale
         self.link_function = sigmoid
         self.nonlinearity_function = sigmoid_nonlinearity
@@ -50,34 +47,44 @@ class UCBGLM(XBModule):
         self.param_bound = param_bound
         self.features_bound = features_bound
         self.true_param = true_param
-        self.exploration_rounds = exploration_rounds
-        self.rng = np.random.RandomState(seed=seed)
-        
-        dim = self.env.dim
-        nonlinearity_coeff = self.nonlinearity_function(self.param_bound, self.features_bound)
-        min_rounds = 2*noise_std**2*nonlinearity_coeff**4 / dim * np.log(
-            noise_std**2*nonlinearity_coeff**4*self.env.n_arms/ (dim*delta))
-        print(min_rounds)
+        self.rng = np.random.RandomState(seed=seed)        
+        self.dim = self.env.dim
+        self.update_every_n_steps = update_every_n_steps
+        self.nonlinearity_coeff = self.nonlinearity_function(self.param_bound, self.features_bound)
+        self.mineig_threshold = 16 * self.noise_std**2 * self.nonlinearity_coeff**2 + (self.dim + np.log(1 / self.delta))
+
         
     def reset(self) -> None:
         super().reset()
-        dim = self.dim = self.env.feature_dim
-        self.inv_A = np.eye(dim) / self.ucb_regularizer
+        dim = self.dim
+        self.A = np.zeros(shape=(dim, dim))
+        self.A_logdet = None
+        self.inv_A = None
         self.theta = np.zeros(dim) if self.true_param is None else self.true_param
-        self.new_inv_A = np.eye(dim) / self.ucb_regularizer
+        self.new_inv_A = None
         self.features_history = [np.zeros(dim), np.zeros(dim)]
         self.reward_history = [0., 1.]
-        self.A_logdet = dim*np.log(self.ucb_regularizer)
-        self.round = 1
+        self.exp_phase = True
 
     def play_action(self, features: np.ndarray) -> int:
         assert features.shape[0] == self.env.action_space.n
-        dim = features.shape[1]
-        nonlinearity_coeff = self.nonlinearity_function(self.param_bound, self.features_bound)
-        if self.round > np.ceil(self.exploration_rounds):
-            beta = nonlinearity_coeff * self.noise_std * np.sqrt(self.A_logdet - 2*np.log(self.ucb_regularizer**(dim / 2) * self.delta )) + np.sqrt(self.ucb_regularizer) * self.param_bound
+        
+        mineig = np.amin(np.linalg.eig(self.A)[0])
+        
+        if mineig < self.mineig_threshold:
+            action = self.rng.choice(self.env.action_space.n)
+        else:
+            if self.exp_phase==True:
+                print('Completed exploratory phase in %d rounds' % (self.t - 1))
+                self.inv_A = np.linalg.inv(self.A)
+                self.new_inv_A = self.inv_A.copy()
+                self.A_logdet = np.log(np.linalg.det(self.A))
+                self.exp_phase = False
+            #beta = nonlinearity_coeff * self.noise_std * np.sqrt(self.A_logdet - 2*np.log(self.ucb_regularizer**(dim / 2) * self.delta )) + np.sqrt(self.ucb_regularizer) * self.param_bound
             #beta = nonlinearity_coeff * self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2*self.t/self.ucb_regularizer)/self.delta)) + self.param_bound * np.sqrt(self.ucb_regularizer)
             #beta = np.sqrt(np.log(self.t+1))
+            beta =  self.nonlinearity_coeff * self.noise_std * np.sqrt(self.dim / 2 * np.log(
+                    (1 + 2 * self.features_bound**2 * self.t / self.dim) / self.delta))
             # get features for each action and make it tensor
             bonus = ((features @ self.inv_A)*features).sum(axis=1)
             bonus = self.bonus_scale * beta * np.sqrt(bonus)
@@ -85,9 +92,7 @@ class UCBGLM(XBModule):
             action = np.argmax(ucb).item()
             #print(bonus[action].item())
             self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
-        else:
-            action = self.rng.choice(self.env.action_space.n)
-        self.round = self.round + 1
+            
         assert 0 <= action < self.env.action_space.n, ucb
         return action
 
@@ -98,9 +103,10 @@ class UCBGLM(XBModule):
         self.reward_history.append(reward)
         #self.features_bound = max(self.features_bound, np.linalg.norm(v, 2).item())
         self.writer.add_scalar('features_bound', self.features_bound, self.t)
-        
-        self.new_inv_A, den = inv_sherman_morrison(features, self.new_inv_A)
-        self.A_logdet += np.log(den)
+        self.A = self.A + np.outer(features, features)
+        if self.exp_phase==False:
+            self.new_inv_A, den = inv_sherman_morrison(features, self.new_inv_A)
+            self.A_logdet += np.log(den)
         
     def train(self) -> float:
         if self.t % self.update_every_n_steps == 0:
