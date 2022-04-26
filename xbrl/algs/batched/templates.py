@@ -93,9 +93,9 @@ class XBModule(nn.Module):
                 if self.train_reweight:
                     with torch.no_grad():
                         xt = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
-                        pred = self.model(xt)
+                        pred = self.model(xt).ravel()
                         z = (pred.cpu().detach().numpy() - rewards)**2
-                        # z = 1/(1 + np.exp(-z))
+                        z = 1/(1 + np.exp(-z))
                         # z = z**3
                         weights = torch.tensor(z, dtype=TORCH_FLOAT, device=self.device)
                 print(torch.mean(weights), torch.max(weights), torch.min(weights))
