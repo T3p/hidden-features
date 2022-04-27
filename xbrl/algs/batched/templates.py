@@ -10,6 +10,7 @@ from ..nnmodel import initialize_weights
 import time
 from ... import TORCH_FLOAT
 from collections import defaultdict
+import logging
 
 
 class XBModule(nn.Module):
@@ -43,6 +44,7 @@ class XBModule(nn.Module):
         self.update_every = update_every
         self.unit_vector: Optional[torch.tensor] = None
         self.train_reweight = train_reweight
+        self.logger = logging.getLogger(__name__)
 
     def reset(self) -> None:
         self.t = 0

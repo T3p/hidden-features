@@ -53,3 +53,9 @@ hydra:
     nodes: 1
     submitit_folder: ./multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}_${algo}/.slurm
     partition: devlab
+  job_logging :
+      formatters:
+        simple:
+          format: '%(message)s'
+      root:
+        handlers: [file]

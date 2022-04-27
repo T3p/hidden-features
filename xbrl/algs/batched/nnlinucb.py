@@ -48,6 +48,7 @@ class NNLinUCB(XBModule):
         self.theta = torch.zeros(dim, dtype=TORCH_FLOAT).to(self.device)
         self.param_bound = np.sqrt(self.env.feature_dim)
         self.features_bound = np.sqrt(self.env.feature_dim)
+        self.A_logdet = np.log(self.ucb_regularizer) * dim
 
     def _train_loss(self, b_features, b_rewards, b_weights):
         loss = 0
@@ -68,9 +69,11 @@ class NNLinUCB(XBModule):
     def play_action(self, features: np.ndarray):
         assert features.shape[0] == self.env.action_space.n
         dim = self.model.embedding_dim
-        beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
-                                                      *self.t/self.ucb_regularizer)/self.delta))\
-               + self.param_bound * np.sqrt(self.ucb_regularizer)
+        # beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
+        #                                               *self.t/self.ucb_regularizer)/self.delta))\
+        #        + self.param_bound * np.sqrt(self.ucb_regularizer)
+        val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
+        beta = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.ucb_regularizer)
         # beta = np.sqrt(np.log(self.t+1))
 
         # get features for each action and make it tensor
@@ -83,6 +86,11 @@ class NNLinUCB(XBModule):
         action = torch.argmax(ucb).item()
         self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
         assert 0 <= action < self.env.action_space.n, ucb
+
+        if self.t % 100 == 0:
+            self.logger.info(f"[{self.t}]bonus:\n {bonus}")
+            self.logger.info(f"[{self.t}]prediction:\n {net_features @ self.theta}")
+            self.logger.info(f"[{self.t}]ucb:\n {ucb}")
         return action
 
     def add_sample(self, context: np.ndarray, action: int, reward: float, features: np.ndarray) -> None:
@@ -104,6 +112,7 @@ class NNLinUCB(XBModule):
             # self.theta = self.inv_A @ self.b_vec
             self.theta = torch.linalg.solve(self.A, self.b_vec)
             self.inv_A = torch.linalg.inv(self.A)
+            self.A_logdet = torch.logdet(self.A)
 
             if self.t % 50 == 0:
                 f, r = self.buffer.get_all()
@@ -114,6 +123,17 @@ class NNLinUCB(XBModule):
                 mse_loss = F.mse_loss(pred.reshape(-1,1), torch_rew)
                 self.writer.add_scalar('mse_linear', mse_loss.item(), self.t)
                 # print(f"{self.t} - mse: {mse_loss.item()}")
+
+            if self.t % 100 == 0:
+
+                nc,na,nd = self.env.feature_matrix.shape
+                U = self.env.feature_matrix.reshape(-1, nd)
+                xt = torch.tensor(U, dtype=TORCH_FLOAT) 
+                H = self.model.embedding(xt)
+                newfeatures = H.reshape(nc, na, self.model.embedding_dim)
+                newreward = newfeatures @ self.theta
+                max_err = np.abs(self.env.rewards - newreward.cpu().detach().numpy()).max()
+                self.writer.add_scalar('max miss-specification', max_err, self.t)
 
 
             self.features_bound = max(self.features_bound, torch.norm(v, p=2).cpu().item())
@@ -138,6 +158,7 @@ class NNLinUCB(XBModule):
             self.A = YYtt
             self.b_vec = BBtt
             self.inv_A = torch.linalg.inv(self.A)
+            self.A_logdet = torch.logdet(self.A)
             # for el in torch_phi:
             #     # el = el.squeeze()
             #     Au = inv_A @ el
