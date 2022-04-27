@@ -9,6 +9,7 @@ from ..replaybuffer import SimpleBuffer
 from ..nnmodel import initialize_weights
 import time
 from ... import TORCH_FLOAT
+from collections import defaultdict
 
 
 class XBModule(nn.Module):
@@ -74,7 +75,10 @@ class XBModule(nn.Module):
         # if self.t % self.update_every == 0 and self.t > self.batch_size:
         if self.t == self.update_time:
             # self.update_time = max(1, self.update_time) * 2
-            self.update_time = int(np.ceil(max(1, self.update_time) * self.update_every))
+            if self.update_every > 5:
+                self.update_time += self.update_every
+            else:
+                self.update_time = int(np.ceil(max(1, self.update_time) * self.update_every))
             if self.t > 10: #self.batch_size:
                 # self.update_time = self.update_time + self.update_every 
                 if self.reset_model_at_train:
@@ -98,7 +102,7 @@ class XBModule(nn.Module):
                         z = 1/(1 + np.exp(-z))
                         # z = z**3
                         weights = torch.tensor(z, dtype=TORCH_FLOAT, device=self.device)
-                print(torch.mean(weights), torch.max(weights), torch.min(weights))
+                    print(f"reweighting: avg: {torch.mean(weights)} - min/max: {torch.min(weights)}, {torch.max(weights)}")
 
                 torch_dataset = torch.utils.data.TensorDataset(
                     torch.tensor(features, dtype=TORCH_FLOAT, device=self.device),
@@ -112,8 +116,11 @@ class XBModule(nn.Module):
                 last_loss = 0.0
                 for epoch in range(self.max_updates):
                     lh = []
+                    log_last_epoch_aux = defaultdict(list)
                     for b_features, b_rewards, b_weights in loader:
-                        loss = self._train_loss(b_features, b_rewards, b_weights)
+                        loss, aux_metrics = self._train_loss(b_features, b_rewards, b_weights)
+                        for k,v in aux_metrics.items():
+                            log_last_epoch_aux[k].append(v.item())
                         if isinstance(loss, int):
                             break
                         optimizer.zero_grad()
@@ -122,12 +129,16 @@ class XBModule(nn.Module):
                         self.writer.flush()
                         self.batch_counter += 1
                         lh.append(loss.item())
+                        
                     last_loss = np.mean(lh)
                     if last_loss < 1e-3:
                         break
                 self.writer.add_scalar('epoch_mse_loss', last_loss, self.t)
                 self.model.eval()
                 self._post_train(loader)
+                for k in log_last_epoch_aux.keys():
+                    tmp = np.mean(log_last_epoch_aux[k])
+                    self.writer.add_scalar(k, tmp, self.t)
                 return last_loss
         return None
 

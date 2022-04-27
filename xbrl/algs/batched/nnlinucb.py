@@ -59,7 +59,11 @@ class NNLinUCB(XBModule):
             mse_loss = (b_weights * (prediction - b_rewards)**2).mean()
             self.writer.add_scalar('weighted_mse_loss', self.weight_mse * mse_loss, self.batch_counter)
             loss = loss + self.weight_mse * mse_loss 
-        return loss
+            with torch.no_grad():
+                # debug metrics
+                deb_mle = F.mse_loss(prediction, b_rewards)
+
+        return loss, {"mse_log": deb_mle}
     
     @torch.no_grad()
     def play_action(self, features: np.ndarray):

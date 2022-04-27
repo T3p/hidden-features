@@ -54,7 +54,7 @@ class NNLeader(NNLinUCB):
         self.writer.add_scalar('mse_weight', mse_weight, self.batch_counter)
 
         loss = mse_weight * mse_loss - spectral_loss
-        return loss
+        return loss, {}
 
     # def _train_loss(self, b_features, b_rewards, b_weights):
     #     loss = 0
