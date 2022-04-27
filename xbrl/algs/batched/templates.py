@@ -120,7 +120,7 @@ class XBModule(nn.Module):
                     for b_features, b_rewards, b_weights in loader:
                         loss, aux_metrics = self._train_loss(b_features, b_rewards, b_weights)
                         for k,v in aux_metrics.items():
-                            log_last_epoch_aux[k].append(v.item())
+                            log_last_epoch_aux[k].append(v)
                         if isinstance(loss, int):
                             break
                         optimizer.zero_grad()
@@ -133,7 +133,7 @@ class XBModule(nn.Module):
                     last_loss = np.mean(lh)
                     if last_loss < 1e-3:
                         break
-                self.writer.add_scalar('epoch_mse_loss', last_loss, self.t)
+                self.writer.add_scalar('epoch_loss', last_loss, self.t)
                 self.model.eval()
                 self._post_train(loader)
                 for k in log_last_epoch_aux.keys():

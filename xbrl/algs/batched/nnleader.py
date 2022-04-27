@@ -37,24 +37,25 @@ class NNLeader(NNLinUCB):
     def _train_loss(self, b_features, b_rewards, b_weights):
         prediction = self.model(b_features)
         mse_loss = F.mse_loss(prediction, b_rewards)
-        self.writer.add_scalar('mse_loss', mse_loss.item(), self.batch_counter)
 
         phi = self.model.embedding(b_features)
-        # nv=torch.norm(phi,p=2,dim=1).max().cpu().detach().numpy()
-        A = torch.matmul(phi.transpose(1, 0), phi)
-        HH = 0          
-        for el in phi:
-            HH += torch.outer(el,el)
-        assert np.allclose(A.detach().numpy(), HH.detach().numpy()  )
-        spectral_loss = torch.log(torch.linalg.eigvalsh(A).min() + 0.00001)
-        self.writer.add_scalar('spectral_loss', spectral_loss, self.batch_counter)
+        nv=torch.norm(phi,p=2,dim=1).max()
+        A = torch.matmul(phi.transpose(1, 0), phi) + self.ucb_regularizer * torch.eye(phi.shape[1])
+        # HH = 0          
+        # for el in phi:
+        #     HH += torch.outer(el,el)
+        # assert np.allclose(A.detach().numpy(), HH.detach().numpy()  )
+        # spectral_loss = -torch.log(torch.linalg.eigvalsh(A)[0])
+        wwww= torch.tensor(np.ones(phi.shape[1])/np.arange(phi.shape), device=self.device)
+        spectral_loss = -torch.log(torch.linalg.eigvalsh(A) * wwww)
+        # spectral_loss = -torch.logdet(A/(self.t * nv**2))
 
-        mse_weight = self.batch_counter / 200 
+        # mse_weight = self.batch_counter / 200 
         # mse_weight = (self.tot_update) / (self.tot_update + 10)
-        self.writer.add_scalar('mse_weight', mse_weight, self.batch_counter)
+        # self.writer.add_scalar('mse_weight', mse_weight, self.batch_counter)
 
-        loss = mse_weight * mse_loss - spectral_loss
-        return loss, {}
+        loss = mse_loss + spectral_loss #/ (self.t+1)
+        return loss, {"spectral_loss": spectral_loss.item(), "mse_log": mse_loss.item()}
 
     # def _train_loss(self, b_features, b_rewards, b_weights):
     #     loss = 0

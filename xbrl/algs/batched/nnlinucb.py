@@ -57,13 +57,12 @@ class NNLinUCB(XBModule):
             # mse_loss = F.mse_loss(prediction, b_rewards)
             # self.writer.add_scalar('mse_loss', self.weight_mse * mse_loss, self.batch_counter)
             mse_loss = (b_weights * (prediction - b_rewards)**2).mean()
-            self.writer.add_scalar('weighted_mse_loss', self.weight_mse * mse_loss, self.batch_counter)
             loss = loss + self.weight_mse * mse_loss 
             with torch.no_grad():
                 # debug metrics
                 deb_mle = F.mse_loss(prediction, b_rewards)
 
-        return loss, {"mse_log": deb_mle}
+        return loss, {"mse_log": deb_mle.item()}
     
     @torch.no_grad()
     def play_action(self, features: np.ndarray):
@@ -95,9 +94,6 @@ class NNLinUCB(XBModule):
             xt = torch.tensor(features.reshape(1,-1), dtype=TORCH_FLOAT).to(self.device)
             v = self.model.embedding(xt).squeeze()
 
-            # self.features_bound = max(self.features_bound, torch.norm(v, p=2).cpu().item())
-            # self.writer.add_scalar('features_bound', self.features_bound, self.t)
-
             self.A += torch.outer(v.ravel(),v.ravel())
             self.b_vec = self.b_vec + v * reward
             # # self.inv_A, den = inv_sherman_morrison(v, self.inv_A)
@@ -120,8 +116,11 @@ class NNLinUCB(XBModule):
                 # print(f"{self.t} - mse: {mse_loss.item()}")
 
 
-            # self.param_bound = torch.linalg.norm(self.theta, 2).cpu().item()
-            # self.writer.add_scalar('param_bound', self.param_bound, self.t)
+            self.features_bound = max(self.features_bound, torch.norm(v, p=2).cpu().item())
+            self.writer.add_scalar('features_bound', self.features_bound, self.t)
+
+            self.param_bound = torch.linalg.norm(self.theta, 2).cpu().item()
+            self.writer.add_scalar('param_bound', self.param_bound, self.t)
     
     def _post_train(self, loader=None):
         with torch.no_grad():
@@ -181,6 +180,7 @@ class NNLinUCB(XBModule):
             # # # strange issue with making operations directly in pytorch
             # # self.inv_A = torch.tensor(np.linalg.inv(A), dtype=torch.float)
             # self.theta = self.inv_A @ self.b_vec
+            self.features_bound = torch.norm(torch_phi, p=2, dim=1).max().cpu().item()
             self.param_bound = torch.linalg.norm(self.theta, 2).item()
             self.writer.add_scalar('param_bound', self.param_bound, self.t)
             self.writer.add_scalar('features_bound', self.features_bound, self.t)
