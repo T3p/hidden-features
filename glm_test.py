@@ -29,8 +29,15 @@ if __name__ == "__main__":
     features = rng.uniform(low=-1., high=1., size=(nc, na, dim))
     #param = 0.01 * np.load("problem_data/basic_param.npy")
     param = rng.uniform(low=-1., high=1., size=dim)
+    
+    with open('problem_data/new_features.npy', 'wb') as f:
+        np.save(f, features)
+    with open('problem_data/new_param.npy', 'wb') as f:
+        np.save(f, param)
+    
+
     #"""
-    features, param = derank_hls(features, param, transform=False)
+    #features, param = derank_hls(features, param, transform=False)
 
     rewards = features @ param
     print(hls_rank(features, rewards))
@@ -39,7 +46,7 @@ if __name__ == "__main__":
     env = bandits.CBFinite(feature_matrix=features,
                            rewards=rewards,
                            noise="bernoulli",
-                           seed=seed)
+                           seed=seed)   
     min_gap=env.min_suboptimality_gap()
 
     

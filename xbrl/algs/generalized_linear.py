@@ -51,8 +51,8 @@ class UCBGLM(XBModule):
         self.dim = self.env.dim
         self.update_every_n_steps = update_every_n_steps
         self.nonlinearity_coeff = self.nonlinearity_function(self.param_bound, self.features_bound)
-        self.mineig_threshold = 16 * self.noise_std**2 * self.nonlinearity_coeff**2 + (self.dim + np.log(1 / self.delta))
-
+        self.mineig_threshold = self.noise_std**2 * self.nonlinearity_coeff**2 + (self.dim + np.log(1 / self.delta))
+        print(self.mineig_threshold)
         
     def reset(self) -> None:
         super().reset()
@@ -71,11 +71,11 @@ class UCBGLM(XBModule):
         
         mineig = np.amin(np.linalg.eig(self.A)[0])
         
-        if mineig < self.mineig_threshold:
+        if self.t < self.mineig_threshold:
             action = self.rng.choice(self.env.action_space.n)
         else:
             if self.exp_phase==True:
-                print('Completed exploratory phase in %d rounds' % (self.t - 1))
+                #print('Completed exploratory phase in %d rounds' % (self.t - 1))
                 self.inv_A = np.linalg.inv(self.A)
                 self.new_inv_A = self.inv_A.copy()
                 self.A_logdet = np.log(np.linalg.det(self.A))
