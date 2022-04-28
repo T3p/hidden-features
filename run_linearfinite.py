@@ -26,6 +26,10 @@ from xbrl.algs.nnmodel import MLLinearNetwork, MLLogisticNetwork, initialize_wei
 import torch.nn as nn
 import copy
 import wandb
+import logging
+
+# A logger for this file
+log = logging.getLogger(__name__)
 
 def set_seed_everywhere(seed):
     torch.manual_seed(seed)
@@ -287,7 +291,6 @@ def my_app(cfg: DictConfig) -> None:
     payload = {'model': algo.model, 'features': algo.env.feature_matrix, 'rewards': algo.env.rewards}
     with open(os.path.join(work_dir, "algo.pt"), 'wb') as f:
         torch.save(payload, f)
-
     
     if cfg.use_wandb:
         wandb.finish()
