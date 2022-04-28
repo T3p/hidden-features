@@ -131,10 +131,16 @@ def my_app(cfg: DictConfig) -> None:
             net = copy.deepcopy(model).to(device)
         else:
             print('layers: ', cfg.layers)
+            print(type(cfg.layers))
             if cfg.layers not in [None, "none", "None"]:
                 hid_dim = cfg.layers
-                if not isinstance(cfg.layers, list):
-                    hid_dim = [cfg.layers]
+                if isinstance(cfg.layers, str):
+                    print(cfg.layers.split(","))
+                    hid_dim = cfg.layers.split(",")
+                    hid_dim = [int(el) for el in hid_dim]
+                if not isinstance(hid_dim, list):
+                    hid_dim = [hid_dim]
+                print(hid_dim)
                 layers = [(el, nn.Tanh()) for el in hid_dim]
             else:
                 layers = None # linear in the features
