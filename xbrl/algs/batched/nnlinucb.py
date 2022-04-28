@@ -237,15 +237,6 @@ class NNLinUCB(XBModule):
 
             # debug metric
             if hasattr(self.env, 'feature_matrix'):
-                xx = hlsutils.optimal_features(self.env.feature_matrix, self.env.rewards)
-                assert len(xx.shape) == 2
-                xt = torch.tensor(xx, dtype=TORCH_FLOAT).to(self.device)
-                phi = self.model.embedding(xt).detach().cpu().numpy()
-                norm_v=np.linalg.norm(phi, ord=2, axis=1).max()
-                mineig = hlsutils.min_eig_outer(phi, False) / phi.shape[0]
-                self.writer.add_scalar('min_eig_design_opt', mineig/norm_v, self.t)
-
-
                 # compute misspecification error on all samples
                 nc,na,nd = self.env.feature_matrix.shape
                 U = self.env.feature_matrix.reshape(-1, nd)
@@ -261,9 +252,12 @@ class NNLinUCB(XBModule):
                 hls_rank = hlsutils.hls_rank(newfeatures, self.env.rewards)
                 ishls = 1 if hlsutils.is_hls(newfeatures, self.env.rewards) else 0
                 hls_lambda = hlsutils.hls_lambda(newfeatures, self.env.rewards)
+                rank_phi = hlsutils.rank(newfeatures, None)
                 self.writer.add_scalar('hls_lambda', hls_lambda, self.t)
                 self.writer.add_scalar('hls_rank', hls_rank, self.t)
                 self.writer.add_scalar('hls?', ishls, self.t)
+                self.writer.add_scalar('rank_phi', rank_phi, self.t)
+
 
 
 
