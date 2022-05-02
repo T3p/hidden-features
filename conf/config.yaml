@@ -51,6 +51,7 @@ hydra:
     tasks_per_node: 1
     mem_gb: 160
     nodes: 1
+<<<<<<< Updated upstream
     submitit_folder: ./multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}_${algo}/.slurm
     partition: devlab
   job_logging :
@@ -59,3 +60,6 @@ hydra:
           format: '%(message)s'
       root:
         handlers: [file]
+=======
+    submitit_folder: ./multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}_${algo}/.slurm
+>>>>>>> Stashed changes
