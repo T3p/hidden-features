@@ -91,11 +91,12 @@ class LEADERSelect:
                 normalized_rep_scores = np.zeros(M_active)
                 # compute min eigs
                 for i, idx in enumerate(active_reps):
-                    dm = Amtx[idx]
+                    dim_i = Amtx[idx].shape[0]
+                    dm = Amtx[idx] + self.reg_val * np.eye(dim_i)
                     eigs, _ = np.linalg.eig(dm)
                     assert np.isclose(np.imag(eigs).min(), 0)
                     min_eigs[i] = np.real(eigs).min()
-                    normalized_rep_scores[i] = min_eigs[i] / self.features_bound[idx]**2
+                    normalized_rep_scores[i] = min_eigs[i] / (self.features_bound[idx]**2)
                 
                 # compute MSEs
                 mse = -np.inf*np.ones(M_active)
