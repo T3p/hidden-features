@@ -154,6 +154,11 @@ def my_app(cfg: DictConfig) -> None:
 
     if cfg.algo == "nnlinucb":
         algo = NNLinUCB(env, net, cfg)
+    elif cfg.algo == "nnleader":
+        assert cfg.weight_spectral > 0 or cfg.weight_rayleigh > 0 or cfg.weight_orth > 0
+        algo = NNLinUCB(env, net, cfg)
+    elif cfg.algo == "nnegreedy":
+        algo = NNEpsGreedy(env, net, cfg)
     elif cfg.algo == "linucb":
         algo = LinUCB(
             env=env,
@@ -168,10 +173,6 @@ def my_app(cfg: DictConfig) -> None:
         algo = incalg.NNLinUCBInc(env, net, cfg)
     elif cfg.algo == "nnleaderinc":
         algo = incalg.NNLeaderInc(env, net, cfg)
-    elif cfg.algo == "nnleader":
-        algo = NNLeader(env, net, cfg)
-    elif cfg.algo == "nnegreedy":
-        algo = NNEpsGreedy(env, net, cfg)
     elif cfg.algo == "nneginc":
         algo = incalg.NNEGInc(env, net, cfg)
     else:
