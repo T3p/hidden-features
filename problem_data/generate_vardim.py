@@ -3,16 +3,23 @@ import sys
 sys.path.insert(0, '..')
 from lbrl.linearenv import LinearEnv, LinearRepresentation
 from lbrl.hlsutils import derank_hls, hls_lambda, is_hls, reduce_dim
-
-in_features_file = "basic_features.npy"
-in_theta_file = "basic_param.npy"
-seed_problem = 99
+import json
 
 out_file = "vardimtest_c1.npy"
+seed_problem = 99
 
-features = np.load(in_features_file)
-theta = np.load(in_theta_file)
+# in_features_file = "basic_features.npy"
+# in_theta_file = "basic_param.npy"
+# features = np.load(in_features_file)
+# theta = np.load(in_theta_file)
+
+json_file = "linrep3.json"
+with open(json_file, 'r') as f:
+    data = json.load(f)
+    theta = np.array(data['param'])
+    features = np.array(data['features'])
 dim = len(theta)
+print(f"dim: {dim}")
 true_reward = features @ theta
 problem_gen = np.random.RandomState(seed_problem)
 
