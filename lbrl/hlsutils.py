@@ -32,7 +32,8 @@ def rank(features, rewards, tol=None):
     n_contexts, n_arms, dim = features.shape
     all_feats = np.reshape(features, 
                            (n_contexts * n_arms, dim))
-    return np.linalg.matrix_rank(all_feats, tol)
+    D = np.matmul(all_feats.transpose(1,0), all_feats)
+    return np.linalg.matrix_rank(D, tol)
 
 def spans(features, rewards, tol=None):
     n_contexts, n_arms, dim = features.shape
@@ -59,23 +60,20 @@ def cmb_rank(features, rewards, tol=None):
     return min_rnk
 
 def hls_rank(features, rewards, tol=None):
-    return np.linalg.matrix_rank(optimal_features(features, rewards), tol)
+    phi = optimal_features(features, rewards)
+    D  = np.matmul(phi.transpose(1,0), phi)
+    return np.linalg.matrix_rank(D, tol)
 
 def is_hls(features, rewards, tol=None):
     dim = features.shape[2]
     return hls_rank(features, rewards, tol) == dim
 
 def hls_lambda(features, rewards, cprobs=None, weak=False):
-    n_contexts = features.shape[0]
-    if cprobs is None:
-        mineig = min_eig_outer(optimal_features(features, rewards), weak) / n_contexts
-    else:
-        assert np.allclose(np.sum(cprobs), 1.)
-        mineig = min_eig_outer(np.sqrt(np.array(cprobs)[:, None]) * 
-                               optimal_features(features, rewards), weak)
-    if np.allclose(mineig, 0.):
-        return 0.
-    return mineig
+
+    phi = optimal_features(features, rewards)
+    D  = np.matmul(phi.transpose(1,0), phi)
+    n2 = np.linalg.eigvalsh(D).min() / phi.shape[0]
+    return n2
 
 def normalize_linrep(features, param, scale=1.):
     param_norm = np.linalg.norm(param)
@@ -126,3 +124,27 @@ def derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=
     # assert np.allclose(features @ param, new_features @ new_param)
 
     return new_features, new_param
+
+
+def reduce_dim(features, param, newdim, transform=True, normalize=True, seed=0):
+    assert newdim <= param.shape[0] and newdim > 0
+    f1 = features.copy()
+    p1 = param.copy()
+    dim = param.shape[0]
+    
+    for _ in range(dim - newdim):
+        f1[:, :, 1] = f1[:, :, 0] * p1[0] + f1[:, :, 1] * p1[1]
+        p1[1] = 1.
+        f1 = f1[:, :, 1:]
+        p1 = p1[1:]    
+
+    if transform:
+        f1, p1 = random_transform(f1, p1, normalize=normalize, seed=seed)
+    elif normalize:
+        f1, p1 = normalize_linrep(f1, p1)
+
+    rewards = features @ param
+    new_rewards = f1 @ p1
+    assert np.allclose(rewards, new_rewards)
+    assert p1.shape[0] == newdim
+    return f1, p1

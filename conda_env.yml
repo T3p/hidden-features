@@ -13,6 +13,7 @@ dependencies:
   - pip:
     - hydra-core==1.1.0
     - hydra-submitit-launcher==1.1.5
+    - hydra-joblib-launcher==1.1.5
     - matplotlib==3.5.1
     - pandas==1.4.0
     - tqdm==4.62.3

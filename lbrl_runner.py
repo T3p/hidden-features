@@ -17,6 +17,7 @@ from lbrl.hlsutils import derank_hls, hls_lambda, is_hls
 from lbrl.leader import LEADER
 from lbrl.linucb import LinUCB
 from lbrl.leaderselect import LEADERSelect
+from lbrl.leaderselectlb import LEADERSelectLB
 import matplotlib.pyplot as plt
 
 
@@ -27,7 +28,7 @@ def set_seed_everywhere(seed):
 # A logger for this file
 log = logging.getLogger(__name__)
 
-@hydra.main(config_path="conf", config_name="lbrl_leader")
+@hydra.main(config_path="conf/lbrl", config_name="conf")
 def my_app(cfg: DictConfig) -> None:
 
     work_dir = Path.cwd()
@@ -40,40 +41,60 @@ def my_app(cfg: DictConfig) -> None:
     ########################################################################
     # Problem creation
     ########################################################################
-    ncontexts, narms, dim = cfg.ncontexts, cfg.narms, cfg.dim
-    features, theta = make_synthetic_features(
-        n_contexts=ncontexts, n_actions=narms, dim=dim,
-        context_generation=cfg.contextgeneration, feature_expansion=cfg.feature_expansion,
-        seed=cfg.seed_problem
-    )
+    if cfg.domain.type == "finite":
+        ncontexts, narms, dim = cfg.ncontexts, cfg.narms, cfg.dim
+        features, theta = make_synthetic_features(
+            n_contexts=ncontexts, n_actions=narms, dim=dim,
+            context_generation=cfg.contextgeneration, feature_expansion=cfg.feature_expansion,
+            seed=cfg.domain.seed_problem
+        )
+
+        env = LinearEnv(features=features.copy(), param=theta.copy(), rew_noise=cfg.noise_param, random_state=cfg.seed)
+        true_reward = features @ theta
+        problem_gen = np.random.RandomState(cfg.domain.seed_problem)
+
+
+        rep_list = []
+        param_list = []
+        rep_list.append(LinearRepresentation(features))
+        param_list.append(theta)
+        position_reference_rep = 0
+        for i in range(1, dim+1):
+            fi, pi = derank_hls(features=features, param=theta, newrank=i, transform=True, normalize=True, seed=cfg.domain.seed_problem)
+            # if np.random.binomial(1, p=0.1):
+            #     print(f"adding random noise to rep {i-1}")
+            #     fi = fi + np.random.randn(*fi.shape)
+            rep_list.append(LinearRepresentation(fi))
+            param_list.append(pi)
+
+        # non realizable
+        n_nonrealizable = cfg.domain.num_nonrealizable
+        for i in range(n_nonrealizable):
+            idx = problem_gen.choice(len(rep_list), 1).item()
+            fi = rep_list[idx].features
+            # mask = np.random.binomial(1, p=0.5, size=fi.shape)
+            fi = fi + problem_gen.randn(*fi.shape) * 0.6
+            rep_list.append(LinearRepresentation(fi))
+            mtx, bv = np.eye(fi.shape[2])/0.0001, 0
+            for kk in range(fi.shape[0]):
+                for aa in range(fi.shape[1]):
+                    el = fi[kk,aa]
+                    mtx, _ = inv_sherman_morrison(el, mtx)
+                    bv = bv + true_reward[kk,aa] * el
+            pi = mtx @ bv
+            param_list.append(pi) # best fit to the true reward
 
     
-    # assert ncontexts == dim
-    # features = np.zeros((ncontexts, narms, dim))
-    # for i in range(dim):
-    #     features[i,0,i] = 1
-    #     features[i,1,i+1 if i+1 < dim else 0] = 1 - cfg.mingap
-    #     for j in range(2, narms):
-    #         features[i,j,:] = (2 * np.random.rand(dim) - 1) / dim
-    # theta = np.ones(dim)
-
-
-    env = LinearEnv(features=features.copy(), param=theta.copy(), rew_noise=cfg.noise_param, random_state=cfg.seed)
-    problem_gen = np.random.RandomState(cfg.seed_problem)
-
-    rep_list = []
-    param_list = []
-    rep_list.append(LinearRepresentation(features))
-    param_list.append(theta)
-    for i in range(1, dim):
-        fi, pi = derank_hls(features=features, param=theta, newrank=i, transform=True, normalize=True, seed=cfg.seed_problem)
-        # if np.random.binomial(1, p=0.1):
-        #     print(f"adding random noise to rep {i-1}")
-        #     fi = fi + np.random.randn(*fi.shape)
-        rep_list.append(LinearRepresentation(fi))
-        param_list.append(pi)
-
-    true_reward = features @ theta
+    elif cfg.domain.type == "fromfile":
+        features_list, param_list, position_reference_rep = np.load(os.path.join(original_dir, cfg.domain.datafile), allow_pickle=True)
+        env = LinearEnv(features=features_list[position_reference_rep].copy(), param=param_list[position_reference_rep].copy(), rew_noise=cfg.noise_param, random_state=cfg.seed)
+        true_reward = features_list[position_reference_rep] @ param_list[position_reference_rep]
+        problem_gen = np.random.RandomState(cfg.domain.seed_problem)
+        rep_list = []
+        assert len(features_list) == len(param_list)
+        for i in range(len(features_list)):
+            rep_list.append(LinearRepresentation(features_list[i]))
+        del features_list
 
     # compute gap
     min_gap = np.inf
@@ -84,27 +105,12 @@ def my_app(cfg: DictConfig) -> None:
         min_gap = min(gap, min_gap)
     log.info(f"min gap: {min_gap}")
 
-    # non realizable
-    n_nonrealizable = cfg.num_nonrealizable
-    for i in range(n_nonrealizable):
-        idx = problem_gen.choice(len(rep_list), 1).item()
-        fi = rep_list[idx].features
-        # mask = np.random.binomial(1, p=0.5, size=fi.shape)
-        fi = fi + problem_gen.randn(*fi.shape) * 0.6
-        rep_list.append(LinearRepresentation(fi))
-        mtx, bv = np.eye(fi.shape[2])/0.0001, 0
-        for kk in range(fi.shape[0]):
-            for aa in range(fi.shape[1]):
-                el = fi[kk,aa]
-                mtx, _ = inv_sherman_morrison(el, mtx)
-                bv = bv + true_reward[kk,aa] * el
-        pi = mtx @ bv
-        param_list.append(pi) # best fit to the true reward
-
-
     for i in range(len(rep_list)):
         log.info("\n")
-        log.info(f"Info representation({i})")
+        if i == position_reference_rep:
+            log.info(f"Info representation({i}) [REFERENCE REP]")
+        else:
+            log.info(f"Info representation({i})")
         log.info(f"dim({i}): {rep_list[i].features_dim()}")
         log.info(f"feature norm({i}): {np.linalg.norm(rep_list[i].features,2,axis=-1).max()}")
         log.info(f"param norm({i}): {np.linalg.norm(param_list[i],2)}")
@@ -138,6 +144,13 @@ def my_app(cfg: DictConfig) -> None:
                 features_bounds=[np.linalg.norm(rep_list[j].features,2, axis=-1).max() for j in range(M)], 
                 param_bounds=[np.linalg.norm(param_list[j],2) for j in range(M)],
                 recompute_every=cfg.check_every, normalize=cfg.normalize_mineig,
+                random_state=cfg.seed, delta=cfg.delta
+        )
+    elif cfg.algo == "leaderselectlb":
+        algo = LEADERSelectLB(env, representations=rep_list, reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_param, 
+                features_bounds=[np.linalg.norm(rep_list[j].features,2, axis=-1).max() for j in range(M)], 
+                param_bounds=[np.linalg.norm(param_list[j],2) for j in range(M)],
+                recompute_every=cfg.check_every,
                 random_state=cfg.seed, delta=cfg.delta
         )
     else:

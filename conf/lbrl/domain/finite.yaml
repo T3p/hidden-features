@@ -1,0 +1,10 @@
+type: finite
+ncontexts: 100
+dim: 10
+narms: 5
+contextgeneration: gaussian
+feature_expansion: none
+num_nonrealizable: 5
+mingap: 0.1
+seed_problem: 3
+reduce_dim: False

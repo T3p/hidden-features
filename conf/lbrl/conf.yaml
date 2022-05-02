@@ -1,8 +1,10 @@
 defaults:
-    - override hydra/launcher: joblib
+  - _self_
+  - domain: vardimtest.yaml
+  - override hydra/launcher: joblib
 
 horizon: 20000
-algo: leaderselect
+algo: leaderselectlb
 check_every: 1
 noise_std: 1
 delta: 0.01
@@ -11,20 +13,10 @@ bonus_scale: 0.1
 normalize_mineig: True
 linucb_rep: 0
 
-# problem
-ncontexts: 100
-dim: 10
-narms: 5
-contextgeneration: gaussian
-feature_expansion: none
-num_nonrealizable: 5
-mingap: 0.1
 
 # noise problem
 noise_type: gaussian
 noise_param: 0.2
-
-seed_problem: 3
 
 # misc
 seed: 1
@@ -35,3 +27,9 @@ hydra:
   sweep:
     dir: ./lbrl_multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}_${algo}
     subdir: ${hydra.job.num}
+  job_logging :
+    formatters:
+      simple:
+        format: '%(message)s'
+    root:
+      handlers: [file, console]
