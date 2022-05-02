@@ -128,8 +128,8 @@ def derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=
 
 def reduce_dim(features, param, newdim, transform=True, normalize=True, seed=0):
     assert newdim <= param.shape[0] and newdim > 0
-    f1 = features.copy()
-    p1 = param.copy()
+    f1 = features.copy().astype(np.float64)
+    p1 = param.copy().astype(np.float64)
     dim = param.shape[0]
     
     for _ in range(dim - newdim):

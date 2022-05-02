@@ -1,0 +1,4 @@
+type: fromfile
+datafile: problem_data/nonhlsrealizable_c1.npy
+seed_problem: 3
+num_nonrealizable: 0
