@@ -9,6 +9,7 @@ import random
 import pickle
 import json
 import copy
+import requests
 import logging
 
 from lbrl.utils import make_synthetic_features, inv_sherman_morrison
@@ -86,7 +87,19 @@ def my_app(cfg: DictConfig) -> None:
 
     
     elif cfg.domain.type == "fromfile":
-        features_list, param_list, position_reference_rep = np.load(os.path.join(original_dir, cfg.domain.datafile), allow_pickle=True)
+        print(os.path.exists(os.path.join(original_dir, cfg.domain.datafile)))
+        if os.path.exists(os.path.join(original_dir, cfg.domain.datafile)):
+            features_list, param_list, position_reference_rep = np.load(os.path.join(original_dir, cfg.domain.datafile), allow_pickle=True)
+        else:
+            print(cfg.domain.url)
+            if cfg.domain.url is not None:
+                print('-'*20)
+                print(f"please download the file using the following link: {cfg.domain.url}")
+                print(f"and save it into : {os.path.join(original_dir, cfg.domain.datafile)}")
+                print('-'*20)
+                exit(9)
+            else:
+                raise ValueError(f"Unable to open the file {cfg.domain.datafile}")
         env = LinearEnv(features=features_list[position_reference_rep].copy(), param=param_list[position_reference_rep].copy(), rew_noise=cfg.noise_param, random_state=cfg.seed)
         true_reward = features_list[position_reference_rep] @ param_list[position_reference_rep]
         problem_gen = np.random.RandomState(cfg.domain.seed_problem)
