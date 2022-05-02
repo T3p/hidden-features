@@ -104,7 +104,7 @@ class LEADERSelectLB:
                     # reg bound
                     regret_b = self.param_bound[idx] * self.features_bound[idx] * np.sqrt(tt) * np.log(tt*self.features_bound[idx])
                     scores[i] = min_eigs[i] - regret_b
-                    self.logger.info(f"{self.t} - {i} - min_eigs: {min_eigs[i]}, regret_b: {regret_b}, score: {scores[i]}")
+                    self.logger.info(f"{t} - {i} - min_eigs: {min_eigs[i]}, regret_b: {regret_b}, score: {scores[i]}")
 
                     # # additional terms of the score function
                     # Lisq = self.features_bound[idx]**2
