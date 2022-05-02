@@ -1,6 +1,9 @@
 # logs
 logs/
 results/
+*output/
+.DS_Store
+
 
 #c++ build
 cpp/build/
