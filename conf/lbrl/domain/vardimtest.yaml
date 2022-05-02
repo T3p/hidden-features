@@ -1,0 +1,5 @@
+type: fromfile
+datafile: problem_data/vardimtest_c1.npy
+seed_problem: 3
+num_nonrealizable: 0
+reduce_dim: True
