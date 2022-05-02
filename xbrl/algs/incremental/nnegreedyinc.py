@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 from ... import TORCH_FLOAT
 from .nnlinucbinc import NNLinUCBInc
+from omegaconf import DictConfig
 
 class NNEGInc(NNLinUCBInc):
     
@@ -12,28 +13,14 @@ class NNEGInc(NNLinUCBInc):
         self,
         env: Any,
         model: nn.Module,
-        device: Optional[str]="cpu",
-        batch_size: Optional[int]=256,
-        max_updates: Optional[int]=1,
-        learning_rate: Optional[float]=0.001,
-        weight_decay: Optional[float]=0,
-        buffer_capacity: Optional[int]=10000,
-        seed: Optional[int]=0,
-        update_every: Optional[int] = 100,
-        ucb_regularizer: Optional[float]=1,
-        epsilon_min: float=0.05,
-        epsilon_start: float=2,
-        epsilon_decay: float=200,
-        time_random_exp: int=0,
-        use_tb: Optional[bool]=True,
-        use_wandb: Optional[bool]=False
+        cfg: DictConfig
     ) -> None:
         noise_std, delta, bonus_scale = 0, 0.001, 0
-        super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, update_every, noise_std, delta, ucb_regularizer, bonus_scale, use_tb, use_wandb)
-        self.epsilon_min = epsilon_min
-        self.epsilon_start = epsilon_start
-        self.epsilon_decay = epsilon_decay
-        self.time_random_exp = time_random_exp
+        super().__init__(env, model, cfg)
+        self.epsilon_min = cfg.epsilon_min
+        self.epsilon_start = cfg.epsilon_start
+        self.epsilon_decay = cfg.epsilon_decay
+        self.time_random_exp = cfg.time_random_exp
         self.np_random = np.random.RandomState(self.seed)
 
     def reset(self) -> None:

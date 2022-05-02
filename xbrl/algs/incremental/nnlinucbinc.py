@@ -13,6 +13,7 @@ from ... import TORCH_FLOAT
 import wandb
 from .core import IncBase
 from ...envs import hlsutils
+from omegaconf import DictConfig
 
 
 def inv_sherman_morrison(u, A_inv):
@@ -29,26 +30,13 @@ class NNLinUCBInc(IncBase):
         self,
         env: Any,
         model: nn.Module,
-        device: Optional[str]="cpu",
-        batch_size: Optional[int]=256,
-        max_updates: Optional[int]=1,
-        learning_rate: Optional[float]=0.001,
-        weight_decay: Optional[float]=0,
-        buffer_capacity: Optional[int]=10000,
-        seed: Optional[int]=0,
-        update_every: Optional[int] = 100,
-        noise_std: float=1,
-        delta: Optional[float]=0.01,
-        ucb_regularizer: Optional[float]=1,
-        bonus_scale: Optional[float]=1.,
-        use_tb: Optional[bool]=True,
-        use_wandb: Optional[bool]=False
+        cfg: DictConfig
     ) -> None:
-        super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, update_every, use_tb, use_wandb)
-        self.noise_std = noise_std
-        self.delta = delta
-        self.ucb_regularizer = ucb_regularizer
-        self.bonus_scale = bonus_scale
+        super().__init__(env, model, cfg)
+        self.noise_std = cfg.noise_std
+        self.delta = cfg.delta
+        self.ucb_regularizer = cfg.ucb_regularizer
+        self.bonus_scale = cfg.bonus_scale
 
     def reset(self) -> None:
         super().reset()

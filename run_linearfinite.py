@@ -1,3 +1,4 @@
+import pdb
 from turtle import pd
 from omegaconf import DictConfig, OmegaConf
 import hydra
@@ -152,23 +153,7 @@ def my_app(cfg: DictConfig) -> None:
         print(net)
 
     if cfg.algo == "nnlinucb":
-        algo = NNLinUCB(
-            env=env,
-            model=net,
-            device=device,
-            batch_size=cfg.batch_size,
-            max_updates=cfg.max_updates,
-            update_every=cfg.update_every,
-            learning_rate=cfg.lr,
-            buffer_capacity=cfg.buffer_capacity,
-            noise_std=cfg.noise_std,
-            delta=cfg.delta,
-            weight_decay=cfg.weight_decay,
-            ucb_regularizer=cfg.ucb_regularizer,
-            bonus_scale=cfg.bonus_scale,
-            reset_model_at_train=cfg.reset_model_at_train,
-            train_reweight=cfg.train_reweight
-        )
+        algo = NNLinUCB(env, net, cfg)
     elif cfg.algo == "linucb":
         algo = LinUCB(
             env=env,
@@ -180,103 +165,15 @@ def my_app(cfg: DictConfig) -> None:
             bonus_scale=cfg.bonus_scale
         )
     elif cfg.algo == "nnlinucbinc":
-        algo = incalg.NNLinUCBInc(
-            env=env,
-            model=net,
-            device=device,
-            batch_size=cfg.batch_size,
-            max_updates=cfg.max_updates,
-            update_every=cfg.update_every,
-            learning_rate=cfg.lr,
-            buffer_capacity=cfg.buffer_capacity,
-            noise_std=cfg.noise_std,
-            delta=cfg.delta,
-            weight_decay=cfg.weight_decay,
-            ucb_regularizer=cfg.ucb_regularizer,
-            bonus_scale=cfg.bonus_scale,
-            use_tb=cfg.use_tb,
-            use_wandb=cfg.use_wandb
-        )
+        algo = incalg.NNLinUCBInc(env, net, cfg)
     elif cfg.algo == "nnleaderinc":
-        algo = incalg.NNLeaderInc(
-            env=env,
-            model=net,
-            device=device,
-            batch_size=cfg.batch_size,
-            max_updates=cfg.max_updates,
-            update_every=cfg.update_every,
-            learning_rate=cfg.lr,
-            buffer_capacity=cfg.buffer_capacity,
-            noise_std=cfg.noise_std,
-            delta=cfg.delta,
-            weight_decay=cfg.weight_decay,
-            ucb_regularizer=cfg.ucb_regularizer,
-            bonus_scale=cfg.bonus_scale,
-            use_tb=cfg.use_tb,
-            use_wandb=cfg.use_wandb
-        )
+        algo = incalg.NNLeaderInc(env, net, cfg)
     elif cfg.algo == "nnleader":
-        algo = NNLeader(
-            env=env,
-            model=net,
-            device=device,
-            batch_size=cfg.batch_size,
-            max_updates=cfg.max_updates,
-            update_every=cfg.update_every,
-            learning_rate=cfg.lr,
-            buffer_capacity=cfg.buffer_capacity,
-            noise_std=cfg.noise_std,
-            delta=cfg.delta,
-            weight_decay=cfg.weight_decay,
-            ucb_regularizer=cfg.ucb_regularizer,
-            bonus_scale=cfg.bonus_scale,
-            reset_model_at_train=cfg.reset_model_at_train,
-            weight_mse=cfg.weight_mse,
-            weight_spectral=cfg.weight_spectral,
-            weight_l2features=cfg.weight_l2features,
-            weight_orth=cfg.weight_orth,
-            weight_rayleigh=cfg.weight_rayleigh,
-            train_reweight=cfg.train_reweight
-        )
+        algo = NNLeader(env, net, cfg)
     elif cfg.algo == "nnegreedy":
-        algo = NNEpsGreedy(
-            env=env,
-            model=net,
-            device=device,
-            batch_size=cfg.batch_size,
-            max_updates=cfg.max_updates,
-            learning_rate=cfg.lr,
-            weight_decay=cfg.weight_decay,
-            buffer_capacity=cfg.buffer_capacity,
-            seed=cfg.seed,
-            reset_model_at_train=cfg.reset_model_at_train,
-            update_every=cfg.update_every,
-            ucb_regularizer=cfg.ucb_regularizer,
-            epsilon_min=cfg.epsilon_min,
-            epsilon_start=cfg.epsilon_start,
-            epsilon_decay=cfg.epsilon_decay,
-            time_random_exp=cfg.time_random_exp,
-            train_reweight=cfg.train_reweight
-        )
+        algo = NNEpsGreedy(env, net, cfg)
     elif cfg.algo == "nneginc":
-        algo = incalg.NNEGInc(
-            env=env,
-            model=net,
-            device=device,
-            batch_size=cfg.batch_size,
-            max_updates=cfg.max_updates,
-            learning_rate=cfg.lr,
-            weight_decay=cfg.weight_decay,
-            buffer_capacity=cfg.buffer_capacity,
-            seed=cfg.seed,
-            update_every=cfg.update_every,
-            epsilon_min=cfg.epsilon_min,
-            epsilon_start=cfg.epsilon_start,
-            epsilon_decay=cfg.epsilon_decay,
-            time_random_exp=cfg.time_random_exp,
-            use_tb=cfg.use_tb,
-            use_wandb=cfg.use_wandb
-        )
+        algo = incalg.NNEGInc(env, net, cfg)
     else:
         raise ValueError("Unknown algorithm {cfg.algo}")
     print(type(algo).__name__)

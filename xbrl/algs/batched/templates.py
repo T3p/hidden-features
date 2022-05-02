@@ -1,3 +1,5 @@
+import pdb
+
 import numpy as np
 from typing import Optional, Any
 from tqdm import tqdm
@@ -11,6 +13,7 @@ import time
 from ... import TORCH_FLOAT
 from collections import defaultdict
 import logging
+from omegaconf import DictConfig
 
 
 class XBModule(nn.Module):
@@ -19,31 +22,22 @@ class XBModule(nn.Module):
         self,
         env: Any,
         model: nn.Module,
-        device: Optional[str]="cpu",
-        batch_size: Optional[int]=256,
-        max_updates: Optional[int]=1,
-        learning_rate: Optional[float]=0.001,
-        weight_decay: Optional[float]=0,
-        buffer_capacity: Optional[int]=10000,
-        seed: Optional[int]=0,
-        reset_model_at_train: Optional[bool]=True,
-        update_every: Optional[int] = 100,
-        train_reweight: Optional[bool]=False
+        cfg: DictConfig
     ) -> None:
         super().__init__()
         self.env = env
         self.model = model
-        self.device = device
-        self.batch_size = batch_size if batch_size is not None else 1
-        self.max_updates = max_updates
-        self.learning_rate = learning_rate
-        self.weight_decay = weight_decay
-        self.buffer_capacity = buffer_capacity
-        self.seed = seed
-        self.reset_model_at_train = reset_model_at_train
-        self.update_every = update_every
+        self.device = cfg.device
+        self.batch_size = cfg.batch_size if cfg.batch_size is not None else 1
+        self.max_updates = cfg.max_updates
+        self.learning_rate = cfg.lr
+        self.weight_decay = cfg.weight_decay
+        self.buffer_capacity = cfg.buffer_capacity
+        self.seed = cfg.seed
+        self.reset_model_at_train = cfg.reset_model_at_train
+        self.update_every = cfg.update_every
         self.unit_vector: Optional[torch.tensor] = None
-        self.train_reweight = train_reweight
+        self.train_reweight = cfg.train_reweight
         self.logger = logging.getLogger(__name__)
 
     def reset(self) -> None:
@@ -116,9 +110,11 @@ class XBModule(nn.Module):
                 optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
                 self.model.train()
                 last_loss = 0.0
+
                 for epoch in range(self.max_updates):
                     lh = []
                     log_last_epoch_aux = defaultdict(list)
+
                     for b_features, b_rewards, b_weights in loader:
                         loss, aux_metrics = self._train_loss(b_features, b_rewards, b_weights)
                         for k,v in aux_metrics.items():

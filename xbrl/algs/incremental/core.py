@@ -11,6 +11,7 @@ import time
 import copy
 from ... import TORCH_FLOAT
 import wandb
+from omegaconf import DictConfig
 
 
 def inv_sherman_morrison(u, A_inv):
@@ -27,32 +28,23 @@ class IncBase(nn.Module):
         self,
         env: Any,
         model: nn.Module,
-        device: Optional[str]="cpu",
-        batch_size: Optional[int]=256,
-        max_updates: Optional[int]=1,
-        learning_rate: Optional[float]=0.001,
-        weight_decay: Optional[float]=0,
-        buffer_capacity: Optional[int]=10000,
-        seed: Optional[int]=0,
-        update_every: Optional[int] = 100,
-        use_tb: Optional[bool]=True,
-        use_wandb: Optional[bool]=False
+        cfg: DictConfig
     ) -> None:
         super().__init__()
         self.env = env
         self.model = model
-        self.target_model = copy.deepcopy(self.model).to(device)
+        self.target_model = copy.deepcopy(self.model).to(cfg.device)
         self.target_model.eval()
-        self.device = device
-        self.batch_size = batch_size
-        self.max_updates = max_updates
-        self.learning_rate = learning_rate
-        self.weight_decay = weight_decay
-        self.buffer_capacity = buffer_capacity
-        self.seed = seed
-        self.update_every = update_every
-        self.use_tb = use_tb
-        self.use_wandb = use_wandb
+        self.device = cfg.device
+        self.batch_size = cfg.batch_size
+        self.max_updates = cfg.max_updates
+        self.learning_rate = cfg.lr
+        self.weight_decay = cfg.weight_decay
+        self.buffer_capacity = cfg.buffer_capacity
+        self.seed = cfg.seed
+        self.update_every = cfg.update_every
+        self.use_tb = cfg.use_tb
+        self.use_wandb = cfg.use_wandb
 
     def reset(self) -> None:
         self.t = 0

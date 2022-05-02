@@ -4,6 +4,7 @@ from typing import Optional, Any
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from omegaconf import DictConfig
 
 from .nnlinucb import NNLinUCB, TORCH_FLOAT
 
@@ -11,27 +12,13 @@ from .nnlinucb import NNLinUCB, TORCH_FLOAT
 class NNEpsGreedy(NNLinUCB):
     def __init__(
         self, env: Any, model: nn.Module,
-            device: Optional[str] = "cpu",
-            batch_size: Optional[int] = 256,
-            max_updates: Optional[int] = 1,
-            learning_rate: Optional[float] = 0.001,
-            weight_decay: Optional[float] = 0,
-            buffer_capacity: Optional[int] = 10000,
-            seed: Optional[int] = 0,
-            reset_model_at_train: Optional[bool] = True,
-            update_every: Optional[int] = 100,
-            epsilon_min: float=0.05,
-            epsilon_start: float=2,
-            epsilon_decay: float=200,
-            time_random_exp: int=0,
-            ucb_regularizer: Optional[float]=1,
-            train_reweight: Optional[bool]=False
+            cfg: DictConfig
     ) -> None:
-        super().__init__(env, model, device, batch_size, max_updates, learning_rate, weight_decay, buffer_capacity, seed, reset_model_at_train, update_every, 0, 0.01, ucb_regularizer, 1, 0, train_reweight)
-        self.epsilon_min = epsilon_min
-        self.epsilon_start = epsilon_start
-        self.epsilon_decay = epsilon_decay
-        self.time_random_exp = time_random_exp
+        super().__init__(env, model, cfg)
+        self.epsilon_min = cfg.epsilon_min
+        self.epsilon_start = cfg.epsilon_start
+        self.epsilon_decay = cfg.epsilon_decay
+        self.time_random_exp = cfg.time_random_exp
         self.np_random = np.random.RandomState(self.seed)
 
     def reset(self) -> None:
