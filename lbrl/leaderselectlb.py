@@ -8,7 +8,8 @@ class LEADERSelectLB:
         self, env, representations, reg_val, noise_std,
         features_bounds,
         param_bounds, delta=0.01, random_state=0,
-        recompute_every=1, logger=None
+        recompute_every=1,
+        normalize=True, logger=None
       ):
         self.env = env
         self.reps = representations
@@ -21,6 +22,7 @@ class LEADERSelectLB:
         self.rng = np.random.RandomState(random_state)
         self.recompute_every = recompute_every
         self.logger = logger
+        self.normalize = normalize
         if logger is None:
             self.logger = logging.getLogger(__name__)
         
@@ -41,6 +43,7 @@ class LEADERSelectLB:
         hist_active_reps = []
         hist_mse = []
         hist_time_updates = []
+        hist_normmineig = []
 
         update_time = 1
         selected_rep = 0
@@ -90,6 +93,7 @@ class LEADERSelectLB:
                 hist_time_updates.append(t)
                 min_eigs = np.zeros(M_active)
                 scores = np.zeros(M_active)
+                normalized_min_eigs = np.zeros(M_active)
                 # compute min eigs
                 tt = t + 1
                 xx = 1./np.power(tt, 1./4.)
@@ -103,7 +107,12 @@ class LEADERSelectLB:
 
                     # reg bound
                     regret_b = self.param_bound[idx] * self.features_bound[idx] * np.sqrt(tt) * np.log(tt*self.features_bound[idx])
-                    scores[i] = min_eigs[i] - regret_b
+
+                    if self.normalize:
+                        normalized_min_eigs[i] = min_eigs[i] / (self.features_bound[idx]**2)
+                        scores[i] = normalized_min_eigs[i] - regret_b
+                    else:
+                        scores[i] = min_eigs[i] - regret_b
                     self.logger.info(f"{t} - {i} - min_eigs: {min_eigs[i]}, regret_b: {regret_b}, score: {scores[i]}")
 
                     # # additional terms of the score function
@@ -140,6 +149,9 @@ class LEADERSelectLB:
                 log_eigs = np.zeros(M) - 1
                 log_eigs[active_reps] = min_eigs
                 hist_mineig.append(log_eigs)
+                log_normalized_eigs = np.zeros(M) - 1
+                log_normalized_eigs[active_reps] = normalized_min_eigs
+                hist_normmineig.append(log_normalized_eigs)
                 log_scores = np.zeros(M) - 99
                 log_scores[active_reps] = scores
                 hist_rep_scores.append(log_scores)
@@ -156,6 +168,7 @@ class LEADERSelectLB:
                 
                 # if condition is False, we set the maximum value
                 # i.e. the representation will not be selected
+                
                 value = scores - cond * np.finfo(float).max 
 
                 winners = np.argwhere(value == value.max()).flatten().tolist()
@@ -245,5 +258,6 @@ class LEADERSelectLB:
             "hist_selected_rep": hist_selected_rep,
             "hist_active_reps": hist_active_reps,
             "hist_mse": hist_mse,
-            "hist_time_updates": hist_time_updates
+            "hist_time_updates": hist_time_updates,
+            "hist_normmineig": hist_normmineig
             }

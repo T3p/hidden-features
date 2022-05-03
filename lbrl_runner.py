@@ -163,7 +163,7 @@ def my_app(cfg: DictConfig) -> None:
         algo = LEADERSelectLB(env, representations=rep_list, reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_param, 
                 features_bounds=[np.linalg.norm(rep_list[j].features,2, axis=-1).max() for j in range(M)], 
                 param_bounds=[np.linalg.norm(param_list[j],2) for j in range(M)],
-                recompute_every=cfg.check_every,
+                recompute_every=cfg.check_every, normalize=cfg.normalize_mineig,
                 random_state=cfg.seed, delta=cfg.delta
         )
     else:
