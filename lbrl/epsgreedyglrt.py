@@ -40,7 +40,8 @@ class EpsGreedyGLRT:
             avail_actions = self.env.get_available_actions()
             #GLRT
             tt = t + 1
-            epsilon = 1. / np.sqrt(tt)
+            # epsilon = 1. / np.sqrt(tt)
+            epsilon = 1. / np.cbrt(tt)
             for i, a in enumerate(avail_actions):
                 v = self.rep.get_features(context, a)
                 feat_x[i] = v
@@ -53,11 +54,12 @@ class EpsGreedyGLRT:
                     xx = feat_x[amax] - feat_x[i]
                     val = xx.dot(inv_A @ xx)
                     glrt_values[i] = (rew_hat[amax] - rew_hat[i])**2 / (2*(val))
-            val = 2*np.log(1./self.delta) + dim * np.log(1+2*tt*self.features_bound/(self.reg_val*dim))
+            val = 2 * np.log(1./self.delta) + dim * np.log(1 + 2*tt*self.features_bound/(self.reg_val*dim))
             betasq = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.reg_val)
             betasq *= betasq
+            glrt_in = False
             if np.min(glrt_values) > betasq:
-                print(f"{t} glrt in...")
+                glrt_in = True
                 action = amax
             else:
                 if self.rng.rand() < epsilon:
@@ -81,5 +83,7 @@ class EpsGreedyGLRT:
             best_reward[t] = self.env.best_reward()
             reg += best_reward[t] - instant_reward[t]
             writer.add_scalar('expected regret', reg, t)
+            writer.add_scalar('epsilon', epsilon, t)
+            writer.add_scalar('glrt active', 1 if glrt_in else 0, t)
         writer.close()
         return {"regret": np.cumsum(best_reward - instant_reward)}
