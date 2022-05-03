@@ -1,0 +1,6 @@
+type: fromfile
+datafile: problem_data/vardimtest_icml_nonrealizable.npy
+seed_problem: 3
+num_nonrealizable: 0
+reduce_dim: True
+noise_std: 0.3
