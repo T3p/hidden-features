@@ -8,3 +8,4 @@ num_nonrealizable: 5
 mingap: 0.1
 seed_problem: 3
 reduce_dim: False
+noise_param: 1 #std

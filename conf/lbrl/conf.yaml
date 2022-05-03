@@ -6,17 +6,11 @@ defaults:
 horizon: 20000
 algo: leaderselectlb
 check_every: 1
-noise_std: 1
 delta: 0.01
 ucb_regularizer: 1
-bonus_scale: 0.1
 normalize_mineig: True
 linucb_rep: 0
-
-
-# noise problem
-noise_type: gaussian
-noise_param: 0.2
+noise_std: ${domain.noise_param}
 
 # misc
 seed: 1

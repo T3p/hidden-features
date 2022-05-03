@@ -50,7 +50,7 @@ def my_app(cfg: DictConfig) -> None:
             seed=cfg.domain.seed_problem
         )
 
-        env = LinearEnv(features=features.copy(), param=theta.copy(), rew_noise=cfg.noise_param, random_state=cfg.seed)
+        env = LinearEnv(features=features.copy(), param=theta.copy(), rew_noise=cfg.domain.noise_param, random_state=cfg.seed)
         true_reward = features @ theta
         problem_gen = np.random.RandomState(cfg.domain.seed_problem)
 
@@ -100,7 +100,7 @@ def my_app(cfg: DictConfig) -> None:
                 exit(9)
             else:
                 raise ValueError(f"Unable to open the file {cfg.domain.datafile}")
-        env = LinearEnv(features=features_list[position_reference_rep].copy(), param=param_list[position_reference_rep].copy(), rew_noise=cfg.noise_param, random_state=cfg.seed)
+        env = LinearEnv(features=features_list[position_reference_rep].copy(), param=param_list[position_reference_rep].copy(), rew_noise=cfg.domain.noise_param, random_state=cfg.seed)
         true_reward = features_list[position_reference_rep] @ param_list[position_reference_rep]
         problem_gen = np.random.RandomState(cfg.domain.seed_problem)
         rep_list = []
@@ -140,27 +140,27 @@ def my_app(cfg: DictConfig) -> None:
 
     M = len(rep_list)
     if cfg.algo == "linucb":
-        algo = LinUCB(env, representation=rep_list[cfg.linucb_rep], reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_param, 
+        algo = LinUCB(env, representation=rep_list[cfg.linucb_rep], reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_std, 
                 features_bound=np.linalg.norm(env.features, 2, axis=-1).max(),
                 param_bound=np.linalg.norm(env.param, 2),
                 random_state=cfg.seed, delta=cfg.delta
             )
     elif cfg.algo == "leader":
-        algo = LEADER(env, representations=rep_list, reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_param, 
+        algo = LEADER(env, representations=rep_list, reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_std, 
                 features_bounds=[np.linalg.norm(rep_list[j].features, 2, axis=-1).max() for j in range(M)], 
                 param_bounds=[np.linalg.norm(param_list[j], 2) for j in range(M)],
                 check_elim_condition_every=cfg.check_every,
                 random_state=cfg.seed, delta=cfg.delta
             )
     elif cfg.algo == "leaderselect":
-        algo = LEADERSelect(env, representations=rep_list, reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_param, 
+        algo = LEADERSelect(env, representations=rep_list, reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_std, 
                 features_bounds=[np.linalg.norm(rep_list[j].features,2, axis=-1).max() for j in range(M)], 
                 param_bounds=[np.linalg.norm(param_list[j],2) for j in range(M)],
                 recompute_every=cfg.check_every, normalize=cfg.normalize_mineig,
                 random_state=cfg.seed, delta=cfg.delta
         )
     elif cfg.algo == "leaderselectlb":
-        algo = LEADERSelectLB(env, representations=rep_list, reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_param, 
+        algo = LEADERSelectLB(env, representations=rep_list, reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_std, 
                 features_bounds=[np.linalg.norm(rep_list[j].features,2, axis=-1).max() for j in range(M)], 
                 param_bounds=[np.linalg.norm(param_list[j],2) for j in range(M)],
                 recompute_every=cfg.check_every, normalize=cfg.normalize_mineig,
