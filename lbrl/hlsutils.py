@@ -148,3 +148,28 @@ def reduce_dim(features, param, newdim, transform=True, normalize=True, seed=0):
     assert np.allclose(rewards, new_rewards)
     assert p1.shape[0] == newdim
     return f1, p1
+
+def make_reshaped_linrep(features, param, newdim, transform=True, normalize=True, seed=0):
+    nc, na, nd = features.shape
+    rng = np.random.RandomState(seed)
+    if newdim > nd:
+        new_feat = rng.randn((nc,na,newdim))
+        new_param = rng.randn(newdim)
+        new_feat[:,:,:nd] = features
+        new_param[:nd] = param
+    elif newdim < nd:
+        new_feat = features[:,:,:newdim]
+        new_param = param[:newdim]
+    else:
+        new_feat = features.copy()
+        new_param = param.copy()
+    assert (nc,na,newdim) == new_feat.shape
+    assert newdim == new_param.shape[0]
+    if transform:
+        new_feat, new_param = random_transform(new_feat, new_param, normalize=normalize, seed=seed)
+    elif normalize:
+        new_feat, new_param = normalize_linrep(new_feat, new_param)
+    assert (nc,na,newdim) == new_feat.shape
+    assert newdim == new_param.shape[0]
+    return new_feat, new_param
+        
