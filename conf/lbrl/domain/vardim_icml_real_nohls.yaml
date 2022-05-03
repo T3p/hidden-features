@@ -1,0 +1,4 @@
+type: fromfile
+datafile: problem_data/vardimtest_icml_real_nohls.npy
+seed_problem: 3
+noise_param: 0.3 #std
