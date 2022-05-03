@@ -59,12 +59,12 @@ def cmb_rank(features, rewards, tol=None):
             min_rnk = rnk
     return min_rnk
 
-def hls_rank(features, rewards, tol=None):
+def hls_rank(features, rewards, tol=1e-6):
     phi = optimal_features(features, rewards)
     D  = np.matmul(phi.transpose(1,0), phi)
     return np.linalg.matrix_rank(D, tol)
 
-def is_hls(features, rewards, tol=None):
+def is_hls(features, rewards, tol=1e-6):
     dim = features.shape[2]
     return hls_rank(features, rewards, tol) == dim
 

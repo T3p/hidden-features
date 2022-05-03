@@ -14,7 +14,7 @@ import logging
 
 from lbrl.utils import make_synthetic_features, inv_sherman_morrison
 from lbrl.linearenv import LinearEnv, LinearRepresentation
-from lbrl.hlsutils import derank_hls, hls_lambda, is_hls
+from lbrl.hlsutils import derank_hls, hls_lambda, is_hls, hls_rank
 from lbrl.leader import LEADER
 from lbrl.linucb import LinUCB
 from lbrl.leaderselect import LEADERSelect
@@ -132,7 +132,8 @@ def my_app(cfg: DictConfig) -> None:
         log.info(f"min gap: {min_gap}")
         log.info(f"realizable({i}): {error < min_gap}")
         log.info(f"error({i}): {error}")
-        log.info(f"is HLS({i}): {is_hls(rep_list[i].features, true_reward)}")
+        log.info(f"is HLS({i}): {is_hls(rep_list[i].features, true_reward, tol=1e-6)}")
+        log.info(f"HSL rank({i}): {hls_rank(rep_list[i].features, true_reward, tol=1e-6)}")
         log.info(f"lambda HLS({i}): {hls_lambda(rep_list[i].features, true_reward)}")
     log.info("\n")
 
