@@ -30,7 +30,7 @@ class LEADERSelect:
         
     def run(self, horizon, log_path: str=None):
         if log_path is None:
-            log_path = f"tblogs/{type(self).__name__}_{self.env.dataset_name}"
+            log_path = f"tblogs/{type(self).__name__}"
         log_path = log_path
         writer = SummaryWriter(log_path)
 

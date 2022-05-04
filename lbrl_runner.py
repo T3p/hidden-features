@@ -44,10 +44,10 @@ def my_app(cfg: DictConfig) -> None:
     # Problem creation
     ########################################################################
     if cfg.domain.type == "finite":
-        ncontexts, narms, dim = cfg.ncontexts, cfg.narms, cfg.dim
+        ncontexts, narms, dim = cfg.domain.ncontexts, cfg.domain.narms, cfg.domain.dim
         features, theta = make_synthetic_features(
             n_contexts=ncontexts, n_actions=narms, dim=dim,
-            context_generation=cfg.contextgeneration, feature_expansion=cfg.feature_expansion,
+            context_generation=cfg.domain.contextgeneration, feature_expansion=cfg.domain.feature_expansion,
             seed=cfg.domain.seed_problem
         )
 
@@ -173,7 +173,7 @@ def my_app(cfg: DictConfig) -> None:
             env, representation=rep_list[cfg.linucb_rep], reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_std,
             features_bound=np.linalg.norm(env.features, 2, axis=-1).max(),
             param_bound=np.linalg.norm(env.param, 2),
-            random_state=cfg.seed, delta=cfg.delta
+            random_state=cfg.seed, delta=cfg.delta, check_glrt=cfg.check_glrt
         )
     else:
         raise ValueError("Unknown algorithm {cfg.algo}")

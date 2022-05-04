@@ -11,6 +11,7 @@ ucb_regularizer: 1
 normalize_mineig: True
 linucb_rep: 0
 noise_std: ${domain.noise_param}
+check_glrt: True
 
 # misc
 seed: 1
