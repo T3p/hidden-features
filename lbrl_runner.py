@@ -19,6 +19,7 @@ from lbrl.leader import LEADER
 from lbrl.linucb import LinUCB
 from lbrl.leaderselect import LEADERSelect
 from lbrl.leaderselectlb import LEADERSelectLB
+from lbrl.epsgreedyglrt import EpsGreedyGLRT
 import matplotlib.pyplot as plt
 
 
@@ -166,6 +167,13 @@ def my_app(cfg: DictConfig) -> None:
                 param_bounds=[np.linalg.norm(param_list[j],2) for j in range(M)],
                 recompute_every=cfg.check_every, normalize=cfg.normalize_mineig,
                 random_state=cfg.seed, delta=cfg.delta
+        )
+    elif cfg.algo == "egreedyglrt":
+        algo = EpsGreedyGLRT(
+            env, representation=rep_list[cfg.linucb_rep], reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_std,
+            features_bound=np.linalg.norm(env.features, 2, axis=-1).max(),
+            param_bound=np.linalg.norm(env.param, 2),
+            random_state=cfg.seed, delta=cfg.delta
         )
     else:
         raise ValueError("Unknown algorithm {cfg.algo}")
