@@ -1,3 +1,5 @@
+import pdb
+
 import numpy as np
 from typing import Optional, Any
 import torch
@@ -30,9 +32,7 @@ class NNLinUCB(XBModule):
             self.unit_vector = torch.ones(self.model.embedding_dim).to(self.device) / np.sqrt(self.model.embedding_dim)
             self.unit_vector.requires_grad = True
             self.unit_vector_optimizer = torch.optim.Adam([self.unit_vector], lr=self.learning_rate)
-
-    def reset(self) -> None:
-        super().reset()
+        # initialization
         dim = self.model.embedding_dim
         self.b_vec = torch.zeros(dim, dtype=TORCH_FLOAT).to(self.device)
         self.inv_A = torch.eye(dim, dtype=TORCH_FLOAT).to(self.device) / self.ucb_regularizer
@@ -44,6 +44,7 @@ class NNLinUCB(XBModule):
 
     def _train_loss(self, b_features, b_rewards, b_weights):
         loss = 0
+        metrics = {}
         # (weighted) MSE LOSS
         if not np.isclose(self.weight_mse,0):
             prediction = self.model(b_features)
@@ -98,8 +99,13 @@ class NNLinUCB(XBModule):
             loss = loss + self.weight_l2features * l2feat_loss
 
         # TOTAL LOSS
-        self.writer.add_scalar('loss', loss, self.batch_counter)
-        return loss, {}
+        self.writer.add_scalar('loss', loss.item(), self.batch_counter)
+        # perform an SGD step
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        metrics['loss'] = loss.item()
+        return metrics
 
     # def _train_loss(self, b_features, b_rewards, b_weights):
     #     loss = 0
@@ -115,7 +121,7 @@ class NNLinUCB(XBModule):
     #             deb_mle = F.mse_loss(prediction, b_rewards)
     #
     #     return loss, {"mse_log": deb_mle.item()}
-    
+
     @torch.no_grad()
     def play_action(self, features: np.ndarray):
         assert features.shape[0] == self.env.action_space.n
@@ -144,7 +150,7 @@ class NNLinUCB(XBModule):
             self.logger.info(f"[{self.t}]ucb:\n {ucb}")
         return action
 
-    def add_sample(self, context: np.ndarray, action: int, reward: float, features: np.ndarray) -> None:
+    def add_sample(self, features: np.ndarray, reward: float) -> None:
         exp = (features, reward)
         self.buffer.append(exp)
 
@@ -163,12 +169,12 @@ class NNLinUCB(XBModule):
             # self.theta = self.inv_A @ self.b_vec
             self.theta = torch.linalg.solve(self.A, self.b_vec)
             self.inv_A = torch.linalg.inv(self.A)
-            self.A_logdet = torch.logdet(self.A)
+            self.A_logdet = torch.logdet(self.A).cpu().item()
 
             if self.t % 50 == 0:
                 f, r = self.buffer.get_all()
-                torch_feat = torch.tensor(f, dtype=TORCH_FLOAT)
-                torch_rew = torch.tensor(r.reshape(-1,1), dtype=TORCH_FLOAT)
+                torch_feat = torch.tensor(f, dtype=TORCH_FLOAT).to(self.device)
+                torch_rew = torch.tensor(r.reshape(-1,1), dtype=TORCH_FLOAT).to(self.device)
                 torch_phi = self.model.embedding(torch_feat)
                 pred = torch_phi @ self.theta
                 mse_loss = F.mse_loss(pred.reshape(-1,1), torch_rew)
@@ -179,7 +185,7 @@ class NNLinUCB(XBModule):
 
                 nc,na,nd = self.env.feature_matrix.shape
                 U = self.env.feature_matrix.reshape(-1, nd)
-                xt = torch.tensor(U, dtype=TORCH_FLOAT) 
+                xt = torch.tensor(U, dtype=TORCH_FLOAT).to(self.device)
                 H = self.model.embedding(xt)
                 newfeatures = H.reshape(nc, na, self.model.embedding_dim)
                 newreward = newfeatures @ self.theta
@@ -192,10 +198,10 @@ class NNLinUCB(XBModule):
 
             self.param_bound = torch.linalg.norm(self.theta, 2).cpu().item()
             self.writer.add_scalar('param_bound', self.param_bound, self.t)
-    
+
     def _post_train(self, loader=None):
         with torch.no_grad():
-            
+
             dim = self.model.embedding_dim
             f, r = self.buffer.get_all()
             # inv_A = torch.eye(dim) / self.ucb_regularizer

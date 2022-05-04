@@ -177,7 +177,6 @@ def my_app(cfg: DictConfig) -> None:
     else:
         raise ValueError("Unknown algorithm {cfg.algo}")
     print(type(algo).__name__)
-    algo.reset()
     result = algo.run(horizon=cfg.horizon, log_path=work_dir)#cfg.log_dir)
 
     # if cfg.save_dir is not None:
