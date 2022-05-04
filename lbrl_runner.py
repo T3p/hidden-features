@@ -154,12 +154,20 @@ def my_app(cfg: DictConfig) -> None:
                 check_elim_condition_every=cfg.check_every,
                 random_state=cfg.seed, delta=cfg.delta
             )
-    elif cfg.algo == "leaderselect":
+    elif cfg.algo.startswith("leaderselect_"):
+        if cfg.algo == "leaderselect_mineig":
+            select_method = LEADERSelect.MINEIG
+        elif cfg.algo == "leaderselect_mineig_norm":
+            select_method = LEADERSelect.MINEIG_NORM
+        elif cfg.algo == "leaderselect_avg_quad":
+            select_method = LEADERSelect.AVG_QUAD
+        else:
+            raise ValueError(f"unknown algo {cfg.algo}")
         algo = LEADERSelect(env, representations=rep_list, reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_std, 
                 features_bounds=[np.linalg.norm(rep_list[j].features,2, axis=-1).max() for j in range(M)], 
                 param_bounds=[np.linalg.norm(param_list[j],2) for j in range(M)],
-                recompute_every=cfg.check_every, normalize=cfg.normalize_mineig,
-                random_state=cfg.seed, delta=cfg.delta
+                random_state=cfg.seed, delta=cfg.delta,
+                select_method=select_method
         )
     elif cfg.algo == "leaderselectlb":
         algo = LEADERSelectLB(env, representations=rep_list, reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_std, 

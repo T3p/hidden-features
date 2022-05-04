@@ -1,17 +1,20 @@
-from select import select
-from turtle import update
 import numpy as np
 import logging
+from .replaybuffer import SimpleBuffer
 from torch.utils.tensorboard import SummaryWriter
+import pdb
 
 class LEADERSelect:
+
+    MINEIG=0
+    MINEIG_NORM=1
+    AVG_QUAD=2
   
     def __init__(
         self, env, representations, reg_val, noise_std,
-        features_bounds,
+        features_bounds, select_method,
         param_bounds, delta=0.01, random_state=0,
-        recompute_every=1,
-        normalize=True, logger=None
+        logger=None
       ):
         self.env = env
         self.reps = representations
@@ -22,8 +25,8 @@ class LEADERSelect:
         self.delta = delta
         self.random_state = random_state
         self.rng = np.random.RandomState(random_state)
-        self.recompute_every = recompute_every
-        self.normalize = normalize
+        self.select_method = select_method
+        assert select_method in [self.MINEIG, self.MINEIG_NORM, self.AVG_QUAD]
         self.logger = logger
         if logger is None:
             self.logger = logging.getLogger(__name__)
@@ -40,7 +43,8 @@ class LEADERSelect:
 
         active_reps = list(range(M))
         hist_mineig = []
-        hist_normalized_rep_scores = []
+        hist_mineig_norm = []
+        hist_rep_scores = []
         hist_selected_rep = []
         hist_active_reps = []
         hist_mse = []
@@ -71,13 +75,16 @@ class LEADERSelect:
         for i in range(M):
             dim = self.reps[i].features_dim()
             inv_A.append(np.eye(dim) / self.reg_val)
-            Amtx.append(np.zeros((dim, dim)))
+            Amtx.append(self.reg_val * np.eye(dim))
             b_vec.append(np.zeros(dim))
             A_logdet.append(np.log(self.reg_val) * dim)
             theta.append(inv_A[i] @ b_vec[i])
+
+        if self.select_method == self.AVG_QUAD:
+            buffer = SimpleBuffer(capacity=horizon)
         
         for t in range(horizon):
-            context = self.env.sample_context()
+            context_id = self.env.sample_context()
             avail_actions = self.env.get_available_actions()
 
 
@@ -88,15 +95,31 @@ class LEADERSelect:
                 update_time *= 2
                 hist_time_updates.append(t)
                 min_eigs = np.zeros(M_active)
-                normalized_rep_scores = np.zeros(M_active)
+                min_eigs_norm = np.zeros(M_active)
+                rep_scores = None
+                if self.select_method in [self.MINEIG_NORM, self.MINEIG]:
                 # compute min eigs
-                for i, idx in enumerate(active_reps):
-                    dim_i = Amtx[idx].shape[0]
-                    dm = Amtx[idx] + self.reg_val * np.eye(dim_i)
-                    eigs, _ = np.linalg.eig(dm)
-                    assert np.isclose(np.imag(eigs).min(), 0)
-                    min_eigs[i] = np.real(eigs).min()
-                    normalized_rep_scores[i] = min_eigs[i] / (self.features_bound[idx]**2)
+                    for i, idx in enumerate(active_reps):
+                        dm = Amtx[idx]
+                        eigs, _ = np.linalg.eig(dm)
+                        assert np.isclose(np.imag(eigs).min(), 0)
+                        min_eigs[i] = np.real(eigs).min()
+                        min_eigs_norm[i] = min_eigs[i] / (self.features_bound[idx]**2)
+                    if self.select_method == self.MINEIG:
+                        rep_scores = min_eigs
+                    else:
+                        rep_scores = min_eigs_norm
+                else:
+                    # \min_\phi \sum_t \sum_a phi(x_t, a) V phi(x_t,a)
+                    rep_scores = np.zeros(M_active)
+                    if len(buffer) > 0:
+                        obs_context_idxs, _ = buffer.get_all()
+                        for i, idx in enumerate(active_reps):
+                            for cidx in obs_context_idxs:
+                                for a in range(n_actions):
+                                    phi = self.reps[idx].get_features(cidx, a).squeeze()
+                                    rep_scores[i] += phi.dot(Amtx[idx] @ phi)
+                    buffer.append((context_id, None))
                 
                 # compute MSEs
                 mse = -np.inf*np.ones(M_active)
@@ -119,28 +142,25 @@ class LEADERSelect:
 
                 log_eigs = np.zeros(M) - 1
                 log_eigs[active_reps] = min_eigs
-                log_normalized_rep_scores = np.zeros(M) - 1
-                log_normalized_rep_scores[active_reps] = normalized_rep_scores
+                log_rep_scores = np.zeros(M) - 99
+                log_rep_scores[active_reps] = rep_scores
+                log_mineig_norm = np.zeros(M) - 1
+                log_mineig_norm[active_reps] = min_eigs_norm
                 hist_mineig.append(log_eigs)
-                hist_normalized_rep_scores.append(log_normalized_rep_scores)
-
-                writer.add_scalars('normalized_rep_scores', {f"rep{i}": log_normalized_rep_scores[i] for i in range(M)}, t)
-                writer.add_scalars('min_eig', {f"rep{i}": log_eigs[i] for i in range(M)}, t)
-
+                hist_rep_scores.append(log_rep_scores)
+                hist_mineig_norm.append(log_mineig_norm)
                 log_mse = np.zeros(M) - 1
                 log_mse[active_reps] = mse
                 hist_mse.append(log_mse)
+
+                writer.add_scalars('min_eig_norm', {f"rep{i}": log_mineig_norm[i] for i in range(M)}, t)
+                writer.add_scalars('min_eig', {f"rep{i}": log_eigs[i] for i in range(M)}, t)
+                writer.add_scalars('rep_score', {f"rep{i}": log_rep_scores[i] for i in range(M)}, t)
                 writer.add_scalars('mse', {f"rep{i}": log_mse[i] for i in range(M)}, t)
 
                 cond = mse > min_mse_plusoffset
-                
-                # if condition is False, we set the maximum value
-                # i.e. the representation will not be selected
-                if self.normalize:
-                    value = normalized_rep_scores - cond * np.finfo(float).max 
-                else:
-                    value = min_eigs - cond * np.finfo(float).max 
 
+                value = rep_scores - cond * np.finfo(float).max
                 winners = np.argwhere(value == value.max()).flatten().tolist()
                 selected_rep = self.rng.choice(winners)
                 selected_rep = active_reps[selected_rep]
@@ -162,20 +182,20 @@ class LEADERSelect:
                 
 
             # compute UCBs of selected representation
-            scores = np.zeros(n_actions)
+            ucbs = np.zeros(n_actions)
             dim = self.reps[selected_rep].features_dim()
             val = A_logdet[selected_rep] - dim * np.log(self.reg_val) - 2 * np.log(self.delta)
             beta = self.noise_std * np.sqrt(val) + self.param_bound[selected_rep] * np.sqrt(self.reg_val)
 
             for i, a in enumerate(avail_actions):
-                v = self.reps[selected_rep].get_features(context, a)
+                v = self.reps[selected_rep].get_features(context_id, a)
                 tie_breaking_noise = self.rng.randn() * 1e-15
                 norm_val = v.dot(inv_A[selected_rep].dot(v))
                 bonus = beta * np.sqrt(norm_val)
-                scores[i] = v.dot(theta[selected_rep]) + bonus + tie_breaking_noise
+                ucbs[i] = v.dot(theta[selected_rep]) + bonus + tie_breaking_noise
             
             # select and execute action
-            action = np.argmax(scores)
+            action = np.argmax(ucbs)
             reward = self.env.step(action)
 
             # update
@@ -192,7 +212,7 @@ class LEADERSelect:
             # SSE = A + Bw + \sum_j C_j w_j \sum_{k}\sum_{j=k+1} D_k D_j w_i w_j
             # MSE = SSE / t
             for i in range(M):
-                v = self.reps[i].get_features(context, action)
+                v = self.reps[i].get_features(context_id, action)
                 d = len(v)
                 b_vec[i] += v * reward
                 den = 1. + v.dot(inv_A[i].dot(v))
@@ -221,7 +241,8 @@ class LEADERSelect:
             "regret": np.cumsum(best_reward - instant_reward),
             "selected_rep": hist_selected_rep,
             "hist_mineig": hist_mineig,
-            "hist_normalized_rep_scores": hist_normalized_rep_scores,
+            "hist_mineig_norm": hist_rep_scores,
+            "hist_rep_scores": hist_rep_scores,
             "hist_selected_rep": hist_selected_rep,
             "hist_active_reps": hist_active_reps,
             "hist_mse": hist_mse,
