@@ -21,8 +21,8 @@ class XBModule():
     def __init__(
         self,
         env: Any,
-        model: nn.Module,
-        cfg: DictConfig
+        cfg: DictConfig,
+        model: Optional[nn.Module] = None
     ) -> None:
         self.env = env
         self.model = model

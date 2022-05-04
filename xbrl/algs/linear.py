@@ -2,6 +2,7 @@ import numpy as np
 from typing import Optional, Any
 from .batched.templates import XBModule
 from ..envs.hlsutils import optimal_features, min_eig_outer
+from omegaconf import DictConfig
 
 def inv_sherman_morrison(u, A_inv):
     """Inverse of a matrix with rank 1 update.
@@ -16,22 +17,16 @@ class LinUCB(XBModule):
     def __init__(
         self,
         env: Any,
-        seed: Optional[int] = 0, 
-        update_every: Optional[int] = 1,
-        noise_std: float=1,
-        delta: Optional[float]=0.01,
-        ucb_regularizer: Optional[float]=1,
-        bonus_scale: Optional[float]=1.
+        cfg: DictConfig
     ) -> None:
-        super().__init__(env, None, None, None, None, None, None, 0, seed, None, update_every, train_reweight=False)
-        self.np_random = np.random.RandomState(seed)
-        self.noise_std = noise_std
-        self.delta = delta
-        self.ucb_regularizer = ucb_regularizer
-        self.bonus_scale = bonus_scale
+        super().__init__(env, cfg)
+        self.np_random = np.random.RandomState(cfg.seed)
+        self.noise_std = cfg.noise_std
+        self.delta = cfg.delta
+        self.ucb_regularizer = cfg.ucb_regularizer
+        self.bonus_scale = cfg.bonus_scale
 
-    def reset(self) -> None:
-        super().reset()
+        # initialization
         dim = self.env.feature_dim
         self.b_vec = np.zeros(dim)
         self.inv_A = np.eye(dim) / self.ucb_regularizer
@@ -42,6 +37,7 @@ class LinUCB(XBModule):
         self.new_theta = np.zeros(dim)
         self.param_bound = 1
         self.features_bound = 1
+
 
     def play_action(self, features: np.ndarray) -> int:
         assert features.shape[0] == self.env.action_space.n
@@ -63,7 +59,7 @@ class LinUCB(XBModule):
 
         return action
 
-    def add_sample(self, context: np.ndarray, action: int, reward: float, features: np.ndarray) -> None:
+    def add_sample(self, features: np.ndarray, reward: float) -> None:
         # exp = (features, reward)
         # self.buffer.append(exp)
 
