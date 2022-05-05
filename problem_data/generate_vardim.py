@@ -6,9 +6,9 @@ from lbrl.hlsutils import derank_hls, hls_lambda, is_hls, reduce_dim, make_resha
 import json
 from lbrl.utils import make_synthetic_features
 
-# out_file = "vardimtest_icml_nonrealizable.npy"
+out_file = "vardimtest_icml_nonrealizable.npy"
 # out_file = "vardimtest_icml_realizable.npy"
-out_file = "vardimtest_icml_real_nohls.npy"
+# out_file = "vardimtest_icml_real_nohls.npy"
 seed_problem = 99
 
 # in_features_file = "basic_features.npy"
@@ -53,7 +53,22 @@ if out_file == "vardimtest_icml_nonrealizable.npy":
     param_list.append(p3)
     print(f3.shape, p3.shape)
     f4, p4 = make_synthetic_features(n_contexts=nc, n_actions=na, dim=9,
-        context_generation="uniform", feature_expansion="none", seed=seed_problem)
+        context_generation="uniform", feature_expansion="none", seed=10*seed_problem)
+    print(f4.shape, p4.shape)
+    rep_list.append(f4)
+    param_list.append(p4)
+    f4, p4 = make_synthetic_features(n_contexts=nc, n_actions=na, dim=18,
+        context_generation="bernoulli", feature_expansion="none", seed=seed_problem)
+    print(f4.shape, p4.shape)
+    rep_list.append(f4*5)
+    param_list.append(p4)
+    f4, p4 = make_synthetic_features(n_contexts=nc, n_actions=na, dim=12,
+        context_generation="bernoulli", feature_expansion="none", seed=10*seed_problem)
+    print(f4.shape, p4.shape)
+    rep_list.append(f4*9)
+    param_list.append(p4)
+    f4, p4 = make_synthetic_features(n_contexts=nc, n_actions=na, dim=12,
+        context_generation="gaussian", feature_expansion="none", seed=10*seed_problem)
     print(f4.shape, p4.shape)
     rep_list.append(f4)
     param_list.append(p4)
