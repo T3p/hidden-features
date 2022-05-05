@@ -19,3 +19,4 @@ dependencies:
     - tqdm==4.62.3
     - tensorboard==2.8.0
     - cvxpy
+    - wandb
