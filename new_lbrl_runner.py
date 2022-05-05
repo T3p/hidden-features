@@ -9,6 +9,7 @@ import random
 import pickle
 import json
 import copy
+import omegaconf
 import requests
 import logging
 
@@ -16,10 +17,6 @@ from lbrl.utils import make_synthetic_features, inv_sherman_morrison
 from lbrl.linearenv import LinearEnv, LinearRepresentation
 from lbrl.hlsutils import derank_hls, hls_lambda, is_hls, hls_rank
 from lbrl.leader import LEADER
-from lbrl.linucb import LinUCB
-from lbrl.leaderselect import LEADERSelect
-from lbrl.leaderselectlb import LEADERSelectLB
-from lbrl.epsgreedyglrt import EpsGreedyGLRT
 import lbrl.superreplearner as SRL
 import matplotlib.pyplot as plt
 
@@ -143,17 +140,28 @@ def my_app(cfg: DictConfig) -> None:
 
     M = len(rep_list)
     if cfg.algo == "linucb":
-        algo = LinUCB(env, representation=rep_list[cfg.linucb_rep], reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_std, 
-                features_bound=np.linalg.norm(env.features, 2, axis=-1).max(),
-                param_bound=np.linalg.norm(env.param, 2),
+        cfg.check_glrt = False
+        algo = SRL.SRLLinUCB(env=env, representations=[rep_list[cfg.rep_idx]], 
+            features_bounds = [np.linalg.norm(rep_list[cfg.rep_idx].features, 2, axis=-1).max()],
+            param_bounds=[np.linalg.norm(param_list[cfg.rep_idx], 2)],
+            cfg=cfg
+        )
+    elif cfg.algo == "egreedyglrt":
+        algo = SRL.SRLEGreedy(env=env, representations=[rep_list[cfg.rep_idx]],
+            features_bounds = [None], param_bounds = [None], cfg=cfg
+        )
+    elif cfg.algo == "leader_old":
+        algo = LEADER(env, representations=rep_list, reg_val=cfg.reg_val, noise_std=cfg.noise_std, 
+                features_bounds=[np.linalg.norm(rep_list[j].features, 2, axis=-1).max() for j in range(M)], 
+                param_bounds=[np.linalg.norm(param_list[j], 2) for j in range(M)],
                 random_state=cfg.seed, delta=cfg.delta
             )
     elif cfg.algo == "leader":
-        algo = LEADER(env, representations=rep_list, reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_std, 
-                features_bounds=[np.linalg.norm(rep_list[j].features, 2, axis=-1).max() for j in range(M)], 
-                param_bounds=[np.linalg.norm(param_list[j], 2) for j in range(M)],
-                check_elim_condition_every=cfg.check_every,
-                random_state=cfg.seed, delta=cfg.delta
+        cfg.check_glrt = False
+        algo = SRL.Leader(env, representations=rep_list, 
+                features_bounds=[np.linalg.norm(rep_list[j].features,2, axis=-1).max() for j in range(M)], 
+                param_bounds=[np.linalg.norm(param_list[j],2) for j in range(M)],
+                cfg=cfg
             )
     elif cfg.algo.startswith("srl"):
         if cfg.algo.endswith("mineig"):
@@ -166,42 +174,19 @@ def my_app(cfg: DictConfig) -> None:
             select_method = SRL.SuperRepLearner.AVG_QUAD_NORM
         else:
             raise ValueError(f"unknown algo {cfg.algo}")
+        cfg.select_method = select_method
         if cfg.algo.startswith("srllinucb"):
-            algo = SRL.SRLLinUCB(env, representations=rep_list, cfg=cfg)
+            algo = SRL.SRLLinUCB(env, representations=rep_list, 
+                features_bounds=[np.linalg.norm(rep_list[j].features,2, axis=-1).max() for j in range(M)], 
+                param_bounds=[np.linalg.norm(param_list[j],2) for j in range(M)],
+                cfg=cfg
+            )
         if cfg.algo.startswith("srlegreedy"):
-            algo = SRL.SRLEGreedy(env, representations=rep_list, cfg=cfg)
-
-    elif cfg.algo.startswith("leaderselect_"):
-        if cfg.algo == "leaderselect_mineig":
-            select_method = LEADERSelect.MINEIG
-        elif cfg.algo == "leaderselect_mineig_norm":
-            select_method = LEADERSelect.MINEIG_NORM
-        elif cfg.algo == "leaderselect_avg_quad":
-            select_method = LEADERSelect.AVG_QUAD
-        elif cfg.algo == "leaderselect_avg_quad_norm":
-            select_method = LEADERSelect.AVG_QUAD_NORM
-        else:
-            raise ValueError(f"unknown algo {cfg.algo}")
-        algo = LEADERSelect(env, representations=rep_list, reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_std, 
+            algo = SRL.SRLEGreedy(env, representations=rep_list, 
                 features_bounds=[np.linalg.norm(rep_list[j].features,2, axis=-1).max() for j in range(M)], 
                 param_bounds=[np.linalg.norm(param_list[j],2) for j in range(M)],
-                random_state=cfg.seed, delta=cfg.delta,
-                select_method=select_method
-        )
-    elif cfg.algo == "leaderselectlb":
-        algo = LEADERSelectLB(env, representations=rep_list, reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_std, 
-                features_bounds=[np.linalg.norm(rep_list[j].features,2, axis=-1).max() for j in range(M)], 
-                param_bounds=[np.linalg.norm(param_list[j],2) for j in range(M)],
-                recompute_every=cfg.check_every, normalize=cfg.normalize_mineig,
-                random_state=cfg.seed, delta=cfg.delta
-        )
-    elif cfg.algo == "egreedyglrt":
-        algo = EpsGreedyGLRT(
-            env, representation=rep_list[cfg.linucb_rep], reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_std,
-            features_bound=np.linalg.norm(env.features, 2, axis=-1).max(),
-            param_bound=np.linalg.norm(env.param, 2),
-            random_state=cfg.seed, delta=cfg.delta, check_glrt=cfg.check_glrt
-        )
+                cfg=cfg
+            )
     else:
         raise ValueError("Unknown algorithm {cfg.algo}")
     
