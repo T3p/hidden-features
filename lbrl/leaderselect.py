@@ -9,6 +9,7 @@ class LEADERSelect:
     MINEIG=0
     MINEIG_NORM=1
     AVG_QUAD=2
+    AVG_QUAD_NORM=3
   
     def __init__(
         self, env, representations, reg_val, noise_std,
@@ -26,7 +27,7 @@ class LEADERSelect:
         self.random_state = random_state
         self.rng = np.random.RandomState(random_state)
         self.select_method = select_method
-        assert select_method in [self.MINEIG, self.MINEIG_NORM, self.AVG_QUAD]
+        assert select_method in [self.MINEIG, self.MINEIG_NORM, self.AVG_QUAD, self.AVG_QUAD_NORM]
         self.logger = logger
         if logger is None:
             self.logger = logging.getLogger(__name__)
@@ -80,7 +81,7 @@ class LEADERSelect:
             A_logdet.append(np.log(self.reg_val) * dim)
             theta.append(inv_A[i] @ b_vec[i])
 
-        if self.select_method == self.AVG_QUAD:
+        if self.select_method in [self.AVG_QUAD,self.AVG_QUAD_NORM]:
             buffer = SimpleBuffer(capacity=horizon)
         
         for t in range(horizon):
@@ -118,7 +119,11 @@ class LEADERSelect:
                             for cidx in obs_context_idxs:
                                 for a in range(n_actions):
                                     phi = self.reps[idx].get_features(cidx, a).squeeze()
-                                    rep_scores[i] += phi.dot(Amtx[idx] @ phi)
+                                    if self.select_method == self.AVG_QUAD_NORM:
+                                        rep_scores[i] += phi.dot(Amtx[idx] @ phi) / np.sum(phi**2)
+                                    else:
+                                        rep_scores[i] += phi.dot(Amtx[idx] @ phi)
+
                     buffer.append((context_id, None))
                 
                 # compute MSEs
