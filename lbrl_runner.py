@@ -161,6 +161,8 @@ def my_app(cfg: DictConfig) -> None:
             select_method = LEADERSelect.MINEIG_NORM
         elif cfg.algo == "leaderselect_avg_quad":
             select_method = LEADERSelect.AVG_QUAD
+        elif cfg.algo == "leaderselect_avg_quad_norm":
+            select_method = LEADERSelect.AVG_QUAD_NORM
         else:
             raise ValueError(f"unknown algo {cfg.algo}")
         algo = LEADERSelect(env, representations=rep_list, reg_val=cfg.ucb_regularizer, noise_std=cfg.noise_std, 
