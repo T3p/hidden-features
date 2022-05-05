@@ -7,5 +7,5 @@ for DOMAIN in vardim_icml_realizable vardimtest_icml_real_nohls vardim_icml_nonr
 do
     python lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=leaderselect_mineig_norm,leaderselect_mineig,leaderselect_avg_quad,leader seed=${SEEDS} hydra.sweep.dir=${DOMAIN}_${TODAY}/\${algo}
 
-    python lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=linucb,egreedyglrt linucb_rep=0,1,2,3,4,5 seed=SEEDS hydra.sweep.dir=${DOMAIN}_${TODAY}/\${algo}_\${linucb_rep}
+    python lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=linucb,egreedyglrt linucb_rep=0,1,2,3,4,5 seed=${SEEDS} hydra.sweep.dir=${DOMAIN}_${TODAY}/\${algo}_\${linucb_rep}
 done
