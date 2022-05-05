@@ -116,11 +116,12 @@ class LEADERSelect:
                     if len(buffer) > 0:
                         obs_context_idxs, _ = buffer.get_all()
                         for i, idx in enumerate(active_reps):
+                            Lsq = self.features_bound[idx]**2
                             for cidx in obs_context_idxs:
                                 for a in range(n_actions):
                                     phi = self.reps[idx].get_features(cidx, a).squeeze()
                                     if self.select_method == self.AVG_QUAD_NORM:
-                                        rep_scores[i] += phi.dot(Amtx[idx] @ phi) / np.sum(phi**2)
+                                        rep_scores[i] += phi.dot(Amtx[idx] @ phi) / Lsq
                                     else:
                                         rep_scores[i] += phi.dot(Amtx[idx] @ phi)
 
