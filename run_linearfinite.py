@@ -15,9 +15,9 @@ from xbrl import TORCH_FLOAT
 
 import xbrl.envs as bandits
 import xbrl.envs.hlsutils as hlsutils
-from xbrl.algs.linear import LinUCB
+# from xbrl.algs.linear import LinUCB
 from xbrl.algs.batched.nnlinucb import NNLinUCB
-# from xbrl.algs.batched.linucb import LinUCB
+from xbrl.algs.batched.linucb import LinUCB
 from xbrl.algs.batched.nnepsilongreedy import NNEpsGreedy
 import xbrl.algs.incremental as incalg
 # import xbrl.algs.nnleaderinc as incalg
@@ -161,7 +161,7 @@ def my_app(cfg: DictConfig) -> None:
     elif cfg.algo == "nnegreedy":
         algo = NNEpsGreedy(env, cfg, net)
     elif cfg.algo == "linucb":
-        algo = LinUCB(env, cfg)
+        algo = NNLinUCB(env, cfg)
     elif cfg.algo == "nnlinucbinc":
         algo = incalg.NNLinUCBInc(env, net, cfg)
     elif cfg.algo == "nnleaderinc":
