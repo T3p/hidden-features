@@ -6,7 +6,9 @@ class EpsGreedyGLRT:
   
     def __init__(self, env, representation, reg_val, noise_std,
         features_bound,
-        param_bound, delta=0.01, random_state=0, logger=None):
+        param_bound, delta=0.01, 
+        check_glrt=True,
+        random_state=0, logger=None):
         self.env = env
         self.rep = representation
         self.reg_val = reg_val
@@ -14,6 +16,7 @@ class EpsGreedyGLRT:
         self.features_bound = features_bound
         self.param_bound=param_bound
         self.delta = delta
+        self.check_glrt = check_glrt
         self.random_state = random_state
         self.rng = np.random.RandomState(random_state)
         self.logger = logger
@@ -22,7 +25,7 @@ class EpsGreedyGLRT:
         
     def run(self, horizon, log_path: str=None):
         if log_path is None:
-            log_path = f"tblogs/{type(self).__name__}_{self.env.dataset_name}"
+            log_path = f"tblogs/{type(self).__name__}"
         log_path = log_path
         writer = SummaryWriter(log_path)
         instant_reward = np.zeros(horizon)
@@ -40,7 +43,8 @@ class EpsGreedyGLRT:
             avail_actions = self.env.get_available_actions()
             #GLRT
             tt = t + 1
-            epsilon = 1. / np.sqrt(tt)
+            # epsilon = 1. / np.sqrt(tt)
+            epsilon = 1. / np.cbrt(tt)
             for i, a in enumerate(avail_actions):
                 v = self.rep.get_features(context, a)
                 feat_x[i] = v
@@ -53,11 +57,15 @@ class EpsGreedyGLRT:
                     xx = feat_x[amax] - feat_x[i]
                     val = xx.dot(inv_A @ xx)
                     glrt_values[i] = (rew_hat[amax] - rew_hat[i])**2 / (2*(val))
-            val = 2*np.log(1./self.delta) + dim * np.log(1+2*tt*self.features_bound/(self.reg_val*dim))
+            val = 2 * np.log(1./self.delta) + dim * np.log(1 + 2*tt*self.features_bound/(self.reg_val*dim))
             betasq = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.reg_val)
             betasq *= betasq
-            if np.min(glrt_values) > betasq:
-                print(f"{t} glrt in...")
+            glrt_in = False
+            glrt_minval = np.min(glrt_values)
+            writer.add_scalars('glrt test', {"minval": glrt_minval, "threshold": betasq}, t)
+
+            if self.check_glrt and glrt_minval > betasq:
+                glrt_in = True
                 action = amax
             else:
                 if self.rng.rand() < epsilon:
@@ -81,5 +89,7 @@ class EpsGreedyGLRT:
             best_reward[t] = self.env.best_reward()
             reg += best_reward[t] - instant_reward[t]
             writer.add_scalar('expected regret', reg, t)
+            writer.add_scalar('epsilon', epsilon, t)
+            writer.add_scalar('glrt active', 1 if glrt_in else 0, t)
         writer.close()
         return {"regret": np.cumsum(best_reward - instant_reward)}
