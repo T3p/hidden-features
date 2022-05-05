@@ -164,14 +164,16 @@ def my_app(cfg: DictConfig) -> None:
         algo = NNLinUCB(env, cfg, net)
     elif cfg.algo == "nnegreedy":
         algo = NNEpsGreedy(env, cfg, net)
+    elif cfg.algo == "egreedy":
+        algo = NNEpsGreedy(env, cfg)
     elif cfg.algo == "linucb":
         algo = NNLinUCB(env, cfg)
     elif cfg.algo == "nnlinucbinc":
-        algo = incalg.NNLinUCBInc(env, net, cfg)
+        algo = incalg.NNLinUCBInc(env, cfg, net)
     elif cfg.algo == "nnleaderinc":
-        algo = incalg.NNLeaderInc(env, net, cfg)
+        algo = incalg.NNLeaderInc(env, cfg, net)
     elif cfg.algo == "nneginc":
-        algo = incalg.NNEGInc(env, net, cfg)
+        algo = incalg.NNEGInc(env, cfg, net)
     else:
         raise ValueError("Unknown algorithm {cfg.algo}")
     print(type(algo).__name__)
