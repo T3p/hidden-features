@@ -45,7 +45,6 @@ class XBModule():
                                              weight_decay=self.weight_decay)
         self.t = 0
         self.buffer = SimpleBuffer(capacity=self.buffer_capacity)
-        self.batch_counter = 0
         # TODO: check the following lines: with initialization to 0 the training code is never called
         self.update_time = 2
         # self.update_time = 2**np.ceil(np.log2(self.batch_size)) + 1
@@ -60,6 +59,8 @@ class XBModule():
         self.buffer.append(exp)
 
     def train(self) -> float:
+        if self.model is None:
+            return 0
         # if self.t % self.update_every == 0 and self.t > self.batch_size:
         if self.t == self.update_time:
             # self.update_time = max(1, self.update_time) * 2
@@ -105,12 +106,6 @@ class XBModule():
                         for key, value in metrics.items():
                             epoch_metrics[key].append(value)
                         self.writer.flush()
-                        self.batch_counter += 1
-
-                    if 'loss' in epoch_metrics.keys():
-                        avg_loss = np.mean(epoch_metrics['loss'])
-                        if avg_loss < 1e-4:
-                            break
 
                 self.model.eval()
                 self._post_train(loader)

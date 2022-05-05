@@ -52,7 +52,6 @@ class NNLinUCB(XBModule):
         if not np.isclose(self.weight_mse,0):
             prediction = self.model(b_features)
             mse_loss = (b_weights * (prediction - b_rewards) ** 2).mean()
-            self.writer.add_scalar('mse_loss', self.weight_mse * mse_loss, self.batch_counter)
             loss = loss + self.weight_mse * mse_loss
 
         #DETERMINANT or LOG_MINEIG LOSS
@@ -62,7 +61,6 @@ class NNLinUCB(XBModule):
             A /= phi.shape[0]
             # det_loss = torch.logdet(A)
             spectral_loss = - torch.log(torch.linalg.eigvalsh(A).min())
-            self.writer.add_scalar('spectral_loss', spectral_loss, self.batch_counter)
             loss = loss + self.weight_spectral * spectral_loss
 
         if not np.isclose(self.weight_orth, 0):
@@ -99,11 +97,9 @@ class NNLinUCB(XBModule):
             l2feat_loss = torch.mean(torch.norm(phi, p=2, dim=1))
             # l2 reg on parameters can be done in the optimizer
             # though weight_decay (https://discuss.pytorch.org/t/simple-l2-regularization/139)
-            self.writer.add_scalar('l2feat_loss', self.weight_l2features * l2feat_loss, self.batch_counter)
             loss = loss + self.weight_l2features * l2feat_loss
 
-        # TOTAL LOSS
-        self.writer.add_scalar('loss', loss.item(), self.batch_counter)
+
         # perform an SGD step
         self.optimizer.zero_grad()
         loss.backward()
@@ -155,7 +151,7 @@ class NNLinUCB(XBModule):
             phi = feature_tensor.squeeze()
 
         self.A += torch.outer(phi, phi)
-        self.b_vec = self.b_vec + phi * reward
+        self.b_vec += phi * reward
         # # self.inv_A, den = inv_sherman_morrison(v, self.inv_A)
         # Au = self.inv_A @ v
         # den = 1 + torch.dot(v.T, Au)
@@ -173,13 +169,11 @@ class NNLinUCB(XBModule):
         self.writer.add_scalar('param_bound', self.param_bound, self.t)
 
         # log in tensorboard
-
         if self.t % 50 == 0:
             batch_features, batch_rewards = self.buffer.get_all()
             error, _ = self.compute_linear_error(batch_features, batch_rewards)
             mse_loss = error.pow(2).mean()
             self.writer.add_scalar('mse_linear', mse_loss, self.t)
-            # print(f"{self.t} - mse: {mse_loss.item()}")
 
         if self.t % 100 == 0:
             if hasattr(self.env, 'feature_matrix'):
@@ -205,6 +199,8 @@ class NNLinUCB(XBModule):
 
 
     def _post_train(self, loader=None) -> None:
+        if self.model is None:
+            return None
         dim = self.model.embedding_dim
         batch_features, batch_rewards = self.buffer.get_all()
         features_tensor = torch.tensor(batch_features, dtype=TORCH_FLOAT, device=self.device)
