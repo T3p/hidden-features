@@ -8,10 +8,8 @@ import numpy as np
 import random
 import pickle
 import json
-import copy
-import omegaconf
-import requests
 import logging
+import wandb
 
 from lbrl.utils import make_synthetic_features, inv_sherman_morrison
 from lbrl.linearenv import LinearEnv, LinearRepresentation
@@ -37,6 +35,18 @@ def my_app(cfg: DictConfig) -> None:
     log.info(f"Orig working directory    : {original_dir}")
 
     set_seed_everywhere(cfg.seed)
+
+    if cfg.use_wandb:
+        # wandb.tensorboard.patch(root_logdir=str(work_dir))
+        wandb.init(
+            # Set the project where this run will be logged
+            project="lbrl", 
+            # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
+            name=f"{cfg.exp_name}", 
+            # Track hyperparameters and run metadata
+            config=OmegaConf.to_container(cfg),
+            # sync_tensorboard=True
+        )
 
     ########################################################################
     # Problem creation
@@ -201,6 +211,9 @@ def my_app(cfg: DictConfig) -> None:
 
     with open(os.path.join(work_dir, "result.pkl"), 'wb') as f:
         pickle.dump(result, f)
+
+    if cfg.use_wandb:
+        wandb.finish(quiet=True)
 
 
 if __name__ == "__main__":

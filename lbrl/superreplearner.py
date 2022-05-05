@@ -169,7 +169,7 @@ class SuperRepLearner:
                     if self.cfg.select_method == self.MINEIG_NORM:
                         rep_scores[i] = rep_scores[i] / (self.features_bounds[i]**2)
                 else:
-                    rep_scores[i] = -np.finfo(float).max
+                    rep_scores[i] = -999
         else:
             # \min_\phi \sum_t \sum_a phi(x_t, a) V phi(x_t,a)
             if len(self.buffer) > 0:
@@ -185,12 +185,12 @@ class SuperRepLearner:
                                 else:
                                     rep_scores[i] += phi.dot(self.Amtx[i] @ phi)
                     else:
-                        rep_scores[i] = -np.finfo(float).max
+                        rep_scores[i] = -999
         # logging
         if self.cfg.use_tb:
             self.tb_writer.add_scalars('rep_score', {f"rep{i}": rep_scores[i] for i in range(M)}, self.t)
         if self.cfg.use_wandb:
-            wandb.log({f"rep{i}": rep_scores[i] for i in range(M)}, step=self.t)
+            wandb.log({f"rep_score[{i}]": rep_scores[i] for i in range(M)}, step=self.t)
 
         mse, min_mse_plusoffset = self.compute_mses()
         elim_rep = mse > min_mse_plusoffset
