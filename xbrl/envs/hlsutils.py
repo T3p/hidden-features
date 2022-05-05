@@ -29,16 +29,18 @@ def optimal_features(features, rewards):
 
 
 #Diversity properties    
-def rank(features, rewards, tol=None):
+def rank(features, tol=None):
     n_contexts, n_arms, dim = features.shape
     all_feats = np.reshape(features, 
                            (n_contexts * n_arms, dim))
-    D = np.matmul(all_feats.transpose(1,0), all_feats)
-    return np.linalg.matrix_rank(D, tol)
+    A = np.matmul(all_feats.T, all_feats)
+    return np.linalg.matrix_rank(A, tol, hermitian=True)
+
 
 def spans(features, rewards, tol=None):
     n_contexts, n_arms, dim = features.shape
     return rank(features, rewards, tol) == dim
+
 
 def is_cmb(features, rewards, tol=None):
     n_contexts, n_arms, dim = features.shape
@@ -62,8 +64,8 @@ def cmb_rank(features, rewards, tol=None):
 
 def hls_rank(features, rewards, tol=None):
     phi = optimal_features(features, rewards)
-    D  = np.matmul(phi.transpose(1,0), phi)
-    return np.linalg.matrix_rank(D, tol)
+    A  = np.matmul(phi.T, phi) / phi.shape[0]
+    return np.linalg.matrix_rank(A, tol, hermitian=True)
 
 def is_hls(features, rewards, tol=None):
     dim = features.shape[2]
@@ -72,8 +74,9 @@ def is_hls(features, rewards, tol=None):
 def hls_lambda(features, rewards, cprobs=None, weak=False):
 
     phi = optimal_features(features, rewards)
-    D  = np.matmul(phi.transpose(1,0), phi)
-    n2 = np.linalg.eigvalsh(D).min() / phi.shape[0]
+    A  = np.matmul(phi.T, phi) / phi.shape[0]
+    eig = np.linalg.eigvalsh(A).min()
+    return eig
 
     # n_contexts = features.shape[0]
     # if cprobs is None:
@@ -85,7 +88,7 @@ def hls_lambda(features, rewards, cprobs=None, weak=False):
     # if np.allclose(mineig, 0.):
     #     return 0.
     # assert np.isclose(mineig,n2,atol=1e-3), (mineig,n2)
-    return n2
+
 
 
 def normalize_linrep(features, param, scale=1.):

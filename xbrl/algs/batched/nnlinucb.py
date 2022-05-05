@@ -10,6 +10,7 @@ from .templates import XBModule
 from ...envs import hlsutils
 from ... import TORCH_FLOAT
 from omegaconf import DictConfig
+import wandb
 
 
 class NNLinUCB(XBModule):
@@ -53,15 +54,17 @@ class NNLinUCB(XBModule):
             prediction = self.model(b_features)
             mse_loss = (b_weights * (prediction - b_rewards) ** 2).mean()
             loss = loss + self.weight_mse * mse_loss
+            metrics['mse_loss'] = mse_loss.cpu().item()
 
         #DETERMINANT or LOG_MINEIG LOSS
         if not np.isclose(self.weight_spectral, 0):
             phi = self.model.embedding(b_features)
-            A = torch.matmul(phi.transpose(1, 0), phi) + self.ucb_regularizer * torch.eye(phi.shape[1])
+            A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
             # det_loss = torch.logdet(A)
             spectral_loss = - torch.log(torch.linalg.eigvalsh(A).min())
             loss = loss + self.weight_spectral * spectral_loss
+            metrics['spectral_loss'] = spectral_loss.cpu().item()
 
         if not np.isclose(self.weight_orth, 0):
             batch_size = b_features.shape[0]
@@ -75,6 +78,7 @@ class NNLinUCB(XBModule):
             orth_loss = phi_1_2.pow(2).mean() - (phi_1_1.mean() + phi_2_2.mean())
 
             loss += self.weight_orth * orth_loss
+            metrics['orth_loss'] = orth_loss.cpu().item()
 
         if not np.isclose(self.weight_rayleigh, 0):
             phi = self.model.embedding(b_features)
@@ -90,6 +94,7 @@ class NNLinUCB(XBModule):
             A = torch.matmul(phi.T, phi) / phi.shape[0]
             rayleigh_loss = - torch.dot(self.unit_vector.detach(), torch.matmul(A, self.unit_vector.detach()))
             loss += self.weight_rayleigh * rayleigh_loss
+            metrics['rayleigh_loss'] = rayleigh_loss.cpu().item()
 
         # FEATURES NORM LOSS
         if not np.isclose(self.weight_l2features, 0):
@@ -98,13 +103,14 @@ class NNLinUCB(XBModule):
             # l2 reg on parameters can be done in the optimizer
             # though weight_decay (https://discuss.pytorch.org/t/simple-l2-regularization/139)
             loss = loss + self.weight_l2features * l2feat_loss
+            metrics['l2feat_loss'] = l2feat_loss.cpu().item()
 
 
         # perform an SGD step
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        metrics['loss'] = loss.item()
+        metrics['train_loss'] = loss.cpu().item()
         return metrics
 
     def play_action(self, features: np.ndarray):
@@ -129,7 +135,10 @@ class NNLinUCB(XBModule):
         bonus = self.bonus_scale * beta * torch.sqrt(bonus)
         ucb = torch.matmul(phi, self.theta) + bonus
         action = torch.argmax(ucb).item()
-        self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
+        if self.use_tb:
+            self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
+        if self.use_wandb:
+            wandb.log({'bonus selected action': bonus[action].item()})
         assert 0 <= action < self.env.action_space.n, ucb
 
         if self.t % 100 == 0:
@@ -163,17 +172,23 @@ class NNLinUCB(XBModule):
         self.A_logdet = torch.logdet(self.A).cpu().item()
 
         self.features_bound = max(self.features_bound, torch.norm(phi, p=2).cpu().item())
-        self.writer.add_scalar('features_bound', self.features_bound, self.t)
-
         self.param_bound = torch.linalg.norm(self.theta, 2).cpu().item()
-        self.writer.add_scalar('param_bound', self.param_bound, self.t)
+        if self.use_tb:
+            self.writer.add_scalar('features_bound', self.features_bound, self.t)
+            self.writer.add_scalar('param_bound', self.param_bound, self.t)
+        if self.use_wandb:
+            wandb.log({'features_bound': self.features_bound,
+                       'param_bound': self.param_bound})
 
         # log in tensorboard
         if self.t % 50 == 0:
             batch_features, batch_rewards = self.buffer.get_all()
             error, _ = self.compute_linear_error(batch_features, batch_rewards)
             mse_loss = error.pow(2).mean()
-            self.writer.add_scalar('mse_linear', mse_loss, self.t)
+            if self.use_tb:
+                self.writer.add_scalar('mse_linear', mse_loss, self.t)
+            if self.use_wandb:
+                wandb.log({'mse_linear': mse_loss})
 
         if self.t % 100 == 0:
             if hasattr(self.env, 'feature_matrix'):
@@ -182,7 +197,14 @@ class NNLinUCB(XBModule):
                 all_rewards = self.env.rewards.reshape(-1)
                 error, _ = self.compute_linear_error(all_features, all_rewards)
                 max_err = torch.abs(error).max()
-                self.writer.add_scalar('max miss-specification', max_err.cpu().item(), self.t)
+                mean_square_err = error.pow(2).mean()
+                if self.use_tb:
+                    self.writer.add_scalar('max miss-specification', max_err.cpu().item(), self.t)
+                    self.writer.add_scalar('mean square miss-specification', mean_square_err.cpu().item(), self.t)
+
+                if self.use_wandb:
+                    wandb.log({'max miss-specification': max_err.cpu().item()})
+                    wandb.log({'mean square miss-specification': mean_square_err.cpu().item()})
 
     def compute_linear_error(self, features: np.ndarray, reward: np.ndarray):
         assert len(features.shape) == 2 and len(reward.shape) == 1
@@ -207,7 +229,7 @@ class NNLinUCB(XBModule):
         rewards_tensor = torch.tensor(batch_rewards, dtype=TORCH_FLOAT, device=self.device)
         with torch.no_grad():
             phi = self.model.embedding(features_tensor)
-        A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(dim)
+        A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(dim, device=self.device)
         b_vec = torch.matmul(phi.T, rewards_tensor)
         theta = torch.linalg.solve(A, b_vec)
         assert torch.allclose(torch.matmul(A, theta), b_vec)
@@ -233,19 +255,27 @@ class NNLinUCB(XBModule):
             all_rewards = self.env.rewards.reshape(-1)
             error, phi = self.compute_linear_error(all_features, all_rewards)
             max_err = torch.abs(error).max()
-            self.writer.add_scalar('max miss-specification', max_err.cpu().item(), self.t)
+
 
             # IS HLS
             new_phi = phi.reshape(num_context, num_action, self.model.embedding_dim)
             new_phi = new_phi.cpu().numpy()
-            hls_rank = hlsutils.hls_rank(new_phi, self.env.rewards)
-            ishls = 1 if hlsutils.is_hls(new_phi, self.env.rewards) else 0
+            hls_rank = hlsutils.hls_rank(new_phi, self.env.rewards, tol=1e-4)
+            ishls = 1 if hlsutils.is_hls(new_phi, self.env.rewards, tol=1e-4) else 0
             hls_lambda = hlsutils.hls_lambda(new_phi, self.env.rewards)
-            rank_phi = hlsutils.rank(new_phi, None)
-            self.writer.add_scalar('hls_lambda', hls_lambda, self.t)
-            self.writer.add_scalar('hls_rank', hls_rank, self.t)
-            self.writer.add_scalar('hls?', ishls, self.t)
-            self.writer.add_scalar('rank_phi', rank_phi, self.t)
+            rank_phi = hlsutils.rank(new_phi, tol=1e-4)
+            if self.use_tb:
+                self.writer.add_scalar('max miss-specification', max_err.cpu().item(), self.t)
+                self.writer.add_scalar('hls_lambda', hls_lambda, self.t)
+                self.writer.add_scalar('hls_rank', hls_rank, self.t)
+                self.writer.add_scalar('hls?', ishls, self.t)
+                self.writer.add_scalar('rank_phi', rank_phi, self.t)
+            if self.use_wandb:
+                wandb.log({'max miss-specification': max_err.cpu().item(),
+                           'hls_lambda': hls_lambda,
+                           'hls_rank': hls_rank,
+                           'hls?': ishls,
+                           'rank_phi': rank_phi})
 
 
     # def _post_train(self, loader=None):

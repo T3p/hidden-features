@@ -1,10 +1,11 @@
-import imp
+import pdb
+
 import numpy as np
 from typing import Optional, Any
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
 from omegaconf import DictConfig
+import wandb
 
 from .nnlinucb import NNLinUCB, TORCH_FLOAT
 
@@ -13,7 +14,7 @@ class NNEpsGreedy(NNLinUCB):
     def __init__(
         self, env: Any,
             cfg: DictConfig,
-            model: nn.Module
+            model: Optional[nn.Module] = None
     ) -> None:
         super().__init__(env, cfg, model)
         self.epsilon_min = cfg.epsilon_min
@@ -27,20 +28,38 @@ class NNEpsGreedy(NNLinUCB):
 
 
     def play_action(self, features: np.ndarray) -> int:
-        if self.t > self.time_random_exp and self.epsilon > self.epsilon_min:
-            self.epsilon -= (self.epsilon_start - self.epsilon_min) / self.epsilon_decay
-        self.writer.add_scalar('epsilon', self.epsilon, self.t)
-        if self.np_random.rand() < self.epsilon:
-            action = self.np_random.choice(self.env.action_space.n, size=1).item()
+        # if self.t > self.time_random_exp and self.epsilon > self.epsilon_min:
+            # self.epsilon -= (self.epsilon_start - self.epsilon_min) / self.epsilon_decay
+        self.epsilon = 1 / (self.t + 1)**(1/3)
+        features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
+        if self.model is not None:
+            with torch.no_grad():
+                phi = self.model.embedding(features_tensor)
+                dim = self.model.embedding_dim
         else:
-            features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
-            if self.model is not None:
-                with torch.no_grad():
-                    phi = self.model.embedding(features_tensor)
-            else:
-                phi = features_tensor
+            phi = features_tensor
+            dim = self.env.feature_dim
 
-            scores = torch.matmul(phi, self.theta)
-            action = torch.argmax(scores).item()
-        assert 0 <= action < self.env.action_space.n
-        return action
+        predicted_rewards = torch.matmul(phi, self.theta)
+        action = torch.argmax(predicted_rewards).item()
+
+        # Generalized Likelihood Ratio Test
+        prediction_diff = predicted_rewards[torch.arange(predicted_rewards.shape[0]) != action] - predicted_rewards[
+            action]
+        phi_diff = phi[torch.arange(phi.shape[0]) != action] - phi[action]
+        weighted_norm = (torch.matmul(phi_diff, self.inv_A) * phi_diff).sum(axis=1)
+        likelihood_ratio = (prediction_diff) ** 2 / (2 * weighted_norm.clamp_min(1e-12))
+        min_ratio = likelihood_ratio.min()
+        val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
+        beta = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.ucb_regularizer)
+        if self.use_tb:
+            self.writer.add_scalar('epsilon', self.epsilon, self.t)
+            self.writer.add_scalar('GRLT', int(min_ratio > beta**2), self.t)
+        if self.use_wandb:
+            wandb.log({'epsilon': self.epsilon})
+            wandb.log({'GRLT': int(min_ratio > beta**2)})
+        if min_ratio > beta**2 or self.np_random.rand() > self.epsilon:
+            return action
+        else:
+            return self.np_random.choice(self.env.action_space.n, size=1).item()
+
