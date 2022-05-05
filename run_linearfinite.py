@@ -53,11 +53,15 @@ def my_app(cfg: DictConfig) -> None:
 
 
     if cfg.use_wandb:
+        exp_name = '_'.join([
+            cfg.algo, cfg.domain.type
+        ])
         wandb.init(
             # Set the project where this run will be logged
-            project="run_linearfinite", 
+            project="run_linearfinite",
+            group=cfg.algo,   # mode="disabled",
             # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
-            name=f"{cfg.exp_name}", 
+            name=exp_name,
             # Track hyperparameters and run metadata
             config=OmegaConf.to_container(cfg)
         )

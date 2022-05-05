@@ -1,5 +1,5 @@
 import pdb
-
+import wandb
 import numpy as np
 from typing import Optional, Any
 from tqdm import tqdm
@@ -38,6 +38,8 @@ class XBModule():
         self.unit_vector: Optional[torch.tensor] = None
         self.train_reweight = cfg.train_reweight
         self.logger = logging.getLogger(__name__)
+        self.use_tb = cfg.use_tb
+        self.use_wandb = cfg.use_wandb
         if model is not None:
             self.model.to(self.device)
             self.model.to(TORCH_FLOAT)
@@ -110,8 +112,12 @@ class XBModule():
                 self.model.eval()
                 self._post_train(loader)
                 # log to tensorboard
-                for key, value in epoch_metrics.items():
-                    self.writer.add_scalar('epoch_' + key, np.mean(value), self.t)
+                if self.use_tb:
+                    for key, value in epoch_metrics.items():
+                        self.writer.add_scalar('epoch_' + key, np.mean(value), self.t)
+                if self.use_wandb:
+                    wandb.log({'epoch_' + key: np.mean(value) for key, value in epoch_metrics.items()})
+                avg_loss = np.mean(epoch_metrics['train_loss'])
                 return avg_loss
         return None
 
@@ -151,6 +157,8 @@ class XBModule():
                 rewards = [self.env.expected_reward(a) for a in range(self.env.action_space.n)]
                 sorted_rewards = np.sort(rewards)
                 metrics['action_gap'].append(sorted_rewards[-1]-sorted_rewards[-2])
+                # metrics['instant_regret'].append(best_reward - reward)
+                # metrics["instant_expected_regret"].append(best_reward - expected_reward)
 
                 # update postfix
                 postfix['expected regret'] += best_reward - expected_reward
@@ -164,12 +172,18 @@ class XBModule():
 
                 # log to tensorboard
                 # self.writer.add_scalar("regret", postfix['total regret'], self.t)
-                self.writer.add_scalar('action gap', metrics['action_gap'][-1], self.t)
-                self.writer.add_scalar("expected regret", postfix['expected regret'], self.t)
-                self.writer.add_scalar('perc optimal pulls (last 100 steps)', p_optimal_arm, self.t)
-                self.writer.add_scalar('optimal arm?', 1 if action == best_action else 0, self.t)
+                if self.use_tb:
+                    self.writer.add_scalar('action gap', metrics['action_gap'][-1], self.t)
+                    self.writer.add_scalar("expected regret", postfix['expected regret'], self.t)
+                    self.writer.add_scalar('perc optimal pulls (last 100 steps)', p_optimal_arm, self.t)
+                    self.writer.add_scalar('optimal arm?', 1 if action == best_action else 0, self.t)
+                if self.use_wandb:
+                    wandb.log({'action gap':  metrics['action_gap'][-1],
+                               'expected regret': postfix['expected regret'],
+                               'perc optimal pulls (last 100 steps)': p_optimal_arm,
+                               'optimal arm?': int(action == best_action),
+                               'step': self.t})
 
-                self.writer.flush()
                 if self.t % throttle == 0:
                     pbar.set_postfix(postfix)
                     pbar.update(throttle)
@@ -180,7 +194,8 @@ class XBModule():
         for key, value in metrics.items():
             metrics[key] = np.array(value)
         # compute extra metrics
+        metrics["optimal_arm"] = np.cumsum(metrics["action"] == metrics["best_action"]) / np.arange(1, len(
+            metrics["action"]) + 1)
         metrics['regret'] = np.cumsum(metrics["best_reward"] - metrics["instant_reward"])
-        metrics["optimal_arm"] = np.cumsum(metrics["action"] == metrics["best_action"]) / np.arange(1, len(metrics["action"])+1)
         metrics["expected_regret"] = np.cumsum(metrics["best_reward"] - metrics["expected_reward"])
         return metrics

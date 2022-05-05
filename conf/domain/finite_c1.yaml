@@ -1,7 +1,7 @@
 # problem
 type: finite
 ncontexts: 1000
-dim: 5
+dim: 10
 narms: 5
 contextgeneration: gaussian
 feature_expansion: none

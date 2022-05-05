@@ -1,10 +1,9 @@
-import imp
 import numpy as np
 from typing import Optional, Any
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
 from omegaconf import DictConfig
+import wandb
 
 from .nnlinucb import NNLinUCB, TORCH_FLOAT
 
@@ -27,9 +26,13 @@ class NNEpsGreedy(NNLinUCB):
 
 
     def play_action(self, features: np.ndarray) -> int:
-        if self.t > self.time_random_exp and self.epsilon > self.epsilon_min:
-            self.epsilon -= (self.epsilon_start - self.epsilon_min) / self.epsilon_decay
-        self.writer.add_scalar('epsilon', self.epsilon, self.t)
+        # if self.t > self.time_random_exp and self.epsilon > self.epsilon_min:
+            # self.epsilon -= (self.epsilon_start - self.epsilon_min) / self.epsilon_decay
+        self.epsilon = 1 / (self.t + 1)**(1/3)
+        if self.use_tb:
+            self.writer.add_scalar('epsilon', self.epsilon, self.t)
+        if self.use_wandb:
+            wandb.log({'epsilon': self.epsilon})
         if self.np_random.rand() < self.epsilon:
             action = self.np_random.choice(self.env.action_space.n, size=1).item()
         else:
