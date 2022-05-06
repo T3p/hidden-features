@@ -145,7 +145,7 @@ class SuperRepLearner:
         betasq = self.cfg.noise_std * np.sqrt(val) + self.param_bounds[selected_rep] * np.sqrt(self.cfg.reg_val)
         betasq *= betasq
         glrt_minval = np.min(glrt_values)
-        dogreedy = glrt_minval > betasq
+        dogreedy = glrt_minval > self.cfg.glrt_scale * betasq
         # logging
         if self.cfg.use_tb:
             self.tb_writer.add_scalars('glrt test', {"minval": glrt_minval, "threshold": betasq}, self.t)
@@ -296,7 +296,10 @@ class SuperRepLearner:
 class SRLEGreedy(SuperRepLearner):
 
     def play_base_algo(self, context_id, selected_rep):
-        self.epsilon = 1. / np.cbrt(self.t)
+        if self.cfg.eps_decay == "cbrt":
+            self.epsilon = 1. / np.cbrt(self.t)
+        else:
+            self.epsilon = 1. / np.sqrt(self.t)
         if self.cfg.use_tb:
             self.tb_writer.add_scalar('epsilon', self.epsilon, self.t)
         if self.cfg.use_wandb:
@@ -327,7 +330,7 @@ class SRLLinUCB(SuperRepLearner):
             v = self.reps[selected_rep].get_features(context_id, a)
             tie_breaking_noise = self.rng.randn() * 1e-15
             norm_val = v.dot(self.inv_A[selected_rep].dot(v))
-            bonus = beta * np.sqrt(norm_val)
+            bonus = self.cfg.bonus_scale * beta * np.sqrt(norm_val)
             ucbs[i] = v.dot(self.theta[selected_rep]) + bonus + tie_breaking_noise
         action = np.argmax(ucbs)
         return action
@@ -368,7 +371,7 @@ class Leader(SuperRepLearner):
                 v = self.reps[rep_id].get_features(context_id, a)
                 tie_breaking_noise = self.rng.randn() * 1e-15
                 norm_val = v.dot(self.inv_A[rep_id].dot(v))
-                bonus = beta * np.sqrt(norm_val)
+                bonus = self.cfg.bonus_scale * beta * np.sqrt(norm_val)
                 scores[j, i] = v.dot(self.theta[rep_id]) + bonus + tie_breaking_noise
 
 

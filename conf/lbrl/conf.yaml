@@ -10,8 +10,11 @@ reg_val: 1
 rep_idx: 0
 noise_std: ${domain.noise_param}
 check_glrt: True
+glrt_scale: 1
 update_every: 2
 exp_name: default
+bonus_scale: 1
+eps_decay: cbrt
 
 # misc
 seed: 1
