@@ -1,3 +1,4 @@
+import pdb
 from dataclasses import dataclass
 import numpy as np
 from dataclasses import dataclass
@@ -33,6 +34,12 @@ class CBFinite:
             self.rewards = sigmoid(self.rewards)
 
         self.n_contexts, self.n_arms, self.dim = self.feature_matrix.shape
+
+        # # increase artificially the minimum gap
+        # for x in range(self.__len__()):
+        #     best_action = np.argmax(self.rewards[x])
+        #     self.rewards[x, best_action] += 1
+
 
     def sample_context(self) -> np.ndarray:
         self.idx += 1

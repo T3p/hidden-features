@@ -44,12 +44,15 @@ class NNEpsGreedy(NNLinUCB):
         action = torch.argmax(predicted_rewards).item()
 
         # Generalized Likelihood Ratio Test
-        prediction_diff = predicted_rewards[torch.arange(predicted_rewards.shape[0]) != action] - predicted_rewards[
+        prediction_diff = predicted_rewards[predicted_rewards < predicted_rewards[action]] - predicted_rewards[
             action]
-        phi_diff = phi[torch.arange(phi.shape[0]) != action] - phi[action]
-        weighted_norm = (torch.matmul(phi_diff, self.inv_A) * phi_diff).sum(axis=1)
-        likelihood_ratio = (prediction_diff) ** 2 / (2 * weighted_norm.clamp_min(1e-12))
-        min_ratio = likelihood_ratio.min()
+        if len(prediction_diff) == 0:
+            min_ratio = 0
+        else:
+            phi_diff = phi[predicted_rewards < predicted_rewards[action]] - phi[action]
+            weighted_norm = (torch.matmul(phi_diff, self.inv_A) * phi_diff).sum(axis=1)
+            likelihood_ratio = (prediction_diff) ** 2 / (2 * weighted_norm.clamp_min(1e-12))
+            min_ratio = likelihood_ratio.min()
         val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
         beta = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.ucb_regularizer)
         if self.use_tb:
@@ -57,8 +60,8 @@ class NNEpsGreedy(NNLinUCB):
             self.writer.add_scalar('GRLT', int(min_ratio > beta**2), self.t)
         if self.use_wandb:
             wandb.log({'epsilon': self.epsilon})
-            wandb.log({'GRLT': int(min_ratio > beta**2)})
-        if min_ratio > beta**2 or self.np_random.rand() > self.epsilon:
+            wandb.log({'GRLT': int(min_ratio > self.bonus_scale * beta**2)})
+        if min_ratio > self.bonus_scale * beta**2 or self.np_random.rand() > self.epsilon:
             return action
         else:
             return self.np_random.choice(self.env.action_space.n, size=1).item()

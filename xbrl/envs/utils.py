@@ -105,7 +105,7 @@ def make_synthetic_features(
         if context_generation == "uniform":
             context = random_problem.uniform(low=min_value, high=max_value, size=(n_contexts, dim))
         elif context_generation == "gaussian":
-            context = random_problem.randn((n_contexts, dim)) * features_sigma + features_mean
+            context = random_problem.randn(n_contexts, dim) * features_sigma + features_mean
         elif context_generation == "bernoulli":
             context = random_problem.binomial(1, p=feature_proba, size=(n_contexts, dim))
 
