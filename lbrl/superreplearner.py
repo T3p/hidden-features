@@ -128,19 +128,24 @@ class SuperRepLearner:
         avail_actions = self.env.get_available_actions()
         dim = self.reps[selected_rep].features_dim()
         feat_x = np.zeros((self.env.n_actions, dim))
-        glrt_values = np.zeros(self.env.n_actions)
         for i, a in enumerate(avail_actions):
             v = self.reps[selected_rep].get_features(context_id, a)
             feat_x[i] = v
         rew_hat = feat_x @ self.theta[selected_rep]
         amax = np.argmax(rew_hat)
-        for i in range(len(avail_actions)):
-            if i == amax:
-                glrt_values[i] = np.inf
-            else:
-                feat_diff = feat_x[amax] - feat_x[i]
-                val = feat_diff.dot(self.inv_A[selected_rep] @ feat_diff)
-                glrt_values[i] = (rew_hat[amax] - rew_hat[i])**2 / (2*(val))
+        prediction_diff = rew_hat[np.arange(rew_hat.shape[0]) != amax] - rew_hat[amax]
+        phi_diff = feat_x[np.arange(rew_hat.shape[0]) != amax] - feat_x[amax]
+        weighted_norm = (np.matmul(phi_diff, self.inv_A[selected_rep]) * phi_diff).sum(axis=1)
+        glrt_values = (prediction_diff**2) / (2*weighted_norm)
+        assert len(glrt_values) == (feat_x.shape[0] - 1)
+        # glrt_values = np.zeros(self.env.n_actions)
+        # for i in range(len(avail_actions)):
+        #     if i == amax:
+        #         glrt_values[i] = np.inf
+        #     else:
+        #         feat_diff = feat_x[amax] - feat_x[i]
+        #         val = feat_diff.dot(self.inv_A[selected_rep] @ feat_diff)
+        #         glrt_values[i] = (rew_hat[amax] - rew_hat[i])**2 / (2*(val))
         val = 2 * np.log(1./self.cfg.delta) + dim * np.log(1 + 2*self.t*self.features_bounds[selected_rep]/(self.cfg.reg_val*dim))
         betasq = self.cfg.noise_std * np.sqrt(val) + self.param_bounds[selected_rep] * np.sqrt(self.cfg.reg_val)
         betasq *= betasq
