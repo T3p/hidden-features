@@ -49,20 +49,20 @@ class NNEpsGreedy(NNLinUCB):
         subopt_arms = torch.where(predicted_rewards <= predicted_rewards.max() - self.mingap_clip)[0]
         action = opt_arms[torch.randint(len(opt_arms), (1, ))].cpu().item()
         # Generalized Likelihood Ratio Test
+        val = - 2 * np.log(self.delta) + dim * np.log(
+            1 + 2 * self.t * self.features_bound / (self.ucb_regularizer * dim))
+        # val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
+        beta = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.ucb_regularizer)
 
-        prediction_diff = predicted_rewards[subopt_arms] - predicted_rewards[action]
-        if len(prediction_diff) == 0:
-            min_ratio = 0
+        if len(subopt_arms) == 0:
+            min_ratio = beta ** 2 + 1
         else:
+            prediction_diff = predicted_rewards[subopt_arms] - predicted_rewards[action]
             phi_diff = phi[subopt_arms] - phi[action]
             weighted_norm = (torch.matmul(phi_diff, self.inv_A) * phi_diff).sum(axis=1)
             likelihood_ratio = (prediction_diff) ** 2 / (2 * weighted_norm.clamp_min(1e-10))
             min_ratio = likelihood_ratio.min()
 
-        val = - 2 * np.log(self.delta) + dim * np.log(
-            1 + 2 * self.t * self.features_bound / (self.ucb_regularizer * dim))
-        # val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
-        beta = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.ucb_regularizer)
         if self.use_tb:
             self.writer.add_scalar('epsilon', self.epsilon, self.t)
             self.writer.add_scalar('GRLT', int(min_ratio > self.glrt_scale * beta**2), self.t)

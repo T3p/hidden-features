@@ -6,7 +6,7 @@ defaults:
 horizon: 20000
 algo: nnegreedy
 update_every: 1.2
-noise_std: 1
+noise_std: ${domain.noise_param}
 delta: 0.01
 ucb_regularizer: 1
 bonus_scale: 0.1
