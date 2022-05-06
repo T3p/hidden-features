@@ -4,7 +4,7 @@ defaults:
   - override hydra/launcher: joblib
 
 horizon: 20000
-algo: leaderselectlb
+algo: egreedyglrt
 delta: 0.01
 reg_val: 1
 rep_idx: 0
