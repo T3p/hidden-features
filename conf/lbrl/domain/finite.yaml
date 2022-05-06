@@ -1,11 +1,14 @@
-type: finite
-ncontexts: 100
+# problem
+type: finite_single
+ncontexts: 1000
 dim: 10
 narms: 5
 contextgeneration: gaussian
 feature_expansion: none
-num_nonrealizable: 5
-mingap: 0.1
+newrank: none
+num_nonrealizable: 0
+
+# noise problem
+noise_type: gaussian
+noise_param: 0.2 #std
 seed_problem: 3
-reduce_dim: False
-noise_param: 1 #std
