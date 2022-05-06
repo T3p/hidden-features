@@ -15,6 +15,7 @@ update_every: 2
 exp_name: default
 bonus_scale: 1
 eps_decay: cbrt
+mingap_clip: 0.01
 
 # misc
 seed: 1

@@ -132,15 +132,16 @@ class SuperRepLearner:
             v = self.reps[selected_rep].get_features(context_id, a)
             feat_x[i] = v
         rew_hat = feat_x @ self.theta[selected_rep]
-        amax = np.argmax(rew_hat)
-        prediction_diff = rew_hat[np.arange(rew_hat.shape[0]) != amax] - rew_hat[amax]
-        phi_diff = feat_x[np.arange(rew_hat.shape[0]) != amax] - feat_x[amax]
+        winners = np.argwhere(np.abs(rew_hat - rew_hat.max()) < self.cfg.mingap_clip).flatten().tolist()
+        amax = self.rng.choice(winners)
+        loosers = np.argwhere(np.abs(rew_hat - rew_hat.max()) >= self.cfg.mingap_clip).flatten().tolist()
+        prediction_diff = rew_hat[loosers] - rew_hat[amax]
+        phi_diff = feat_x[loosers] - feat_x[amax]
         weighted_norm = (np.matmul(phi_diff, self.inv_A[selected_rep]) * phi_diff).sum(axis=1)
         glrt_values = (prediction_diff**2) / (2*weighted_norm)
-        assert len(glrt_values) == (feat_x.shape[0] - 1)
         # glrt_values = np.zeros(self.env.n_actions)
         # for i in range(len(avail_actions)):
-        #     if i == amax:
+        #     if i in winners:
         #         glrt_values[i] = np.inf
         #     else:
         #         feat_diff = feat_x[amax] - feat_x[i]
@@ -149,13 +150,16 @@ class SuperRepLearner:
         val = 2 * np.log(1./self.cfg.delta) + dim * np.log(1 + 2*self.t*self.features_bounds[selected_rep]/(self.cfg.reg_val*dim))
         betasq = self.cfg.noise_std * np.sqrt(val) + self.param_bounds[selected_rep] * np.sqrt(self.cfg.reg_val)
         betasq *= betasq
-        glrt_minval = np.min(glrt_values)
+        if len(glrt_values) > 0:
+            glrt_minval = np.min(glrt_values)
+        else:
+            glrt_minval = betasq + 1
         dogreedy = glrt_minval > self.cfg.glrt_scale * betasq
         # logging
         if self.cfg.use_tb:
-            self.tb_writer.add_scalars('glrt test', {"minval": glrt_minval, "threshold": betasq}, self.t)
+            self.tb_writer.add_scalars('glrt test', {"minval": min(glrt_minval, betasq), "threshold": betasq}, self.t)
         if self.cfg.use_wandb:
-            wandb.log({"glrt_minval": glrt_minval, "glrt_threshold": betasq}, step=self.t)
+            wandb.log({"glrt_minval": min(glrt_minval, betasq), "glrt_threshold": betasq}, step=self.t)
         return dogreedy, amax
 
     def play_base_algo(self, context_id, selected_rep):
@@ -305,10 +309,11 @@ class SRLEGreedy(SuperRepLearner):
             self.epsilon = 1. / np.cbrt(self.t)
         else:
             self.epsilon = 1. / np.sqrt(self.t)
+        self.epsilon = 1. / np.power(self.t, 0.5)
         if self.cfg.use_tb:
             self.tb_writer.add_scalar('epsilon', self.epsilon, self.t)
         if self.cfg.use_wandb:
-            wandb.log({'epsilon', self.epsilon}, step=self.t)
+            wandb.log({'epsilon': self.epsilon}, step=self.t)
         
         avail_actions = self.env.get_available_actions()
         if self.rng.rand() < self.epsilon:

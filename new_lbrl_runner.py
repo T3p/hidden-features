@@ -51,7 +51,22 @@ def my_app(cfg: DictConfig) -> None:
     ########################################################################
     # Problem creation
     ########################################################################
-    if cfg.domain.type == "finite":
+    if cfg.domain.type == "finite_single":
+        ncontexts, narms, dim = cfg.domain.ncontexts, cfg.domain.narms, cfg.domain.dim
+        features, theta = make_synthetic_features(
+            n_contexts=ncontexts, n_actions=narms, dim=dim,
+            context_generation=cfg.domain.contextgeneration, feature_expansion=cfg.domain.feature_expansion,
+            seed=cfg.domain.seed_problem
+        )
+
+        env = LinearEnv(features=features.copy(), param=theta.copy(), rew_noise=cfg.domain.noise_param, random_state=cfg.seed)
+        true_reward = features @ theta
+        problem_gen = np.random.RandomState(cfg.domain.seed_problem)
+        rep_list = [LinearRepresentation(features)]
+        param_list = [theta]
+        cfg.rep_idx = 0
+        position_reference_rep = 0
+    elif cfg.domain.type == "finite_multi":
         ncontexts, narms, dim = cfg.domain.ncontexts, cfg.domain.narms, cfg.domain.dim
         features, theta = make_synthetic_features(
             n_contexts=ncontexts, n_actions=narms, dim=dim,
@@ -120,12 +135,19 @@ def my_app(cfg: DictConfig) -> None:
 
     # compute gap
     min_gap = np.inf
-    for i in range(true_reward.shape[0]):
-        rr = true_reward[i]
-        sort_rr = sorted(rr)
-        gap = sort_rr[-1] - sort_rr[-2]
-        min_gap = min(gap, min_gap)
+    min_gap_ctx = []
+    na = true_reward.shape[1]
+    for ctx in range(true_reward.shape[0]):
+        rr = true_reward[ctx]
+        arr = sorted(rr)
+        for i in range(na-1):
+            diff = arr[i+1] - arr[i]
+            if diff <= min_gap and diff > 0:
+                min_gap = diff
+                min_gap_ctx.append(ctx)
+
     log.info(f"min gap: {min_gap}")
+    log.info(f"min gap [rewards]: {true_reward[min_gap_ctx]}")
 
     for i in range(len(rep_list)):
         log.info("\n")
