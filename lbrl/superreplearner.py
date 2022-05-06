@@ -309,7 +309,6 @@ class SRLEGreedy(SuperRepLearner):
             self.epsilon = 1. / np.cbrt(self.t)
         else:
             self.epsilon = 1. / np.sqrt(self.t)
-        self.epsilon = 1. / np.power(self.t, 0.5)
         if self.cfg.use_tb:
             self.tb_writer.add_scalar('epsilon', self.epsilon, self.t)
         if self.cfg.use_wandb:
