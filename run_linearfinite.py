@@ -39,7 +39,7 @@ def set_seed_everywhere(seed):
     np.random.seed(seed)
     random.seed(seed)
 
-@hydra.main(config_path="conf", config_name="config")
+@hydra.main(config_path="conf/xbrl", config_name="config")
 def my_app(cfg: DictConfig) -> None:
     # print(OmegaConf.to_yaml(cfg))
 
@@ -92,6 +92,7 @@ def my_app(cfg: DictConfig) -> None:
         print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
         print(f"Original rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
         print(f"Original rep -> HLS min eig: {hlsutils.hls_lambda(features, rewards)}")
+        print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)}")
         print(f"Original rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
         if cfg.domain.type == "finite" and cfg.domain.newrank not in [None, "none", "None"]:
             features, theta = hlsutils.derank_hls(features=features, param=theta, newrank=cfg.domain.newrank)
@@ -107,6 +108,36 @@ def my_app(cfg: DictConfig) -> None:
             noise=cfg.domain.noise_type, noise_param=cfg.domain.noise_param
         )
         print(f"min gap: {env.min_suboptimality_gap()}")
+    elif cfg.domain.type == "fromfile":
+        print(os.path.exists(os.path.join(original_dir, cfg.domain.datafile)))
+        if os.path.exists(os.path.join(original_dir, cfg.domain.datafile)):
+            features_list, param_list, position_reference_rep = np.load(os.path.join(original_dir, cfg.domain.datafile), allow_pickle=True)
+        else:
+            print(cfg.domain.url)
+            if cfg.domain.url is not None:
+                print('-'*20)
+                print(f"please download the file using the following link: {cfg.domain.url}")
+                print(f"and save it into : {os.path.join(original_dir, cfg.domain.datafile)}")
+                print('-'*20)
+                exit(9)
+            else:
+                raise ValueError(f"Unable to open the file {cfg.domain.datafile}")
+        features = features_list[position_reference_rep]
+        theta = param_list[position_reference_rep]
+        rewards = features @ theta
+        print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
+        print(f"Original rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
+        print(f"Original rep -> HLS min eig: {hlsutils.hls_lambda(features, rewards)}")
+        print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)}")
+        print(f"Original rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
+
+        env = bandits.CBFinite(
+            feature_matrix=features, 
+            rewards=rewards, seed=cfg.seed, 
+            noise=cfg.domain.noise_type, noise_param=cfg.domain.noise_param
+        )
+        print(f"min gap: {env.min_suboptimality_gap()}")
+
     elif cfg.domain.type == "nn":
         net_file = os.path.join(original_dir, cfg.domain.net)
         features_file = os.path.join(original_dir, cfg.domain.features)
