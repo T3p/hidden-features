@@ -138,7 +138,7 @@ class NNLinUCB(XBModule):
         if self.use_tb:
             self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
         if self.use_wandb:
-            wandb.log({'bonus selected action': bonus[action].item()})
+            wandb.log({'bonus selected action': bonus[action].item()}, step=self.t)
         assert 0 <= action < self.env.action_space.n, ucb
 
         if self.t % 100 == 0:
@@ -178,7 +178,7 @@ class NNLinUCB(XBModule):
             self.writer.add_scalar('param_bound', self.param_bound, self.t)
         if self.use_wandb:
             wandb.log({'features_bound': self.features_bound,
-                       'param_bound': self.param_bound})
+                       'param_bound': self.param_bound}, step=self.t)
 
         # log in tensorboard
         if self.t % 50 == 0:
@@ -188,7 +188,7 @@ class NNLinUCB(XBModule):
             if self.use_tb:
                 self.writer.add_scalar('mse_linear', mse_loss, self.t)
             if self.use_wandb:
-                wandb.log({'mse_linear': mse_loss})
+                wandb.log({'mse_linear': mse_loss}, step=self.t)
 
         if self.t % 100 == 0:
             if hasattr(self.env, 'feature_matrix'):
@@ -203,8 +203,8 @@ class NNLinUCB(XBModule):
                     self.writer.add_scalar('mean square miss-specification', mean_square_err.cpu().item(), self.t)
 
                 if self.use_wandb:
-                    wandb.log({'max miss-specification': max_err.cpu().item()})
-                    wandb.log({'mean square miss-specification': mean_square_err.cpu().item()})
+                    wandb.log({'max miss-specification': max_err.cpu().item()}, step=self.t)
+                    wandb.log({'mean square miss-specification': mean_square_err.cpu().item()}, step=self.t)
 
     def compute_linear_error(self, features: np.ndarray, reward: np.ndarray):
         assert len(features.shape) == 2 and len(reward.shape) == 1
@@ -275,7 +275,7 @@ class NNLinUCB(XBModule):
                            'hls_lambda': hls_lambda,
                            'hls_rank': hls_rank,
                            'hls?': ishls,
-                           'rank_phi': rank_phi})
+                           'rank_phi': rank_phi}, step=self.t)
 
 
     # def _post_train(self, loader=None):

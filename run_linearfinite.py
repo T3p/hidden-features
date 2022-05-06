@@ -133,7 +133,7 @@ def my_app(cfg: DictConfig) -> None:
 
         env = bandits.CBFinite(
             feature_matrix=features, 
-            rewards=rewards, seed=cfg.seed, 
+            rewards=rewards, seed=cfg.seed, shuffle=False,
             noise=cfg.domain.noise_type, noise_param=cfg.domain.noise_param
         )
         print(f"min gap: {env.min_suboptimality_gap()}")

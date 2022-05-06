@@ -67,8 +67,8 @@ class NNEpsGreedy(NNLinUCB):
             self.writer.add_scalar('epsilon', self.epsilon, self.t)
             self.writer.add_scalar('GRLT', int(min_ratio > self.glrt_scale * beta**2), self.t)
         if self.use_wandb:
-            wandb.log({'epsilon': self.epsilon})
-            wandb.log({'GRLT': int(min_ratio > self.glrt_scale * beta**2)})
+            wandb.log({'epsilon': self.epsilon}, step=self.t)
+            wandb.log({'GRLT': int(min_ratio > self.glrt_scale * beta**2)}, step=self.t)
         if min_ratio > self.glrt_scale * beta**2 or self.np_random.rand() > self.epsilon:
             return action
         else:

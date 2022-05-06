@@ -40,11 +40,11 @@ class CBFinite:
         #     best_action = np.argmax(self.rewards[x])
         #     self.rewards[x, best_action] += 1
 
-
     def sample_context(self) -> np.ndarray:
-        self.idx += 1
-        if self.idx == self.__len__():
-            self.idx = 0  
+        # self.idx += 1
+        # if self.idx == self.__len__():
+        #     self.idx = 0  
+        self.idx = self.np_random.choice(self.n_contexts, 1).item()
         return self.feature_matrix[self.idx]
 
     def features(self) -> np.ndarray:
@@ -62,7 +62,7 @@ class CBFinite:
         return reward
 
     def __len__(self) -> int:
-        return self.feature_matrix.shape[0]
+        return self.n_contexts
     
     def best_reward_and_action(self) -> Tuple[int, float]:
         best_action = np.argmax(self.rewards[self.idx])

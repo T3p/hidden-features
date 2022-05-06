@@ -118,7 +118,7 @@ class XBModule():
                     for key, value in epoch_metrics.items():
                         self.writer.add_scalar('epoch_' + key, np.mean(value), self.t)
                 if self.use_wandb:
-                    wandb.log({'epoch_' + key: np.mean(value) for key, value in epoch_metrics.items()})
+                    wandb.log({'epoch_' + key: np.mean(value) for key, value in epoch_metrics.items()}, step=self.t)
                 avg_loss = np.mean(epoch_metrics['train_loss'])
                 return avg_loss
         return None
@@ -156,9 +156,6 @@ class XBModule():
                 best_reward, best_action = self.env.best_reward_and_action()
                 metrics['best_reward'].append(best_reward)
                 metrics['best_action'].append(best_action)
-                rewards = [self.env.expected_reward(a) for a in range(self.env.action_space.n)]
-                sorted_rewards = np.sort(rewards)
-                metrics['action_gap'].append(sorted_rewards[-1]-sorted_rewards[-2])
                 # metrics['instant_regret'].append(best_reward - reward)
                 # metrics["instant_expected_regret"].append(best_reward - expected_reward)
 
@@ -175,16 +172,13 @@ class XBModule():
                 # log to tensorboard
                 # self.writer.add_scalar("regret", postfix['total regret'], self.t)
                 if self.use_tb:
-                    self.writer.add_scalar('action gap', metrics['action_gap'][-1], self.t)
                     self.writer.add_scalar("expected regret", postfix['expected regret'], self.t)
                     self.writer.add_scalar('perc optimal pulls (last 100 steps)', p_optimal_arm, self.t)
                     self.writer.add_scalar('optimal arm?', 1 if action == best_action else 0, self.t)
                 if self.use_wandb:
-                    wandb.log({'action gap':  metrics['action_gap'][-1],
-                               'expected regret': postfix['expected regret'],
+                    wandb.log({'expected regret': postfix['expected regret'],
                                'perc optimal pulls (last 100 steps)': p_optimal_arm,
-                               'optimal arm?': int(action == best_action),
-                               'step': self.t})
+                               'optimal arm?': int(action == best_action)}, step=self.t)
 
                 if self.t % throttle == 0:
                     pbar.set_postfix(postfix)
