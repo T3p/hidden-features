@@ -226,7 +226,7 @@ def my_app(cfg: DictConfig) -> None:
         torch.save(payload, f)
     
     if cfg.use_wandb:
-        wandb.finish()
+        wandb.finish(quiet=True)
 
 
 if __name__ == "__main__":
