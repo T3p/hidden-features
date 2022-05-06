@@ -40,6 +40,8 @@ class XBModule():
         self.logger = logging.getLogger(__name__)
         self.use_tb = cfg.use_tb
         self.use_wandb = cfg.use_wandb
+        self.glrt_scale = cfg.glrt_scale
+        self.mingap_clip = cfg.mingap_clip
         if model is not None:
             self.model.to(self.device)
             self.model.to(TORCH_FLOAT)
@@ -163,7 +165,7 @@ class XBModule():
                 # update postfix
                 postfix['expected regret'] += best_reward - expected_reward
                 p_optimal_arm = np.mean(
-                    np.array(metrics['action'][max(0,self.t-100):self.t+1]) == np.array(metrics['best_action'][max(0,self.t-100):self.t+1])
+                    np.array(metrics['expected_reward'][max(0,self.t-100):self.t+1]) == np.array(metrics['best_reward'][max(0,self.t-100):self.t+1])
                 )
                 postfix['% optimal arm (last 100 steps)'] = '{:.2%}'.format(p_optimal_arm)
                 if train_loss:
@@ -194,8 +196,8 @@ class XBModule():
         for key, value in metrics.items():
             metrics[key] = np.array(value)
         # compute extra metrics
-        metrics["optimal_arm"] = np.cumsum(metrics["action"] == metrics["best_action"]) / np.arange(1, len(
-            metrics["action"]) + 1)
+        metrics["optimal_arm"] = np.cumsum(metrics["expected_reward"] == metrics["best_reward"]) / np.arange(1, len(
+            metrics["best_reward"]) + 1)
         metrics['regret'] = np.cumsum(metrics["best_reward"] - metrics["instant_reward"])
         metrics["expected_regret"] = np.cumsum(metrics["best_reward"] - metrics["expected_reward"])
         return metrics

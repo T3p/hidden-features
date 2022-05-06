@@ -28,6 +28,8 @@ epsilon_start: 1
 epsilon_decay: 20000
 time_random_exp: 1000
 train_reweight: False
+glrt_scale: 1
+mingap_clip: 0.001
 
 # misc
 seed: 1
