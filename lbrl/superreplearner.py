@@ -257,9 +257,7 @@ class SuperRepLearner:
                         self.update_time += 1
                     else:
                         self.update_time *= self.cfg.update_every
-                    selected_rep = self.select_rep()
-                    if selected_rep is not None:
-                        self.selected_rep = selected_rep
+                    self.selected_rep = self.select_rep()
                     hist_time_updates.append(self.t)
                     hist_selected_rep.append(self.selected_rep)
                 
@@ -294,8 +292,6 @@ class SuperRepLearner:
             "hist_selected_rep": hist_selected_rep,
             "hist_time_updates": hist_time_updates
         }
-
-
 
 class SRLEGreedy(SuperRepLearner):
 
@@ -335,7 +331,6 @@ class SRLLinUCB(SuperRepLearner):
             ucbs[i] = v.dot(self.theta[selected_rep]) + bonus + tie_breaking_noise
         action = np.argmax(ucbs)
         return action
-
 
 class Leader(SuperRepLearner):
 

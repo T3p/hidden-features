@@ -158,7 +158,9 @@ def my_app(cfg: DictConfig) -> None:
         )
     elif cfg.algo == "egreedyglrt":
         algo = SRL.SRLEGreedy(env=env, representations=[rep_list[cfg.rep_idx]],
-            features_bounds = [None], param_bounds = [None], cfg=cfg
+            features_bounds = [np.linalg.norm(rep_list[cfg.rep_idx].features, 2, axis=-1).max()],
+            param_bounds=[np.linalg.norm(param_list[cfg.rep_idx], 2)],
+            cfg=cfg
         )
     elif cfg.algo == "leader_old":
         algo = LEADER(env, representations=rep_list, reg_val=cfg.reg_val, noise_std=cfg.noise_std, 
