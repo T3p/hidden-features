@@ -62,7 +62,7 @@ class NNLinUCB(XBModule):
             A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
             # det_loss = torch.logdet(A)
-            spectral_loss = - torch.log(torch.linalg.eigvalsh(A).min())
+            spectral_loss = - torch.log(torch.linalg.eigvalsh(A)[0])
             loss = loss + self.weight_spectral * spectral_loss
             metrics['spectral_loss'] = spectral_loss.cpu().item()
 
@@ -197,14 +197,14 @@ class NNLinUCB(XBModule):
                 all_rewards = self.env.rewards.reshape(-1)
                 error, _ = self.compute_linear_error(all_features, all_rewards)
                 max_err = torch.abs(error).max()
-                mean_square_err = error.pow(2).mean()
+                mean_abs_err = torch.abs(error).mean()
                 if self.use_tb:
                     self.writer.add_scalar('max miss-specification', max_err.cpu().item(), self.t)
-                    self.writer.add_scalar('mean square miss-specification', mean_square_err.cpu().item(), self.t)
+                    self.writer.add_scalar('mean abs miss-specification', mean_abs_err.cpu().item(), self.t)
 
                 if self.use_wandb:
                     wandb.log({'max miss-specification': max_err.cpu().item()}, step=self.t)
-                    wandb.log({'mean square miss-specification': mean_square_err.cpu().item()}, step=self.t)
+                    wandb.log({'mean abs miss-specification': mean_abs_err.cpu().item()}, step=self.t)
 
     def compute_linear_error(self, features: np.ndarray, reward: np.ndarray):
         assert len(features.shape) == 2 and len(reward.shape) == 1
@@ -269,13 +269,13 @@ class NNLinUCB(XBModule):
                 self.writer.add_scalar('hls_lambda', hls_lambda, self.t)
                 self.writer.add_scalar('hls_rank', hls_rank, self.t)
                 self.writer.add_scalar('hls?', ishls, self.t)
-                self.writer.add_scalar('rank_phi', rank_phi, self.t)
+                self.writer.add_scalar('total rank', rank_phi, self.t)
             if self.use_wandb:
                 wandb.log({'max miss-specification': max_err.cpu().item(),
                            'hls_lambda': hls_lambda,
                            'hls_rank': hls_rank,
                            'hls?': ishls,
-                           'rank_phi': rank_phi}, step=self.t)
+                           'total rank': rank_phi}, step=self.t)
 
 
     # def _post_train(self, loader=None):

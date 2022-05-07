@@ -34,6 +34,16 @@ class LinearEnv():
     
     def expected_reward(self, action):
         return self.rewards[self.idx, action]
+    
+    def min_suboptimality_gap(self, tol=1e-6):
+        min_gap = np.inf
+        for ctx in range(self.n_contexts):
+            arr = sorted(self.rewards[ctx])
+            for i in range(self.n_actions-1):
+                diff = arr[self.n_actions-1] - arr[i]
+                if diff < min_gap - tol and diff > tol:
+                    min_gap = diff
+        return min_gap
 
 class LinearRepresentation():
     """ Returns the features associated to each context and action

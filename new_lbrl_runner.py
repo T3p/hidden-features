@@ -134,20 +134,9 @@ def my_app(cfg: DictConfig) -> None:
         del features_list
 
     # compute gap
-    min_gap = np.inf
-    min_gap_ctx = []
-    na = true_reward.shape[1]
-    for ctx in range(true_reward.shape[0]):
-        rr = true_reward[ctx]
-        arr = sorted(rr)
-        for i in range(na-1):
-            diff = arr[i+1] - arr[i]
-            if diff <= min_gap and diff > 0:
-                min_gap = diff
-                min_gap_ctx.append(ctx)
+    min_gap = env.min_suboptimality_gap(tol=1e-6)
 
     log.info(f"min gap: {min_gap}")
-    log.info(f"min gap [rewards]: {true_reward[min_gap_ctx]}")
 
     for i in range(len(rep_list)):
         log.info("\n")

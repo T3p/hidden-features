@@ -1,0 +1,7 @@
+type: fromfile
+# nc=1000, na=6, dim=10
+datafile: problem_data/categorical_largegap.npy
+seed_problem: 3
+# noise problem
+noise_type: gaussian
+noise_param: 0.3 #std

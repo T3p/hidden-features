@@ -72,13 +72,13 @@ class CBFinite:
     def expected_reward(self, action: int) -> float:
         return self.rewards[self.idx, action]
 
-    def min_suboptimality_gap(self):
+    def min_suboptimality_gap(self, tol=1e-6):
         min_gap = np.inf
         for ctx in range(self.__len__()):
             arr = sorted(self.rewards[ctx])
             for i in range(self.n_arms-1):
-                diff = arr[i+1] - arr[i]
-                if diff <= min_gap and diff > 0:
+                diff = arr[self.n_arms-1] - arr[i]
+                if diff < min_gap - tol and diff > tol:
                     min_gap = diff
         return min_gap
 
