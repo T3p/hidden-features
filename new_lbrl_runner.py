@@ -144,6 +144,7 @@ def my_app(cfg: DictConfig) -> None:
             log.info(f"Info representation({i}) [REFERENCE REP]")
         else:
             log.info(f"Info representation({i})")
+        log.info(f"n_context, n_arms, dim: {rep_list[i].features.shape}")
         log.info(f"dim({i}): {rep_list[i].features_dim()}")
         log.info(f"feature norm({i}): {np.linalg.norm(rep_list[i].features,2,axis=-1).max()}")
         log.info(f"param norm({i}): {np.linalg.norm(param_list[i],2)}")
