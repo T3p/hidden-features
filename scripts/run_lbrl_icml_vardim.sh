@@ -12,7 +12,7 @@ done
 
 for DOMAIN in vardim_icml_real_nohls
 do
-    python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srllinucb_mineig_norm,srllinucb_avg_quad_norm,srlegreedy_mineig_norm,srlegreedy_avg_quad_norm,leader seed=${SEEDS} hydra.sweep.dir=${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true 
+    python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srllinucb_mineig_norm,srllinucb_avg_quad_norm,srlegreedy_mineig_norm,srlegreedy_avg_quad_norm,leader seed=${SEEDS} hydra.sweep.dir=${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=sqrt
 done
 
 for DOMAIN in vardim_icml_nonrealizable

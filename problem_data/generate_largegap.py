@@ -104,10 +104,10 @@ if MULTI:
     rep_list.append(fi)
     param_list.append(pi)
 
-
+print(len(rep_list))
 np.save(out_file, np.array([rep_list, param_list, position_reference_rep], dtype=object), allow_pickle=True)
 a,b,c = np.load(out_file, allow_pickle=True)
 
-print(np.all([np.allclose(rep_list[i], a[i]) for i in range(len(rep_list))]))
-print(np.all([np.allclose(param_list[i], b[i]) for i in range(len(param_list))]))
-print(c == position_reference_rep)
+assert np.all([np.allclose(rep_list[i], a[i]) for i in range(len(rep_list))])
+assert np.all([np.allclose(param_list[i], b[i]) for i in range(len(param_list))])
+assert c == position_reference_rep
