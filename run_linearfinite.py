@@ -54,7 +54,7 @@ def my_app(cfg: DictConfig) -> None:
 
     if cfg.use_wandb:
         exp_name = '_'.join([
-            cfg.algo, cfg.domain.type
+            cfg.algo, cfg.domain.datafile.split('/')[-1] if cfg.domain == 'fromfile' else cfg.domain.type
         ])
         wandb.init(
             # Set the project where this run will be logged

@@ -29,6 +29,7 @@ class NNLinUCB(XBModule):
         self.weight_l2features = cfg.weight_l2features
         self.weight_orth = cfg.weight_orth
         self.weight_rayleigh = cfg.weight_rayleigh
+        self.weight_certainty = cfg.weight_certainty
         if self.weight_rayleigh > 0:
             self.unit_vector = torch.ones(self.model.embedding_dim).to(self.device) / np.sqrt(self.model.embedding_dim)
             self.unit_vector.requires_grad = True
@@ -46,7 +47,7 @@ class NNLinUCB(XBModule):
         self.features_bound = np.sqrt(self.env.feature_dim)
         self.A_logdet = np.log(self.ucb_regularizer) * dim
 
-    def _train_loss(self, b_features, b_rewards, b_weights):
+    def _train_loss(self, b_features, b_rewards, b_weights, b_all_features):
         loss = 0
         metrics = {}
         # (weighted) MSE LOSS
@@ -65,6 +66,17 @@ class NNLinUCB(XBModule):
             spectral_loss = - torch.log(torch.linalg.eigvalsh(A)[0])
             loss = loss + self.weight_spectral * spectral_loss
             metrics['spectral_loss'] = spectral_loss.cpu().item()
+
+        if not np.isclose(self.weight_certainty, 0):
+            phi = self.model.embedding(b_features)
+            A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
+            A /= phi.shape[0]
+            all_phi = self.model.embedding(b_all_features.reshape((-1, self.env.feature_dim)))
+            certainty = (torch.matmul(all_phi, A) * all_phi).sum(axis=1)
+            # certainty_loss = certainty.reshape((-1, self.env.action_space.n)).min(dim=1)[0].mean()
+            certainty_loss =  - certainty.mean() / self.features_bound**4
+            loss = loss + self.weight_certainty * certainty_loss
+            metrics['certainty_loss'] = certainty_loss.cpu().item()
 
         if not np.isclose(self.weight_orth, 0):
             batch_size = b_features.shape[0]
@@ -147,8 +159,8 @@ class NNLinUCB(XBModule):
             self.logger.info(f"[{self.t}]ucb:\n {ucb}")
         return action
 
-    def add_sample(self, feature: np.ndarray, reward: float) -> None:
-        exp = (feature, reward)
+    def add_sample(self, feature: np.ndarray, reward: float, all_features: np.ndarray) -> None:
+        exp = (feature, reward, all_features)
         self.buffer.append(exp)
 
         # estimate linear component on the embedding + UCB part
@@ -181,30 +193,14 @@ class NNLinUCB(XBModule):
                        'param_bound': self.param_bound}, step=self.t)
 
         # log in tensorboard
-        if self.t % 50 == 0:
-            batch_features, batch_rewards = self.buffer.get_all()
-            error, _ = self.compute_linear_error(batch_features, batch_rewards)
-            mse_loss = error.pow(2).mean()
-            if self.use_tb:
-                self.writer.add_scalar('mse_linear', mse_loss, self.t)
-            if self.use_wandb:
-                wandb.log({'mse_linear': mse_loss}, step=self.t)
-
-        if self.t % 100 == 0:
-            if hasattr(self.env, 'feature_matrix'):
-                num_context, num_action, dim = self.env.feature_matrix.shape
-                all_features = self.env.feature_matrix.reshape(-1, dim)
-                all_rewards = self.env.rewards.reshape(-1)
-                error, _ = self.compute_linear_error(all_features, all_rewards)
-                max_err = torch.abs(error).max()
-                mean_abs_err = torch.abs(error).mean()
-                if self.use_tb:
-                    self.writer.add_scalar('max miss-specification', max_err.cpu().item(), self.t)
-                    self.writer.add_scalar('mean abs miss-specification', mean_abs_err.cpu().item(), self.t)
-
-                if self.use_wandb:
-                    wandb.log({'max miss-specification': max_err.cpu().item()}, step=self.t)
-                    wandb.log({'mean abs miss-specification': mean_abs_err.cpu().item()}, step=self.t)
+        # if self.t % 100 == 0:
+        #     batch_features, batch_rewards = self.buffer.get_all()
+        #     error, _ = self.compute_linear_error(batch_features, batch_rewards)
+        #     mse_loss = error.pow(2).mean()
+        #     if self.use_tb:
+        #         self.writer.add_scalar('mse_linear', mse_loss, self.t)
+        #     if self.use_wandb:
+        #         wandb.log({'mse_linear': mse_loss}, step=self.t)
 
     def compute_linear_error(self, features: np.ndarray, reward: np.ndarray):
         assert len(features.shape) == 2 and len(reward.shape) == 1
@@ -224,7 +220,7 @@ class NNLinUCB(XBModule):
         if self.model is None:
             return None
         dim = self.model.embedding_dim
-        batch_features, batch_rewards = self.buffer.get_all()
+        batch_features, batch_rewards, _ = self.buffer.get_all()
         features_tensor = torch.tensor(batch_features, dtype=TORCH_FLOAT, device=self.device)
         rewards_tensor = torch.tensor(batch_rewards, dtype=TORCH_FLOAT, device=self.device)
         with torch.no_grad():
@@ -255,6 +251,7 @@ class NNLinUCB(XBModule):
             all_rewards = self.env.rewards.reshape(-1)
             error, phi = self.compute_linear_error(all_features, all_rewards)
             max_err = torch.abs(error).max()
+            mean_abs_err = torch.abs(error).mean()
 
 
             # IS HLS
@@ -264,14 +261,17 @@ class NNLinUCB(XBModule):
             ishls = 1 if hlsutils.is_hls(new_phi, self.env.rewards, tol=1e-4) else 0
             hls_lambda = hlsutils.hls_lambda(new_phi, self.env.rewards)
             rank_phi = hlsutils.rank(new_phi, tol=1e-4)
+
             if self.use_tb:
                 self.writer.add_scalar('max miss-specification', max_err.cpu().item(), self.t)
+                self.writer.add_scalar('mean abs miss-specification', mean_abs_err.cpu().item(), self.t)
                 self.writer.add_scalar('hls_lambda', hls_lambda, self.t)
                 self.writer.add_scalar('hls_rank', hls_rank, self.t)
                 self.writer.add_scalar('hls?', ishls, self.t)
                 self.writer.add_scalar('total rank', rank_phi, self.t)
             if self.use_wandb:
                 wandb.log({'max miss-specification': max_err.cpu().item(),
+                           'mean abs miss-specification': mean_abs_err.cpu().item(),
                            'hls_lambda': hls_lambda,
                            'hls_rank': hls_rank,
                            'hls?': ishls,

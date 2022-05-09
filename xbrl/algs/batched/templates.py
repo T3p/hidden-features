@@ -58,9 +58,10 @@ class XBModule():
     def _post_train(self, loader=None) -> None:
         pass
 
-    def add_sample(self,features: np.ndarray, reward: float) -> None:
-        exp = (features, reward)
-        self.buffer.append(exp)
+    def add_sample(self, feature: np.ndarray, reward: float, all_features: np.ndarray) -> None:
+        pass
+        # exp = (feature, reward, all_features.reshape( (1, self.env.action_space.n, self.env.feature_dim)))
+        # self.buffer.append(exp)
 
     def train(self) -> float:
         if self.model is None:
@@ -84,9 +85,11 @@ class XBModule():
                         self.unit_vector.requires_grad = True
                         self.unit_vector_optimizer = torch.optim.SGD([self.unit_vector], lr=self.learning_rate)
 
-                features, rewards = self.buffer.get_all()
+                features, rewards, all_features = self.buffer.get_all()
+                pdb.set_trace()
                 features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
                 rewards_tensor = torch.tensor(rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
+                all_features_tensor = torch.tensor(all_features, dtype=TORCH_FLOAT, device=self.device)
                 weights_tensor = torch.ones((features.shape[0], 1)).to(self.device)
                 if self.train_reweight:
                     with torch.no_grad():
@@ -96,16 +99,15 @@ class XBModule():
                     weights_tensor = torch.sigmoid(logit)
                     print(f"reweighting: avg: {weights_tensor.mean().cpu().item()} - min/max: {weights_tensor.min().cpu().item(), weights_tensor.max().cpu().item()}")
 
-                torch_dataset = torch.utils.data.TensorDataset(features_tensor, rewards_tensor, weights_tensor)
+                torch_dataset = torch.utils.data.TensorDataset(features_tensor, rewards_tensor, weights_tensor, all_features_tensor)
                 loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
                 self.model.train()
-                avg_loss: Optional[float] = None
 
                 for epoch in range(self.max_updates):
                     epoch_metrics = defaultdict(list)
 
-                    for batch_features, batch_rewards, batch_weights in loader:
-                        metrics = self._train_loss(batch_features, batch_rewards, batch_weights)
+                    for batch_features, batch_rewards, batch_weights, batch_all_features in loader:
+                        metrics = self._train_loss(batch_features, batch_rewards, batch_weights, batch_all_features)
                         # update epoch metrics
                         for key, value in metrics.items():
                             epoch_metrics[key].append(value)
@@ -143,7 +145,7 @@ class XBModule():
                 action = self.play_action(features=features)
                 reward = self.env.step(action)
                 # update
-                self.add_sample(features[action], reward)
+                self.add_sample(features[action], reward, features)
                 train_loss = self.train()
 
                 # update metrics
@@ -162,7 +164,7 @@ class XBModule():
                 # update postfix
                 postfix['expected regret'] += best_reward - expected_reward
                 p_optimal_arm = np.mean(
-                    np.array(metrics['expected_reward'][max(0,self.t-100):self.t+1]) == np.array(metrics['best_reward'][max(0,self.t-100):self.t+1])
+                    np.abs(np.array(metrics['expected_reward'][max(0,self.t-100):self.t+1]) - np.array(metrics['best_reward'][max(0,self.t-100):self.t+1]) ) < 1e-6
                 )
                 postfix['% optimal arm (last 100 steps)'] = '{:.2%}'.format(p_optimal_arm)
                 if train_loss:
