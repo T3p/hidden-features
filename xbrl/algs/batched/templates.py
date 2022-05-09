@@ -86,7 +86,6 @@ class XBModule():
                         self.unit_vector_optimizer = torch.optim.SGD([self.unit_vector], lr=self.learning_rate)
 
                 features, rewards, all_features = self.buffer.get_all()
-                pdb.set_trace()
                 features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
                 rewards_tensor = torch.tensor(rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
                 all_features_tensor = torch.tensor(all_features, dtype=TORCH_FLOAT, device=self.device)
