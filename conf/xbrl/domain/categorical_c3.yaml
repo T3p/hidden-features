@@ -1,0 +1,8 @@
+type: fromfile
+# nc=100, na=8, dim=5
+# multiple representations
+datafile: problem_data/categorical_c3.npy
+seed_problem: 3
+# noise problem
+noise_type: gaussian
+noise_param: 0.2 #std

@@ -30,6 +30,7 @@ class NNLinUCB(XBModule):
         self.weight_orth = cfg.weight_orth
         self.weight_rayleigh = cfg.weight_rayleigh
         self.weight_certainty = cfg.weight_certainty
+        self.check_glrt = cfg.check_glrt
         if self.weight_rayleigh > 0:
             self.unit_vector = torch.ones(self.model.embedding_dim).to(self.device) / np.sqrt(self.model.embedding_dim)
             self.unit_vector.requires_grad = True
@@ -121,43 +122,84 @@ class NNLinUCB(XBModule):
         # perform an SGD step
         self.optimizer.zero_grad()
         loss.backward()
+        # torch.nn.utils.clip_grad_norm_(self.model.parameters(), 100)
         self.optimizer.step()
         metrics['train_loss'] = loss.cpu().item()
         return metrics
 
-    def play_action(self, features: np.ndarray):
-        assert features.shape[0] == self.env.action_space.n
+    def glrt(self, features: np.ndarray):
         features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
-
         if self.model is not None:
-            dim = self.model.embedding_dim
             with torch.no_grad():
                 phi = self.model.embedding(features_tensor)
+                dim = self.model.embedding_dim
         else:
-            dim = self.env.feature_dim
             phi = features_tensor
-        # beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
-        #                                               *self.t/self.ucb_regularizer)/self.delta))\
-        #        + self.param_bound * np.sqrt(self.ucb_regularizer)
-        val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
+            dim = self.env.feature_dim
+        predicted_rewards = torch.matmul(phi, self.theta)
+        opt_arms = torch.where(predicted_rewards > predicted_rewards.max() - self.mingap_clip)[0]
+        subopt_arms = torch.where(predicted_rewards <= predicted_rewards.max() - self.mingap_clip)[0]
+        action = opt_arms[torch.randint(len(opt_arms), (1, ))].cpu().item()
+        # Generalized Likelihood Ratio Test
+        val = - 2 * np.log(self.delta) + dim * np.log(
+            1 + 2 * self.t * self.features_bound / (self.ucb_regularizer * dim))
+        # val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
         beta = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.ucb_regularizer)
-        # beta = np.sqrt(np.log(self.t+1))
-        #https://stackoverflow.com/questions/18541851/calculate-vt-a-v-for-a-matrix-of-vectors-v/18542314#18542314
-        bonus = (torch.matmul(phi, self.inv_A) * phi).sum(axis=1)
-        bonus = self.bonus_scale * beta * torch.sqrt(bonus)
-        ucb = torch.matmul(phi, self.theta) + bonus
-        action = torch.argmax(ucb).item()
-        if self.use_tb:
-            self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
-        if self.use_wandb:
-            wandb.log({'bonus selected action': bonus[action].item()}, step=self.t)
-        assert 0 <= action < self.env.action_space.n, ucb
 
-        if self.t % 100 == 0:
-            self.logger.info(f"[{self.t}]bonus:\n {bonus}")
-            self.logger.info(f"[{self.t}]prediction:\n {torch.matmul(phi, self.theta)}")
-            self.logger.info(f"[{self.t}]ucb:\n {ucb}")
-        return action
+        if len(subopt_arms) == 0:
+            min_ratio = beta ** 2 + 1
+        else:
+            prediction_diff = predicted_rewards[subopt_arms] - predicted_rewards[action]
+            phi_diff = phi[subopt_arms] - phi[action]
+            weighted_norm = (torch.matmul(phi_diff, self.inv_A) * phi_diff).sum(axis=1)
+            likelihood_ratio = (prediction_diff) ** 2 / (2 * weighted_norm.clamp_min(1e-10))
+            min_ratio = likelihood_ratio.min()
+        is_active = min_ratio > self.glrt_scale * beta**2
+        return is_active, min_ratio, beta, action
+
+    def play_action(self, features: np.ndarray):
+        assert features.shape[0] == self.env.action_space.n
+
+        glrt_active, _, _, action = self.glrt(features)
+        glrt_active = glrt_active and self.check_glrt
+        if self.use_tb:
+            self.writer.add_scalar('GRLT', int(glrt_active), self.t)
+        if self.use_wandb:
+            wandb.log({'GRLT': int(glrt_active)}, step=self.t)
+        if glrt_active:
+            return action
+        else:
+            features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
+
+            if self.model is not None:
+                dim = self.model.embedding_dim
+                with torch.no_grad():
+                    phi = self.model.embedding(features_tensor)
+            else:
+                dim = self.env.feature_dim
+                phi = features_tensor
+            # beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
+            #                                               *self.t/self.ucb_regularizer)/self.delta))\
+            #        + self.param_bound * np.sqrt(self.ucb_regularizer)
+            val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
+            beta = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.ucb_regularizer)
+            # beta = np.sqrt(np.log(self.t+1))
+            #https://stackoverflow.com/questions/18541851/calculate-vt-a-v-for-a-matrix-of-vectors-v/18542314#18542314
+            bonus = (torch.matmul(phi, self.inv_A) * phi).sum(axis=1)
+            bonus = self.bonus_scale * beta * torch.sqrt(bonus)
+            ucb = torch.matmul(phi, self.theta) + bonus
+            action = torch.argmax(ucb).item()
+            if self.use_tb:
+                self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
+            if self.use_wandb:
+                wandb.log({'bonus selected action': bonus[action].item()}, step=self.t)
+            assert 0 <= action < self.env.action_space.n, ucb
+
+            if self.t % 100 == 0:
+                self.logger.info(f"[{self.t}]bonus:\n {bonus}")
+                self.logger.info(f"[{self.t}]prediction:\n {torch.matmul(phi, self.theta)}")
+                self.logger.info(f"[{self.t}]ucb:\n {ucb}")
+            return action
 
     def add_sample(self, feature: np.ndarray, reward: float, all_features: np.ndarray) -> None:
         exp = (feature, reward, all_features)
@@ -253,7 +295,6 @@ class NNLinUCB(XBModule):
             max_err = torch.abs(error).max()
             mean_abs_err = torch.abs(error).mean()
 
-
             # IS HLS
             new_phi = phi.reshape(num_context, num_action, self.model.embedding_dim)
             new_phi = new_phi.cpu().numpy()
@@ -261,6 +302,35 @@ class NNLinUCB(XBModule):
             ishls = 1 if hlsutils.is_hls(new_phi, self.env.rewards, tol=1e-4) else 0
             hls_lambda = hlsutils.hls_lambda(new_phi, self.env.rewards)
             rank_phi = hlsutils.rank(new_phi, tol=1e-4)
+
+
+            #span
+            # optimal_arms = np.argmax(self.env.rewards, 1)
+            # opt_features = self.env.feature_matrix[np.arange(num_context), optimal_arms]
+            # features_tensor = torch.tensor(opt_features, dtype=TORCH_FLOAT, device=self.device)
+            # if self.model is not None:
+            #     with torch.no_grad():
+            #         phi = self.model.embedding(features_tensor)
+            # else:
+            #     phi = features_tensor
+            # dm = torch.matmul(phi.T,phi) / num_context
+            # min_v = np.inf
+            # for ctx in range(num_context):
+            #     for a in range(num_action):
+            #         if a != optimal_arms[ctx]:
+            #             v = torch.tensor(self.env.feature_matrix[ctx,a].reshape(1,-1), dtype=TORCH_FLOAT, device=self.device)
+            #             if self.model is not None:
+            #                 with torch.no_grad():
+            #                     phi = self.model.embedding(v)
+            #             else:
+            #                 phi = features_tensor
+            #             tmp = phi @ torch.matmul(dm, phi.T) / (torch.linalg.norm(v, 2)**2)
+            #             min_v = min(min_v, tmp.cpu().item())
+            
+            # if self.use_tb:
+            #     self.writer.add_scalar('weak HLS', min_v, self.t)
+            # if self.use_wandb:
+            #     wandb.log({'weak HLS':min_v}, step=self.t)
 
             if self.use_tb:
                 self.writer.add_scalar('max miss-specification', max_err.cpu().item(), self.t)
