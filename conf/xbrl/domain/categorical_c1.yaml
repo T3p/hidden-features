@@ -5,4 +5,4 @@ seed_problem: 3
 # noise problem
 noise_type: gaussian
 noise_param: 0.3 #std
-newrank: 5
+newrank: "none"

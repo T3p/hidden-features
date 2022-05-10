@@ -97,10 +97,10 @@ def my_app(cfg: DictConfig) -> None:
         if cfg.domain.type == "finite" and cfg.domain.newrank not in [None, "none", "None"]:
             features, theta = hlsutils.derank_hls(features=features, param=theta, newrank=cfg.domain.newrank, seed=cfg.domain.seed_problem)
             rewards = features @ theta
-            print(f"New rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
-            print(f"New rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
+            print(f"New rep -> HLS rank: {hlsutils.hls_rank(features, rewards, tol=1e-4)} / {features.shape[2]}")
+            print(f"New rep -> is HLS: {hlsutils.is_hls(features, rewards, tol=1e-4)}")
             print(f"New rep -> HLS min eig: {hlsutils.hls_lambda(features, rewards)}")
-            print(f"New rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
+            print(f"New rep -> is CMB: {hlsutils.is_cmb(features, rewards, tol=1e-4)}")
 
         env = bandits.CBFinite(
             feature_matrix=features, 
@@ -124,13 +124,14 @@ def my_app(cfg: DictConfig) -> None:
                 raise ValueError(f"Unable to open the file {cfg.domain.datafile}")
         features = features_list[position_reference_rep]
         theta = param_list[position_reference_rep]
-        features, theta = hlsutils.derank_hls(features, theta, cfg.domain.newrank, True, True, seed=cfg.domain.seed_problem)
+        if cfg.domain.newrank not in [None, "none", "None"]:
+            features, theta = hlsutils.derank_hls(features, theta, cfg.domain.newrank, True, True, seed=cfg.domain.seed_problem)
         rewards = features @ theta
-        print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
-        print(f"Original rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
+        print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards, tol=1e-4)} / {features.shape[2]}")
+        print(f"Original rep -> is HLS: {hlsutils.is_hls(features, rewards, tol=1e-4)}")
         print(f"Original rep -> HLS min eig: {hlsutils.hls_lambda(features, rewards)}")
-        print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)}")
-        print(f"Original rep -> is CMB: {hlsutils.is_cmb(features, rewards)}")
+        print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards, tol=1e-4)}")
+        print(f"Original rep -> is CMB: {hlsutils.is_cmb(features, rewards, tol=1e-4)}")
 
         env = bandits.CBFinite(
             feature_matrix=features, 

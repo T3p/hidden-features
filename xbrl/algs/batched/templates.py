@@ -92,7 +92,7 @@ class XBModule():
                 weights_tensor = torch.ones((features.shape[0], 1)).to(self.device)
                 if self.train_reweight:
                     weights_tensor = torch.tensor(is_random_steps, dtype=TORCH_FLOAT, device=self.device)
-                    print(f"reweighting: avg: {weights_tensor.mean().cpu().item()} - min/max: {weights_tensor.min().cpu().item(), weights_tensor.max().cpu().item()}")
+                    # print(f"reweighting: avg: {weights_tensor.mean().cpu().item()} - min/max: {weights_tensor.min().cpu().item(), weights_tensor.max().cpu().item()}")
 
                 torch_dataset = torch.utils.data.TensorDataset(features_tensor, rewards_tensor, weights_tensor, all_features_tensor)
                 loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
