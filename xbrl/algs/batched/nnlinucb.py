@@ -295,11 +295,6 @@ class NNLinUCB(XBModule):
             max_err = torch.abs(error).max()
             mean_abs_err = torch.abs(error).mean()
 
-            #span
-            optimal_arms = np.argmax(self.env.rewards, 1)
-
-
-
             # IS HLS
             new_phi = phi.reshape(num_context, num_action, self.model.embedding_dim)
             new_phi = new_phi.cpu().numpy()
@@ -307,6 +302,35 @@ class NNLinUCB(XBModule):
             ishls = 1 if hlsutils.is_hls(new_phi, self.env.rewards, tol=1e-4) else 0
             hls_lambda = hlsutils.hls_lambda(new_phi, self.env.rewards)
             rank_phi = hlsutils.rank(new_phi, tol=1e-4)
+
+
+            #span
+            # optimal_arms = np.argmax(self.env.rewards, 1)
+            # opt_features = self.env.feature_matrix[np.arange(num_context), optimal_arms]
+            # features_tensor = torch.tensor(opt_features, dtype=TORCH_FLOAT, device=self.device)
+            # if self.model is not None:
+            #     with torch.no_grad():
+            #         phi = self.model.embedding(features_tensor)
+            # else:
+            #     phi = features_tensor
+            # dm = torch.matmul(phi.T,phi) / num_context
+            # min_v = np.inf
+            # for ctx in range(num_context):
+            #     for a in range(num_action):
+            #         if a != optimal_arms[ctx]:
+            #             v = torch.tensor(self.env.feature_matrix[ctx,a].reshape(1,-1), dtype=TORCH_FLOAT, device=self.device)
+            #             if self.model is not None:
+            #                 with torch.no_grad():
+            #                     phi = self.model.embedding(v)
+            #             else:
+            #                 phi = features_tensor
+            #             tmp = phi @ torch.matmul(dm, phi.T) / (torch.linalg.norm(v, 2)**2)
+            #             min_v = min(min_v, tmp.cpu().item())
+            
+            # if self.use_tb:
+            #     self.writer.add_scalar('weak HLS', min_v, self.t)
+            # if self.use_wandb:
+            #     wandb.log({'weak HLS':min_v}, step=self.t)
 
             if self.use_tb:
                 self.writer.add_scalar('max miss-specification', max_err.cpu().item(), self.t)

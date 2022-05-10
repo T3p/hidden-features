@@ -2,7 +2,7 @@ import numpy as np
 import sys
 sys.path.insert(0, '..')
 from lbrl.linearenv import LinearEnv, LinearRepresentation
-from lbrl.hlsutils import derank_hls, hls_lambda, is_hls, reduce_dim, make_reshaped_linrep, hls_rank, normalize_linrep
+from lbrl.hlsutils import derank_hls, hls_lambda, is_hls, reduce_dim, make_reshaped_linrep, hls_rank, normalize_linrep, is_cmb
 import json
 from lbrl.utils import make_synthetic_features
 
@@ -20,29 +20,35 @@ def print_info_wrt_rep(fi, pi, features, param, min_gap):
     print(f"is HLS (wrt true rew): {is_hls(fi, true_reward, tol=1e-6)}")
     print(f"HSL rank (wrt true rew): {hls_rank(fi, true_reward, tol=1e-6)}")
     print(f"lambda HLS (wrt true rew): {hls_lambda(fi, true_reward)}")
+    print(f"is CMB (wrt true rew): {is_cmb(fi, true_reward, tol=1e-6)}")
 
-nc=1000
-na=20
-dim=10
-seed_problem=2311
+nc=100
+na=8
+dim=5
+seed_problem=13321
 DECIMALS=2
+
+np.random.seed(seed_problem)
 
 min_gap = 0 
 count = 0
 EL = np.linspace(-2,2,21).astype(np.float32)
 print(EL)
-MULTI = True
-out_file = "categorical_c2.npy"
-while min_gap < 0.1 and count<10000:
+MULTI = False
+out_file = "categorical_c3.npy"
+while min_gap < 0.1 and count<2000:
     count += 1
-    features, param = make_synthetic_features(n_contexts=nc, n_actions=na, dim=dim,
-        context_generation="bernoulli", feature_expansion="none", seed=seed_problem)
+    # features, param = make_synthetic_features(n_contexts=nc, n_actions=na, dim=dim,
+    #     context_generation="bernoulli", feature_expansion="none", seed=seed_problem)
     # features = np.random.binomial(1,p=0.75,size=(nc,na,dim)).reshape(nc,na,dim)
     features = np.random.choice(EL, size=(nc,na,dim))
     features = np.round(features, decimals=DECIMALS)
     # param = np.random.binomial(1,p=0.9,size=dim)
     param = np.random.choice([-1,0,1], p=[0.4,0.2,0.4], size=dim)
+    param = np.random.uniform(-1, 1, size=dim)
     true_reward=features @ param
+
+    features, param = derank_hls(features, param, 2, True, True)
 
     # compute gap
     min_gap = np.inf
