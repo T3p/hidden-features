@@ -14,19 +14,23 @@ def min_eig_outer(A, weak=False):
             
     return sv[len(sv)-1-i]**2
 
-def optimal_arms(rewards):
-    return np.argmax(rewards, axis=1)
+def optimal_arms(rewards, tol=1e-5):
+    rows, cols = np.where( (rewards.max(axis=1).reshape(-1,1) - rewards) < tol )
+    # return np.argmax(rewards, axis=1)
+    return rows, cols
 
 def optimal_rewards(features, rewards):
     n_contexts = features.shape[0]
     ii = np.arange(n_contexts)
-    return rewards[ii, optimal_arms(rewards)]
+    opt_arms = np.argmax(rewards, axis=1)
+    return rewards[ii, opt_arms]
 
 def optimal_features(features, rewards):
-    n_contexts = features.shape[0]
-    ii = np.arange(n_contexts)
-    return features[ii, optimal_arms(rewards), :]
-
+    # n_contexts = features.shape[0]
+    # ii = np.arange(n_contexts)
+    # return features[ii, optimal_arms(rewards), :]
+    rows, cols = optimal_arms(rewards)
+    return features[rows, cols]
 
 #Diversity properties    
 def rank(features, tol=None):
@@ -36,11 +40,9 @@ def rank(features, tol=None):
     A = np.matmul(all_feats.T, all_feats)
     return np.linalg.matrix_rank(A, tol, hermitian=True)
 
-
 def spans(features, rewards, tol=None):
     n_contexts, n_arms, dim = features.shape
     return rank(features, rewards, tol) == dim
-
 
 def is_cmb(features, rewards, tol=None):
     n_contexts, n_arms, dim = features.shape
@@ -114,22 +116,21 @@ def random_transform(features, param, normalize=True, seed=0):
     return new_features, new_param
 
 def derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=0):
-    nc = features.shape[0]
 
-    rewards = features @ param #SxA
     # compute optimal arms
-    opt_arms = np.argmax(rewards, axis=1) #S
-    
+    rows, cols = optimal_arms(rewards=rewards)
+    opt_feats = features[rows, cols]
+    nel = len(rows)
+
     # compute features of optimal arms
-    opt_feats = features[np.arange(nc), opt_arms, :] #SxD
-    opt_rews = rewards[np.arange(nc), opt_arms].reshape((nc, 1)) #Sx1
-    remove = min(max(nc - newrank + 1, 0), nc)
+    opt_rews = rewards[rows, cols]
+    remove = min(max(nel - newrank + 1, 0), nel)
     
     new_features = np.array(features, dtype=np.float32)
     outer = np.outer(opt_rews[:remove], opt_rews[:remove])
     xx = outer @ opt_feats[:remove, :] \
         / np.linalg.norm(opt_rews[:remove], 2)**2
-    new_features[np.arange(remove), opt_arms[:remove], :] = xx
+    new_features[rows[:remove], cols[:remove], :] = xx
     new_param = param.copy()
     
     if transform:
@@ -137,7 +138,7 @@ def derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=
     elif normalize:
         new_features, new_param = normalize_linrep(new_features, new_param)
         
-    # assert np.allclose(features @ param, new_features @ new_param)
+    assert np.allclose(features @ param, new_features @ new_param)
 
     return new_features, new_param
 
