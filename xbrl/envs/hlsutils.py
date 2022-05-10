@@ -118,6 +118,7 @@ def random_transform(features, param, normalize=True, seed=0):
 def derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=0):
 
     # compute optimal arms
+    rewards = features @ param
     rows, cols = optimal_arms(rewards=rewards)
     opt_feats = features[rows, cols]
     nel = len(rows)

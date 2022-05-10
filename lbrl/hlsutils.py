@@ -13,27 +13,31 @@ def min_eig_outer(A, weak=False):
             
     return sv[len(sv)-1-i]**2
 
-def optimal_arms(rewards):
-    return np.argmax(rewards, axis=1)
+def optimal_arms(rewards, tol=1e-5):
+    rows, cols = np.where( (rewards.max(axis=1).reshape(-1,1) - rewards) < tol )
+    # return np.argmax(rewards, axis=1)
+    return rows, cols
 
 def optimal_rewards(features, rewards):
     n_contexts = features.shape[0]
     ii = np.arange(n_contexts)
-    return rewards[ii, optimal_arms(rewards)]
+    opt_arms = np.argmax(rewards, axis=1)
+    return rewards[ii, opt_arms]
 
 def optimal_features(features, rewards):
-    n_contexts = features.shape[0]
-    ii = np.arange(n_contexts)
-    return features[ii, optimal_arms(rewards), :]
-
+    # n_contexts = features.shape[0]
+    # ii = np.arange(n_contexts)
+    # return features[ii, optimal_arms(rewards), :]
+    rows, cols = optimal_arms(rewards)
+    return features[rows, cols]
 
 #Diversity properties    
-def rank(features, rewards, tol=None):
+def rank(features, tol=None):
     n_contexts, n_arms, dim = features.shape
     all_feats = np.reshape(features, 
                            (n_contexts * n_arms, dim))
-    D = np.matmul(all_feats.transpose(1,0), all_feats)
-    return np.linalg.matrix_rank(D, tol)
+    A = np.matmul(all_feats.T, all_feats)
+    return np.linalg.matrix_rank(A, tol, hermitian=True)
 
 def spans(features, rewards, tol=None):
     n_contexts, n_arms, dim = features.shape
@@ -59,21 +63,34 @@ def cmb_rank(features, rewards, tol=None):
             min_rnk = rnk
     return min_rnk
 
-def hls_rank(features, rewards, tol=1e-6):
+def hls_rank(features, rewards, tol=None):
     phi = optimal_features(features, rewards)
-    D  = np.matmul(phi.transpose(1,0), phi)
-    return np.linalg.matrix_rank(D, tol)
+    A  = np.matmul(phi.T, phi) / phi.shape[0]
+    return np.linalg.matrix_rank(A, tol, hermitian=True)
 
-def is_hls(features, rewards, tol=1e-6):
+def is_hls(features, rewards, tol=None):
     dim = features.shape[2]
     return hls_rank(features, rewards, tol) == dim
 
 def hls_lambda(features, rewards, cprobs=None, weak=False):
 
     phi = optimal_features(features, rewards)
-    D  = np.matmul(phi.transpose(1,0), phi)
-    n2 = np.linalg.eigvalsh(D).min() / phi.shape[0]
-    return n2
+    A  = np.matmul(phi.T, phi) / phi.shape[0]
+    eig = np.linalg.eigvalsh(A).min()
+    return eig
+
+    # n_contexts = features.shape[0]
+    # if cprobs is None:
+    #     mineig = min_eig_outer(optimal_features(features, rewards), weak) / n_contexts
+    # else:
+    #     assert np.allclose(np.sum(cprobs), 1.)
+    #     mineig = min_eig_outer(np.sqrt(np.array(cprobs)[:, None]) * 
+    #                            optimal_features(features, rewards), weak)
+    # if np.allclose(mineig, 0.):
+    #     return 0.
+    # assert np.isclose(mineig,n2,atol=1e-3), (mineig,n2)
+
+
 
 def normalize_linrep(features, param, scale=1.):
     param_norm = np.linalg.norm(param)
@@ -98,22 +115,22 @@ def random_transform(features, param, normalize=True, seed=0):
     return new_features, new_param
 
 def derank_hls(features, param, newrank=1, transform=True, normalize=True, seed=0):
-    nc = features.shape[0]
 
-    rewards = features @ param #SxA
     # compute optimal arms
-    opt_arms = np.argmax(rewards, axis=1) #S
-    
+    rewards = features @ param
+    rows, cols = optimal_arms(rewards=rewards)
+    opt_feats = features[rows, cols]
+    nel = len(rows)
+
     # compute features of optimal arms
-    opt_feats = features[np.arange(nc), opt_arms, :] #SxD
-    opt_rews = rewards[np.arange(nc), opt_arms].reshape((nc, 1)) #Sx1
-    remove = min(max(nc - newrank + 1, 0), nc)
+    opt_rews = rewards[rows, cols]
+    remove = min(max(nel - newrank + 1, 0), nel)
     
     new_features = np.array(features, dtype=np.float32)
     outer = np.outer(opt_rews[:remove], opt_rews[:remove])
     xx = outer @ opt_feats[:remove, :] \
         / np.linalg.norm(opt_rews[:remove], 2)**2
-    new_features[np.arange(remove), opt_arms[:remove], :] = xx
+    new_features[rows[:remove], cols[:remove], :] = xx
     new_param = param.copy()
     
     if transform:

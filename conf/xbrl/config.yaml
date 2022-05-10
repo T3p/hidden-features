@@ -25,7 +25,7 @@ random_init_weights: True
 weight_rayleigh: 0
 epsilon_min: 0.001
 epsilon_start: 1
-epsilon_decay: 20000
+epsilon_decay: cbrt
 time_random_exp: 1000
 train_reweight: False
 glrt_scale: 1
