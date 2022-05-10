@@ -85,17 +85,13 @@ class XBModule():
                         self.unit_vector.requires_grad = True
                         self.unit_vector_optimizer = torch.optim.SGD([self.unit_vector], lr=self.learning_rate)
 
-                features, rewards, all_features = self.buffer.get_all()
+                features, rewards, all_features, steps, is_random_steps = self.buffer.get_all()
                 features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
                 rewards_tensor = torch.tensor(rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
                 all_features_tensor = torch.tensor(all_features, dtype=TORCH_FLOAT, device=self.device)
                 weights_tensor = torch.ones((features.shape[0], 1)).to(self.device)
                 if self.train_reweight:
-                    with torch.no_grad():
-                        prediction = self.model(features_tensor)
-                    logit = (prediction - rewards_tensor)**2
-                    assert logit.shape == weights_tensor.shape
-                    weights_tensor = torch.sigmoid(logit)
+                    weights_tensor = torch.tensor(is_random_steps, dtype=TORCH_FLOAT, device=self.device)
                     print(f"reweighting: avg: {weights_tensor.mean().cpu().item()} - min/max: {weights_tensor.min().cpu().item(), weights_tensor.max().cpu().item()}")
 
                 torch_dataset = torch.utils.data.TensorDataset(features_tensor, rewards_tensor, weights_tensor, all_features_tensor)

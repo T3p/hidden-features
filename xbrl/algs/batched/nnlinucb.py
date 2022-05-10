@@ -47,6 +47,9 @@ class NNLinUCB(XBModule):
         self.param_bound = np.sqrt(self.env.feature_dim)
         self.features_bound = np.sqrt(self.env.feature_dim)
         self.A_logdet = np.log(self.ucb_regularizer) * dim
+        self.np_random = np.random.RandomState(self.seed)
+        self.epsilon_decay = cfg.epsilon_decay
+        self.is_random_step = 0
 
     def _train_loss(self, b_features, b_rewards, b_weights, b_all_features):
         loss = 0
@@ -159,15 +162,30 @@ class NNLinUCB(XBModule):
 
     def play_action(self, features: np.ndarray):
         assert features.shape[0] == self.env.action_space.n
+        self.is_random_step = 0
+        if self.epsilon_decay == "cbrt":
+            self.epsilon = 1. / np.cbrt(self.t + 1)
+        elif self.epsilon_decay == "sqrt":
+            self.epsilon = 1. / np.sqrt(self.t + 1)
+        elif self.epsilon_decay in ["none", "None"]:
+            self.epsilon = -1
+        else:
+            raise NotImplementedError()
 
-        glrt_active, _, _, action = self.glrt(features)
+        glrt_active, min_ratio, beta, action = self.glrt(features)
         glrt_active = glrt_active and self.check_glrt
+
         if self.use_tb:
+            self.writer.add_scalar('epsilon', self.epsilon, self.t)
             self.writer.add_scalar('GRLT', int(glrt_active), self.t)
         if self.use_wandb:
+            wandb.log({'epsilon': self.epsilon}, step=self.t)
             wandb.log({'GRLT': int(glrt_active)}, step=self.t)
         if glrt_active:
             return action
+        elif self.np_random.rand() <= self.epsilon:
+            self.is_random_step = 1
+            return self.np_random.choice(self.env.action_space.n, size=1).item()
         else:
             features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
 
@@ -202,7 +220,7 @@ class NNLinUCB(XBModule):
             return action
 
     def add_sample(self, feature: np.ndarray, reward: float, all_features: np.ndarray) -> None:
-        exp = (feature, reward, all_features)
+        exp = (feature, reward, all_features, self.t, self.is_random_step)
         self.buffer.append(exp)
 
         # estimate linear component on the embedding + UCB part

@@ -30,6 +30,7 @@ class NNEpsGreedy(NNLinUCB):
     def play_action(self, features: np.ndarray) -> int:
         # if self.t > self.time_random_exp and self.epsilon > self.epsilon_min:
             # self.epsilon -= (self.epsilon_start - self.epsilon_min) / self.epsilon_decay
+        self.is_random_step = 0
         if self.epsilon_decay == "cbrt":
             self.epsilon = 1. / np.cbrt(self.t + 1)
         elif self.epsilon_decay == "sqrt":
@@ -49,5 +50,6 @@ class NNEpsGreedy(NNLinUCB):
         if glrt_active or self.np_random.rand() > self.epsilon:
             return action
         else:
+            self.is_random_step = 1
             return self.np_random.choice(self.env.action_space.n, size=1).item()
 
