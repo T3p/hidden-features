@@ -80,7 +80,7 @@ class XBModule():
                     self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate,
                                                      weight_decay=self.weight_decay)
                     if self.unit_vector is not None:
-                        self.unit_vector = torch.ones(self.model.embedding_dim).to(self.device) / np.sqrt(
+                        self.unit_vector = torch.ones(self.model.embedding_dim, dtype=TORCH_FLOAT).to(self.device) / np.sqrt(
                             self.model.embedding_dim)
                         self.unit_vector.requires_grad = True
                         self.unit_vector_optimizer = torch.optim.SGD([self.unit_vector], lr=self.learning_rate)
@@ -179,7 +179,7 @@ class XBModule():
                 if self.use_wandb:
                     wandb.log({'expected regret': postfix['expected regret'],
                                'perc optimal pulls (last 100 steps)': p_optimal_arm,
-                               'optimal arm?': int(action == best_action)}, step=self.t)
+                               'optimal arm?': int(expected_reward == best_reward)}, step=self.t)
 
                 if self.t % throttle == 0:
                     pbar.set_postfix(postfix)
