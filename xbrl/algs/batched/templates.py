@@ -80,23 +80,19 @@ class XBModule():
                     self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate,
                                                      weight_decay=self.weight_decay)
                     if self.unit_vector is not None:
-                        self.unit_vector = torch.ones(self.model.embedding_dim).to(self.device) / np.sqrt(
+                        self.unit_vector = torch.ones(self.model.embedding_dim, dtype=TORCH_FLOAT).to(self.device) / np.sqrt(
                             self.model.embedding_dim)
                         self.unit_vector.requires_grad = True
                         self.unit_vector_optimizer = torch.optim.SGD([self.unit_vector], lr=self.learning_rate)
 
-                features, rewards, all_features = self.buffer.get_all()
+                features, rewards, all_features, steps, is_random_steps = self.buffer.get_all()
                 features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
                 rewards_tensor = torch.tensor(rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
                 all_features_tensor = torch.tensor(all_features, dtype=TORCH_FLOAT, device=self.device)
                 weights_tensor = torch.ones((features.shape[0], 1)).to(self.device)
                 if self.train_reweight:
-                    with torch.no_grad():
-                        prediction = self.model(features_tensor)
-                    logit = (prediction - rewards_tensor)**2
-                    assert logit.shape == weights_tensor.shape
-                    weights_tensor = torch.sigmoid(logit)
-                    print(f"reweighting: avg: {weights_tensor.mean().cpu().item()} - min/max: {weights_tensor.min().cpu().item(), weights_tensor.max().cpu().item()}")
+                    weights_tensor = torch.tensor(is_random_steps, dtype=TORCH_FLOAT, device=self.device)
+                    # print(f"reweighting: avg: {weights_tensor.mean().cpu().item()} - min/max: {weights_tensor.min().cpu().item(), weights_tensor.max().cpu().item()}")
 
                 torch_dataset = torch.utils.data.TensorDataset(features_tensor, rewards_tensor, weights_tensor, all_features_tensor)
                 loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
@@ -179,7 +175,7 @@ class XBModule():
                 if self.use_wandb:
                     wandb.log({'expected regret': postfix['expected regret'],
                                'perc optimal pulls (last 100 steps)': p_optimal_arm,
-                               'optimal arm?': int(action == best_action)}, step=self.t)
+                               'optimal arm?': int(expected_reward == best_reward)}, step=self.t)
 
                 if self.t % throttle == 0:
                     pbar.set_postfix(postfix)

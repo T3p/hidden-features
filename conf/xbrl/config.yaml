@@ -30,6 +30,10 @@ time_random_exp: 1000
 train_reweight: False
 glrt_scale: 1
 mingap_clip: 0.001
+weight_certainty: 0
+weight_uncertainty: 0
+weight_trace: 0
+check_glrt: True
 
 # misc
 seed: 1

@@ -31,10 +31,19 @@ class NNLinUCB(XBModule):
         self.weight_rayleigh = cfg.weight_rayleigh
         self.weight_certainty = cfg.weight_certainty
         self.check_glrt = cfg.check_glrt
+        self.weight_uncertainty = cfg.weight_uncertainty
+        self.weight_trace = cfg.weight_trace
+
+        self.weight_mse_log = torch.tensor(np.log(self.weight_mse), dtype=TORCH_FLOAT, device=self.device)
+        self.weight_mse_log.requires_grad = True
+        self.weight_mse_log_optimizer = torch.optim.SGD([self.weight_mse_log], lr=0.0001)
         if self.weight_rayleigh > 0:
-            self.unit_vector = torch.ones(self.model.embedding_dim).to(self.device) / np.sqrt(self.model.embedding_dim)
+            self.unit_vector = torch.ones(self.model.embedding_dim, dtype=TORCH_FLOAT).to(self.device) / np.sqrt(self.model.embedding_dim)
             self.unit_vector.requires_grad = True
-            self.unit_vector_optimizer = torch.optim.Adam([self.unit_vector], lr=self.learning_rate)
+            self.unit_vector_optimizer = torch.optim.SGD([self.unit_vector], lr=self.learning_rate)
+            self.weight_rayleigh_log = torch.tensor(np.log(self.weight_rayleigh), dtype=TORCH_FLOAT, device=self.device)
+            self.weight_rayleigh_log.requires_grad = True
+            self.weight_rayleigh_log_optimizer = torch.optim.SGD([self.weight_rayleigh_log], lr=self.learning_rate)
         # initialization
         if self.model is not None:
             dim = self.model.embedding_dim
@@ -47,6 +56,9 @@ class NNLinUCB(XBModule):
         self.param_bound = np.sqrt(self.env.feature_dim)
         self.features_bound = np.sqrt(self.env.feature_dim)
         self.A_logdet = np.log(self.ucb_regularizer) * dim
+        self.np_random = np.random.RandomState(self.seed)
+        self.epsilon_decay = cfg.epsilon_decay
+        self.is_random_step = 0
 
     def _train_loss(self, b_features, b_rewards, b_weights, b_all_features):
         loss = 0
@@ -55,13 +67,22 @@ class NNLinUCB(XBModule):
         if not np.isclose(self.weight_mse,0):
             prediction = self.model(b_features)
             mse_loss = (b_weights * (prediction - b_rewards) ** 2).mean()
-            loss = loss + self.weight_mse * mse_loss
             metrics['mse_loss'] = mse_loss.cpu().item()
+            # mse_loss *= np.cbrt(self.t) / (np.cbrt(self.t) + 1)
+            # loss = loss + self.weight_mse * mse_loss
+            # with learned weight
+            weight_mse_loss = self.weight_mse_log.exp() * (- mse_loss.detach() + self.noise_std**2 + 1. / np.sqrt(self.t))
+            self.weight_mse_log_optimizer.zero_grad()
+            weight_mse_loss.backward()
+            self.weight_mse_log_optimizer.step()
+            metrics['weight_mse'] = self.weight_mse_log.exp().detach().cpu().item()
+            loss += self.weight_mse_log.exp().detach() * mse_loss
+
 
         #DETERMINANT or LOG_MINEIG LOSS
         if not np.isclose(self.weight_spectral, 0):
             phi = self.model.embedding(b_features)
-            A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
+            A = torch.matmul(phi.T, phi)  + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
             # det_loss = torch.logdet(A)
             spectral_loss = - torch.log(torch.linalg.eigvalsh(A)[0])
@@ -69,15 +90,36 @@ class NNLinUCB(XBModule):
             metrics['spectral_loss'] = spectral_loss.cpu().item()
 
         if not np.isclose(self.weight_certainty, 0):
+            # phi = self.model.embedding(b_features)
+            # A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
+            # A /= phi.shape[0]
+            # with torch.no_grad():
+            all_phi = self.model.embedding(b_all_features.reshape((-1, self.env.feature_dim)))
+            certainty = (torch.matmul(all_phi, self.A / self.t) * all_phi).sum(axis=1)
+            # certainty_loss = certainty.reshape((-1, self.env.action_space.n)).min(dim=1)[0].mean()
+            certainty_loss = - certainty.mean() / self.features_bound**4
+            loss = loss + self.weight_certainty * certainty_loss
+            metrics['certainty_loss'] = certainty_loss.cpu().item()
+
+
+        if not np.isclose(self.weight_uncertainty, 0):
             phi = self.model.embedding(b_features)
             A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
+            # with torch.no_grad():
             all_phi = self.model.embedding(b_all_features.reshape((-1, self.env.feature_dim)))
-            certainty = (torch.matmul(all_phi, A) * all_phi).sum(axis=1)
+            uncertainty = (torch.matmul(all_phi, torch.inverse(A)) * all_phi).sum(axis=1)
             # certainty_loss = certainty.reshape((-1, self.env.action_space.n)).min(dim=1)[0].mean()
-            certainty_loss =  - certainty.mean() / self.features_bound**4
-            loss = loss + self.weight_certainty * certainty_loss
-            metrics['certainty_loss'] = certainty_loss.cpu().item()
+            uncertainty_loss = uncertainty.mean()
+            loss = loss + self.weight_uncertainty * uncertainty_loss
+            metrics['uncertainty_loss'] = uncertainty_loss.cpu().item()
+
+        if not np.isclose(self.weight_trace, 0):
+            phi = self.model.embedding(b_features)
+            A = torch.matmul(phi.T, phi) / phi.shape[0]
+            trace_loss = - torch.trace(A) / self.features_bound**2
+            loss = loss + self.weight_trace * trace_loss
+            metrics['trace_loss'] = trace_loss.cpu().item()
 
         if not np.isclose(self.weight_orth, 0):
             batch_size = b_features.shape[0]
@@ -95,7 +137,8 @@ class NNLinUCB(XBModule):
 
         if not np.isclose(self.weight_rayleigh, 0):
             phi = self.model.embedding(b_features)
-            A = torch.matmul(phi.T, phi) / phi.shape[0]
+            A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
+            A /= phi.shape[0]
             # compute loss to update the unit vector
             unit_vector_loss = torch.dot(self.unit_vector, torch.matmul(A.detach(), self.unit_vector))
             self.unit_vector_optimizer.zero_grad()
@@ -104,10 +147,19 @@ class NNLinUCB(XBModule):
             self.unit_vector.data = F.normalize(self.unit_vector.data, dim=0)
             # recompute the loss to update embedding
             phi = self.model.embedding(b_features)
-            A = torch.matmul(phi.T, phi) / phi.shape[0]
+            A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
+            A /= phi.shape[0]
             rayleigh_loss = - torch.dot(self.unit_vector.detach(), torch.matmul(A, self.unit_vector.detach()))
-            loss += self.weight_rayleigh * rayleigh_loss
             metrics['rayleigh_loss'] = rayleigh_loss.cpu().item()
+            # rayleigh_loss *= 1. / (np.cbrt(self.t) + 1)
+            loss += self.weight_rayleigh * rayleigh_loss
+            # loss += self.weight_rayleigh_log.exp().detach() * rayleigh_loss
+            # weight_rayleigh_loss = self.weight_rayleigh_log.exp() * (- rayleigh_loss.detach() - 0.05)
+            # self.weight_rayleigh_log_optimizer.zero_grad()
+            # weight_rayleigh_loss.backward()
+            # self.weight_rayleigh_log_optimizer.step()
+            # metrics['weight_rayleigh'] = self.weight_rayleigh_log.exp().detach().cpu().item()
+
 
         # FEATURES NORM LOSS
         if not np.isclose(self.weight_l2features, 0):
@@ -159,15 +211,30 @@ class NNLinUCB(XBModule):
 
     def play_action(self, features: np.ndarray):
         assert features.shape[0] == self.env.action_space.n
+        self.is_random_step = 0
+        if self.epsilon_decay == "cbrt":
+            self.epsilon = 1. / np.cbrt(self.t + 1)
+        elif self.epsilon_decay == "sqrt":
+            self.epsilon = 1. / np.sqrt(self.t + 1)
+        elif self.epsilon_decay in ["none", "None"]:
+            self.epsilon = -1
+        else:
+            raise NotImplementedError()
 
-        glrt_active, _, _, action = self.glrt(features)
+        glrt_active, min_ratio, beta, action = self.glrt(features)
         glrt_active = glrt_active and self.check_glrt
+
         if self.use_tb:
+            self.writer.add_scalar('epsilon', self.epsilon, self.t)
             self.writer.add_scalar('GRLT', int(glrt_active), self.t)
         if self.use_wandb:
+            wandb.log({'epsilon': self.epsilon}, step=self.t)
             wandb.log({'GRLT': int(glrt_active)}, step=self.t)
         if glrt_active:
             return action
+        elif self.np_random.rand() <= self.epsilon:
+            self.is_random_step = 1
+            return self.np_random.choice(self.env.action_space.n, size=1).item()
         else:
             features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
 
@@ -202,7 +269,7 @@ class NNLinUCB(XBModule):
             return action
 
     def add_sample(self, feature: np.ndarray, reward: float, all_features: np.ndarray) -> None:
-        exp = (feature, reward, all_features)
+        exp = (feature, reward, all_features, self.t, self.is_random_step)
         self.buffer.append(exp)
 
         # estimate linear component on the embedding + UCB part
@@ -262,7 +329,7 @@ class NNLinUCB(XBModule):
         if self.model is None:
             return None
         dim = self.model.embedding_dim
-        batch_features, batch_rewards, _ = self.buffer.get_all()
+        batch_features, batch_rewards, _, _, _ = self.buffer.get_all()
         features_tensor = torch.tensor(batch_features, dtype=TORCH_FLOAT, device=self.device)
         rewards_tensor = torch.tensor(batch_rewards, dtype=TORCH_FLOAT, device=self.device)
         with torch.no_grad():
