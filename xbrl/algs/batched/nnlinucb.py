@@ -59,24 +59,26 @@ class NNLinUCB(XBModule):
         self.np_random = np.random.RandomState(self.seed)
         self.epsilon_decay = cfg.epsilon_decay
         self.is_random_step = 0
+        self.number_glrt_step = 0
 
-    def _train_loss(self, b_features, b_rewards, b_weights, b_all_features):
+    def _train_loss(self, exp_features_tensor, exp_rewards_tensor, b_features, b_rewards, b_weights, b_all_features):
         loss = 0
         metrics = {}
         # (weighted) MSE LOSS
         if not np.isclose(self.weight_mse,0):
-            prediction = self.model(b_features)
-            mse_loss = (b_weights * (prediction - b_rewards) ** 2).mean()
+            prediction = self.model(exp_features_tensor)
+            # mse_loss = (b_weights * (prediction - exp_rewards_tensor) ** 2).mean()
+            mse_loss = F.mse_loss(prediction, exp_rewards_tensor)
             metrics['mse_loss'] = mse_loss.cpu().item()
             # mse_loss *= np.cbrt(self.t) / (np.cbrt(self.t) + 1)
-            # loss = loss + self.weight_mse * mse_loss
+            loss = loss + self.weight_mse * mse_loss
             # with learned weight
-            weight_mse_loss = self.weight_mse_log.exp() * (- mse_loss.detach() + self.noise_std**2 + 1. / np.sqrt(self.t))
-            self.weight_mse_log_optimizer.zero_grad()
-            weight_mse_loss.backward()
-            self.weight_mse_log_optimizer.step()
-            metrics['weight_mse'] = self.weight_mse_log.exp().detach().cpu().item()
-            loss += self.weight_mse_log.exp().detach() * mse_loss
+            # weight_mse_loss = self.weight_mse_log.exp() * (- mse_loss.detach() + self.noise_std**2 + 1. / np.sqrt(self.t))
+            # self.weight_mse_log_optimizer.zero_grad()
+            # weight_mse_loss.backward()
+            # self.weight_mse_log_optimizer.step()
+            # metrics['weight_mse'] = self.weight_mse_log.exp().detach().cpu().item()
+            # loss += self.weight_mse_log.exp().detach() * mse_loss
 
 
         #DETERMINANT or LOG_MINEIG LOSS
@@ -231,6 +233,7 @@ class NNLinUCB(XBModule):
             wandb.log({'epsilon': self.epsilon}, step=self.t)
             wandb.log({'GRLT': int(glrt_active)}, step=self.t)
         if glrt_active:
+            self.number_glrt_step += 1
             return action
         elif self.np_random.rand() <= self.epsilon:
             self.is_random_step = 1
@@ -271,6 +274,8 @@ class NNLinUCB(XBModule):
     def add_sample(self, feature: np.ndarray, reward: float, all_features: np.ndarray) -> None:
         exp = (feature, reward, all_features, self.t, self.is_random_step)
         self.buffer.append(exp)
+        if self.is_random_step:
+            self.explorative_buffer.append((feature, reward))
 
         # estimate linear component on the embedding + UCB part
         feature_tensor = torch.tensor(feature.reshape(1,-1), dtype=TORCH_FLOAT).to(self.device)

@@ -47,7 +47,11 @@ class NNEpsGreedy(NNLinUCB):
         if self.use_wandb:
             wandb.log({'epsilon': self.epsilon}, step=self.t)
             wandb.log({'GRLT': int(glrt_active)}, step=self.t)
-        if glrt_active or self.np_random.rand() > self.epsilon:
+        if glrt_active:
+            self.number_glrt_step += 1
+            return action
+        elif self.np_random.rand() > self.epsilon:
+            self.is_random_step = 1
             return action
         else:
             self.is_random_step = 1

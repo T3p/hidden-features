@@ -20,6 +20,7 @@ class SimpleBuffer:
         return self.sample(batch_size=len(self.buffer))
 
     def sample(self, batch_size:int):
-        indices = np.random.choice(len(self.buffer), size=min(batch_size, len(self.buffer)), replace=False)
+        # indices = np.random.choice(len(self.buffer), size=min(batch_size, len(self.buffer)), replace=False)
+        indices = np.random.choice(len(self.buffer), size=batch_size, replace=True)
         out = (np.array(el) for el in zip(*(self.buffer[idx] for idx in indices)))
         return out
