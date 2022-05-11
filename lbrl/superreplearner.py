@@ -165,6 +165,42 @@ class SuperRepLearner:
     def play_base_algo(self, context_id, selected_rep):
         pass
 
+    def play_action_meta(self, context_id):
+        epsilon_forced = -1
+        if self.cfg.forcedexp:
+            if self.cfg.eps_decay_forcedexp == "cbrt":
+                epsilon_forced = 1. / np.cbrt(self.t)
+            elif self.cfg.eps_decay_forcedexp == "sqrt":
+                epsilon_forced = 1. / np.sqrt(self.t)
+            else:
+                raise ValueError("Unknown forced exploration type {self.cfg.eps_decay_forcedexp}")
+
+        doplaygreedy = False
+        if self.cfg.check_glrt:
+            doplaygreedy, greedy_action = self.glrt(context_id=context_id, selected_rep=self.selected_rep)
+
+        if doplaygreedy:
+            step_type = 0
+            action = greedy_action
+        elif self.cfg.forcedexp and self.rng.rand() < epsilon_forced:
+            step_type = 2
+            action = self.rng.choice(self.env.n_actions, size=1).item()
+        else:
+            step_type = 1
+            action = self.play_base_algo(context_id=context_id, selected_rep=self.selected_rep)
+
+        
+        if self.cfg.use_tb:
+            self.tb_writer.add_scalar('epsilon forced_exploration', epsilon_forced, self.t)
+            self.tb_writer.add_scalar('glrt active', 1 if doplaygreedy else 0, self.t)
+            self.tb_writer.add_scalar('play [0=GLRT, 1=base_alg, 2=Forced_exp]', step_type , self.t)
+        if self.cfg.use_wandb:
+            wandb.log({
+                'epsilon forced_exploration': epsilon_forced, 
+                'glrt active': 1 if doplaygreedy else 0,
+                'play [0=GLRT, 1=base_alg, 2=Forced_exp]': step_type}, step=self.t)
+        return action
+
     def select_rep(self):
         M = len(self.reps)
         rep_scores = np.zeros(M)
@@ -233,8 +269,7 @@ class SuperRepLearner:
 
         postfix = {
             'rep': self.selected_rep,
-            'expected regret': 0.0,
-            'glrt': 0
+            'expected regret': 0.0
         }
         reg = 0
         self.selected_rep = 0
@@ -247,17 +282,8 @@ class SuperRepLearner:
                 # avail_actions = self.env.get_available_actions()
                 if self.cfg.select_method in [self.AVG_QUAD, self.AVG_QUAD_NORM]:
                     self.buffer.append((context_id, None))
-
-                if self.cfg.check_glrt:
-                    doplaygreedy, greedy_action = self.glrt(context_id=context_id, selected_rep=self.selected_rep)
-                else:
-                    doplaygreedy = False
-
-                if doplaygreedy:
-                    action = greedy_action
-                else:
-                    action = self.play_base_algo(context_id=context_id, selected_rep=self.selected_rep)
-
+        
+                action = self.play_action_meta(context_id=context_id)
                 reward = self.env.step(action)
                 self.update(context_id=context_id, action=action, reward=reward)
 
@@ -279,16 +305,14 @@ class SuperRepLearner:
                 # logging
                 postfix['expected regret'] = reg
                 postfix['rep'] = self.selected_rep
-                postfix['glrt'] = doplaygreedy
                 if self.t % throttle == 0:
                     pbar.set_postfix(postfix)
                     pbar.update(throttle)
 
                 if self.cfg.use_tb:
                     self.tb_writer.add_scalar('expected regret', reg, self.t)
-                    self.tb_writer.add_scalar('glrt active', 1 if doplaygreedy else 0, self.t)
                 if self.cfg.use_wandb:
-                    wandb.log({'expected regret': reg, 'glrt active': 1 if doplaygreedy else 0}, step=self.t)
+                    wandb.log({'expected regret': reg}, step=self.t)
                 
                 #step
                 self.t += 1

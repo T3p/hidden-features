@@ -9,13 +9,19 @@ delta: 0.01
 reg_val: 1
 rep_idx: 0
 noise_std: ${domain.noise_param}
-check_glrt: True
-glrt_scale: 1
 update_every: 2
 exp_name: default
 bonus_scale: 1
 eps_decay: cbrt
+
+# glrt
 mingap_clip: 0.01
+check_glrt: True
+glrt_scale: 1
+
+# forced exploration
+forcedexp: False
+eps_decay_forcedexp: cbrt
 
 # misc
 seed: 1
