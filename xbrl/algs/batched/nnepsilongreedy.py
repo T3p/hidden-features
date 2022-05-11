@@ -50,10 +50,10 @@ class NNEpsGreedy(NNLinUCB):
         if glrt_active:
             self.number_glrt_step += 1
             return action
-        elif self.np_random.rand() > self.epsilon:
-            self.is_random_step = 1
-            return action
-        else:
+        elif self.np_random.rand() <= self.epsilon:
             self.is_random_step = 1
             return self.np_random.choice(self.env.action_space.n, size=1).item()
+        else:
+            self.is_random_step = 1
+            return action
 

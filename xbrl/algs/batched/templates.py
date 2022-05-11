@@ -89,7 +89,8 @@ class XBModule():
             epoch_metrics = defaultdict(list)
             # print(self.t+1, len(self.explorative_buffer))
             # print(f"{self.number_glrt_step}")
-            for _ in range(self.max_updates):
+            max_updates = self.max_updates * int(len(self.buffer) / self.batch_size)
+            for _ in range(max_updates):
                 exp_features, exp_rewards = self.explorative_buffer.sample(batch_size=self.batch_size) # change sample to guarantee that we always return batch_size data
                 exp_features_tensor = torch.tensor(exp_features, dtype=TORCH_FLOAT, device=self.device)
                 exp_rewards_tensor = torch.tensor(exp_rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
@@ -140,7 +141,12 @@ class XBModule():
     #                     self.unit_vector.requires_grad = True
     #                     self.unit_vector_optimizer = torch.optim.SGD([self.unit_vector], lr=self.learning_rate)
 
+    #             exp_features, exp_rewards = self.explorative_buffer.get_all()
     #             features, rewards, all_features, steps, is_random_steps = self.buffer.get_all()
+    #             nelem = features.shape[0]
+    #             idxs = np.random.choice(exp_features.shape[0], size=nelem)
+    #             exp_features_tensor = torch.tensor(exp_features[idxs], dtype=TORCH_FLOAT, device=self.device)
+    #             exp_rewards_tensor = torch.tensor(exp_rewards[idxs].reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
     #             features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
     #             rewards_tensor = torch.tensor(rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
     #             all_features_tensor = torch.tensor(all_features, dtype=TORCH_FLOAT, device=self.device)
@@ -149,15 +155,15 @@ class XBModule():
     #                 weights_tensor = torch.tensor(is_random_steps, dtype=TORCH_FLOAT, device=self.device)
     #                 # print(f"reweighting: avg: {weights_tensor.mean().cpu().item()} - min/max: {weights_tensor.min().cpu().item(), weights_tensor.max().cpu().item()}")
 
-    #             torch_dataset = torch.utils.data.TensorDataset(features_tensor, rewards_tensor, weights_tensor, all_features_tensor)
+    #             torch_dataset = torch.utils.data.TensorDataset(exp_features_tensor,exp_rewards_tensor,features_tensor, rewards_tensor, weights_tensor, all_features_tensor)
     #             loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
     #             self.model.train()
 
     #             for epoch in range(self.max_updates):
     #                 epoch_metrics = defaultdict(list)
 
-    #                 for batch_features, batch_rewards, batch_weights, batch_all_features in loader:
-    #                     metrics = self._train_loss(batch_features, batch_rewards, batch_features, batch_rewards, batch_weights, batch_all_features)
+    #                 for batch_exp_feat, batch_exp_rew, batch_features, batch_rewards, batch_weights, batch_all_features in loader:
+    #                     metrics = self._train_loss(batch_exp_feat, batch_exp_rew, batch_features, batch_rewards, batch_weights, batch_all_features)
     #                     # update epoch metrics
     #                     for key, value in metrics.items():
     #                         epoch_metrics[key].append(value)
