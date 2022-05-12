@@ -70,7 +70,7 @@ def my_app(cfg: DictConfig) -> None:
     # Problem creation
     ########################################################################
     
-    if cfg.domain.type == "finite" or cfg.domain.type == "toy":
+    if cfg.domain.type == "finite" or cfg.domain.type == "toy" or cfg.domain.type == "wheel":
         if cfg.domain.type == "finite":
             features, theta = bandits.make_synthetic_features(
                 n_contexts=cfg.domain.ncontexts, n_actions=cfg.domain.narms, dim=cfg.domain.dim,
