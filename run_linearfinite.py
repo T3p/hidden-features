@@ -70,14 +70,14 @@ def my_app(cfg: DictConfig) -> None:
     # Problem creation
     ########################################################################
     
-    if cfg.domain.type == "finite" or cfg.domain.type == "toy":
+    if cfg.domain.type == "finite" or cfg.domain.type == "toy" or cfg.domain.type == "wheel":
         if cfg.domain.type == "finite":
             features, theta = bandits.make_synthetic_features(
                 n_contexts=cfg.domain.ncontexts, n_actions=cfg.domain.narms, dim=cfg.domain.dim,
                 context_generation=cfg.domain.contextgeneration, feature_expansion=cfg.domain.feature_expansion,
                 seed=cfg.domain.seed_problem
             )
-        else:
+        elif cfg.domain.type == "toy":
             ncontexts, narms, dim = cfg.domain.ncontexts, cfg.domain.narms, cfg.domain.dim
             assert ncontexts == dim
             features = np.zeros((ncontexts, narms, dim))
@@ -87,8 +87,45 @@ def my_app(cfg: DictConfig) -> None:
                 for j in range(2, narms):
                     features[i,j,:] = (2 * np.random.rand(dim) - 1) / dim
             theta = np.ones(dim)
+        elif cfg.domain.type == "wheel":
+            ncontexts, narms, dim = cfg.domain.ncontexts, cfg.domain.narms, cfg.domain.dim
+            features = np.zeros((ncontexts, narms, dim))
+            rewards = np.zeros((ncontexts, narms))
+            rewards[:, 0] = cfg.domain.mu_1
+            rewards[:, 1:5] = cfg.domain.mu_2
+
+            import matplotlib.pyplot as plt
+            plt.figure()
+            for i in range(ncontexts):
+                rho = np.random.rand()
+                theta = np.random.rand() * 2 * np.pi
+                x = np.array([np.cos(theta), np.sin(theta)]) * rho
+                for j in range(narms):
+                    y = np.zeros(narms)
+                    y[j] = 1
+                    features[i,j,:] = np.concatenate([x,y])
+                if np.linalg.norm(x) > cfg.domain.radius:
+                    if x[0] >= 0 and x[1] >= 0:
+                        rewards[i, 1] = cfg.domain.mu_3
+                        plt.scatter(x[0],x[1],c="red",s=10,alpha=0.5)
+                    elif x[0] >= 0 and x[1] < 0:
+                        rewards[i, 2] = cfg.domain.mu_3
+                        plt.scatter(x[0],x[1],c="green",s=10,alpha=0.5)
+                    elif x[0] < 0 and x[1] >= 0:
+                        rewards[i, 3] = cfg.domain.mu_3
+                        plt.scatter(x[0],x[1],c="orange",s=10,alpha=0.5)
+                    else:
+                        rewards[i, 4] = cfg.domain.mu_3
+                        plt.scatter(x[0],x[1],c="purple",s=10,alpha=0.5)
+                else:
+                    plt.scatter(x[0],x[1],c="blue",s=10,alpha=0.5)
+            # plt.show()
+        else:
+            raise NotImplementedError
         
-        rewards = features @ theta
+        if cfg.domain.type != "wheel":
+            rewards = features @ theta
+
         print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
         print(f"Original rep -> is HLS: {hlsutils.is_hls(features, rewards)}")
         print(f"Original rep -> HLS min eig: {hlsutils.hls_lambda(features, rewards)}")
