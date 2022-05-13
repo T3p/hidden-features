@@ -267,9 +267,11 @@ def my_app(cfg: DictConfig) -> None:
 
     with open(os.path.join(work_dir, "result.pkl"), 'wb') as f:
         pickle.dump(result, f)
-    payload = {'model': algo.model, 'features': algo.env.feature_matrix, 'rewards': algo.env.rewards}
-    with open(os.path.join(work_dir, "algo.pt"), 'wb') as f:
-        torch.save(payload, f)
+
+    if hasattr(algo.env, "feature_matrix"):
+        payload = {'model': algo.model, 'features': algo.env.feature_matrix, 'rewards': algo.env.rewards}
+        with open(os.path.join(work_dir, "algo.pt"), 'wb') as f:
+            torch.save(payload, f)
     
     if cfg.use_wandb:
         wandb.finish(quiet=True)
