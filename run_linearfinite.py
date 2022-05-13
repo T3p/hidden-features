@@ -189,7 +189,6 @@ def my_app(cfg: DictConfig) -> None:
         log.info("="*20)
         log.info(env.description())
         log.info("="*20)
-        exit(9)
     elif cfg.domain.type == "nn":
         net_file = os.path.join(original_dir, cfg.domain.net)
         features_file = os.path.join(original_dir, cfg.domain.features)
