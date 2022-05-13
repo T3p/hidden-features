@@ -1,0 +1,6 @@
+type: dataset
+dataset: covertype
+bandittype: expanded #[expanded, onehot]
+# noise problem
+noise_type: none
+noise_param: 0 #std
