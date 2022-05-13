@@ -5,7 +5,8 @@ import numpy as np
 
 from sklearn.preprocessing import OrdinalEncoder
 from .spaces import DiscreteFix
-from sklearn.utils import shuffle
+import sklearn
+import pdb
 
 @dataclass
 class MulticlassToBandit:
@@ -24,16 +25,17 @@ class MulticlassToBandit:
         self.y = OrdinalEncoder(dtype=int).fit_transform(self.y.reshape((-1, 1)))
         self.action_space = DiscreteFix(n=np.unique(self.y).shape[0])
         self.np_random = np.random.RandomState(seed=self.seed)
-        if shuffle:
-            self.X, self.y = shuffle(self.X, self.y, random_state=self.seed)
-        assert self.noise in [None, "bernoulli", "gaussian"]
+        if self.shuffle:
+            self.X, self.y = sklearn.utils.shuffle(self.X, self.y, random_state=self.seed)
+        assert self.noise in [None, "bernoulli", "gaussian", "none", "None"]
         self.idx = -1
 
     def sample_context(self) -> np.ndarray:
         # self.idx = self.np_random.randint(0, self.__len__(), 1).item()
-        self.idx += 1
-        if self.idx == self.__len__():
-            self.idx = 0  
+        # self.idx += 1
+        # if self.idx == self.__len__():
+        #     self.idx = 0  
+        self.idx = self.np_random.choice(self.__len__(), 1).item()
         return self.X[self.idx]
 
     def step(self, action: int) -> float:
@@ -41,7 +43,7 @@ class MulticlassToBandit:
         """
         assert self.action_space.contains(action), action
         reward = 1. if self.y[self.idx] == action else 0.
-        if self.noise is not None:
+        if self.noise not in [None, "none", "None"]:
             if self.noise == "bernoulli":
                 proba = reward + self.noise_param if reward == 0 else reward - self.noise_param
                 reward = self.np_random.binomial(n=1, p=proba).item()

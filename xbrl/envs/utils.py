@@ -61,7 +61,7 @@ def make_from_dataset(name:str, bandit_model:str=None, seed:int=0, noise:str=Non
     else:
         raise RuntimeError('Dataset does not exist')
 
-    if bandit_model is None:
+    if bandit_model in [None, "none", "None"]:
         bandit = MulticlassToBandit(X, y, dataset_name=name, seed=seed, noise=noise, noise_param=noise_param)
     elif bandit_model == "onehot":
         bandit = MCOneHot(X, y, dataset_name=name, seed=seed, noise=noise, noise_param=noise_param)
