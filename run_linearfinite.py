@@ -181,6 +181,15 @@ def my_app(cfg: DictConfig) -> None:
         env = bandits.make_from_dataset(
             cfg.domain.dataset, bandit_model=cfg.domain.bandittype,
             seed=cfg.seed, noise=cfg.domain.noise_type, noise_param=cfg.domain.noise_param)
+
+        print()
+        print("="*20)
+        print(env.description())
+        print("="*20,"\n")
+        log.info("="*20)
+        log.info(env.description())
+        log.info("="*20)
+        exit(9)
     elif cfg.domain.type == "nn":
         net_file = os.path.join(original_dir, cfg.domain.net)
         features_file = os.path.join(original_dir, cfg.domain.features)

@@ -77,6 +77,15 @@ class MulticlassToBandit:
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
 
+    def description(self) -> str:
+        desc = f"{self.dataset_name}\n"
+        desc += f"n_contexts: {self.__len__()}\n"
+        desc += f"context_dim: {self.X.shape[1]}\n"
+        desc += f"n_actions: {self.action_space.n}\n"
+        desc += f"noise type: {self.noise} (noise param: {self.noise_param})\n"
+        desc += f"seed: {self.seed}\n"
+        return desc
+
 @dataclass
 class MCOneHot(MulticlassToBandit):
 
@@ -100,6 +109,12 @@ class MCOneHot(MulticlassToBandit):
             of the current context with a one-hot-encoding representation of the features
         """
         return self.__getitem__(self.idx)[0]
+        
+    def description(self) -> str:
+        desc = super().description()
+        desc += f"type: onehot\n"
+        desc += f"feat dim: {self.feature_dim}"
+        return desc
 
 @dataclass
 class MCExpanded(MulticlassToBandit):
@@ -124,3 +139,9 @@ class MCExpanded(MulticlassToBandit):
             of the current context with a one-hot-encoding representation of the features
         """
         return self.__getitem__(self.idx)[0]
+
+    def description(self) -> str:
+        desc = super().description()
+        desc += f"type: expanded\n"
+        desc += f"feat dim: {self.feature_dim}"
+        return desc
