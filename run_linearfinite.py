@@ -179,7 +179,8 @@ def my_app(cfg: DictConfig) -> None:
 
     elif cfg.domain.type == "dataset":
         env = bandits.make_from_dataset(
-            cfg.domain.dataset, bandit_model=cfg.domain.bandittype,
+            cfg.domain.dataset, bandit_model=cfg.domain.bandittype, 
+            rew_optimal=cfg.domain.rew_optimal, rew_suboptimal=cfg.domain.rew_suboptimal,
             seed=cfg.seed, noise=cfg.domain.noise_type, noise_param=cfg.domain.noise_param)
 
         print()

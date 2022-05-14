@@ -2,5 +2,7 @@ type: dataset
 dataset: shuttle
 bandittype: onehot #[expanded, onehot]
 # noise problem
-noise_type: none
-noise_param: 0 #std
+noise_type: bernoulli
+rew_optimal: 0.9
+rew_suboptimal: 0.1
+noise_param: 0.5 #std

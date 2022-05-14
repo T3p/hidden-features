@@ -13,6 +13,8 @@ class MulticlassToBandit:
     
     X: np.ndarray
     y: np.ndarray
+    rew_optimal: Optional[float] = 1
+    rew_suboptimal: Optional[float] = 0
     dataset_name: Optional[str] = None
     seed: Optional[int] = 0
     noise: Optional[str] = None
@@ -42,11 +44,10 @@ class MulticlassToBandit:
         """ Return a realization of the reward in the context for the selected action
         """
         assert self.action_space.contains(action), action
-        reward = 1. if self.y[self.idx] == action else 0.
+        reward = self.rew_optimal if self.y[self.idx] == action else self.rew_suboptimal
         if self.noise not in [None, "none", "None"]:
             if self.noise == "bernoulli":
-                proba = reward + self.noise_param if reward == 0 else reward - self.noise_param
-                reward = self.np_random.binomial(n=1, p=proba).item()
+                reward = self.np_random.binomial(n=1, p=reward, size=1).item()
             else:
                 reward = reward + self.np_random.randn(1).item() * self.noise_param        
         return reward
@@ -55,11 +56,11 @@ class MulticlassToBandit:
         """ Best action and reward in the current context
         """
         action = self.y[self.idx]
-        return 1., action
+        return self.rew_optimal, action
     
     def expected_reward(self, action: int) -> float:
         assert self.action_space.contains(action)
-        return 1. if self.y[self.idx] == action else 0.
+        return self.rew_optimal if self.y[self.idx] == action else self.rew_suboptimal
 
     def __len__(self) -> int:
         return self.y.shape[0]
@@ -82,6 +83,7 @@ class MulticlassToBandit:
         desc += f"n_contexts: {self.__len__()}\n"
         desc += f"context_dim: {self.X.shape[1]}\n"
         desc += f"n_actions: {self.action_space.n}\n"
+        desc += f"rewards[subopt, optimal]: [{self.rew_suboptimal}, {self.rew_optimal}]\n"
         desc += f"noise type: {self.noise} (noise param: {self.noise_param})\n"
         desc += f"seed: {self.seed}\n"
         return desc
@@ -101,7 +103,7 @@ class MCOneHot(MulticlassToBandit):
         B = np.tile(B, reps=(self.X.shape[0], 1, 1))
         self.feature_matrix = np.concatenate((A, B), axis=-1)
         assert self.feature_matrix.shape == (self.X.shape[0], self.action_space.n, self.feature_dim)
-        self.rewards = np.array([[1. if self.y[i]==j else 0. for j in range(self.action_space.n)]
+        self.rewards = np.array([[self.rew_optimal if self.y[i]==j else self.rew_suboptimal for j in range(self.action_space.n)]
                             for i in range(self.X.shape[0])])
         assert self.rewards.shape == (self.X.shape[0], self.action_space.n)
         
@@ -112,8 +114,8 @@ class MCOneHot(MulticlassToBandit):
         tile_p = [na] + [1]*len(context.shape)
         x = np.tile(context, tile_p)
         x_y = np.hstack((x, self.eye))
-        rwd = np.zeros((self.action_space.n,))
-        rwd[self.y[idx]] = 1
+        rwd = np.ones((self.action_space.n,)) * self.rew_suboptimal
+        rwd[self.y[idx]] = self.rew_optimal
         return x_y, rwd
 
     def features(self) -> np.ndarray:
@@ -142,8 +144,8 @@ class MCExpanded(MulticlassToBandit):
         F = np.zeros((na, self.feature_dim))
         for a in range(na):
             F[a, a * act_dim:a * act_dim + act_dim] = context
-        rwd = np.zeros((self.action_space.n,))
-        rwd[self.y[idx]] = 1
+        rwd = np.ones((self.action_space.n,)) * self.rew_suboptimal
+        rwd[self.y[idx]] = self.rew_optimal
         return F, rwd
 
     def features(self) -> np.ndarray:

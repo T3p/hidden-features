@@ -75,48 +75,50 @@ class XBModule():
                 self.update_time += self.update_every
             else:
                 self.update_time = int(np.ceil(max(1, self.update_time) * self.update_every))
-            if self.reset_model_at_train:
-                initialize_weights(self.model)
-                self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate,
-                                                    weight_decay=self.weight_decay)
-                if self.unit_vector is not None:
-                    self.unit_vector = torch.ones(self.model.embedding_dim, dtype=TORCH_FLOAT).to(self.device) / np.sqrt(
-                        self.model.embedding_dim)
-                    self.unit_vector.requires_grad = True
-                    self.unit_vector_optimizer = torch.optim.SGD([self.unit_vector], lr=self.learning_rate)
-
-            self.model.train()
-            epoch_metrics = defaultdict(list)
-            # print(self.t+1, len(self.explorative_buffer))
-            # print(f"{self.number_glrt_step}")
-            max_updates = self.max_updates * int(len(self.buffer) / self.batch_size)
-            for _ in range(max_updates):
-                exp_features, exp_rewards = self.explorative_buffer.sample(batch_size=self.batch_size) # change sample to guarantee that we always return batch_size data
-                exp_features_tensor = torch.tensor(exp_features, dtype=TORCH_FLOAT, device=self.device)
-                exp_rewards_tensor = torch.tensor(exp_rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
-                features, rewards, all_features, steps, is_random_steps = self.buffer.sample(batch_size=self.batch_size)
-                features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
-                rewards_tensor = torch.tensor(rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
-                all_features_tensor = torch.tensor(all_features, dtype=TORCH_FLOAT, device=self.device)
-                weights_tensor = torch.ones((features.shape[0], 1)).to(self.device)
-                if self.train_reweight:
-                    weights_tensor = torch.tensor(is_random_steps, dtype=TORCH_FLOAT, device=self.device)
-                metrics = self._train_loss(exp_features_tensor, exp_rewards_tensor, features_tensor, rewards_tensor, weights_tensor, all_features_tensor)
-                # update epoch metrics
-                for key, value in metrics.items():
-                    epoch_metrics[key].append(value)
-                self.writer.flush()
             
-            self.model.eval()
-            self._post_train()
-            # log to tensorboard
-            if self.use_tb:
-                for key, value in epoch_metrics.items():
-                    self.writer.add_scalar('epoch_' + key, np.mean(value[-100:]), self.t)
-            if self.use_wandb:
-                wandb.log({'epoch_' + key: np.mean(value) for key, value in epoch_metrics.items()}, step=self.t)
-            avg_loss = np.mean(epoch_metrics['train_loss'])
-            return avg_loss
+            if self.t > 10:
+                if self.reset_model_at_train:
+                    initialize_weights(self.model)
+                    self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate,
+                                                        weight_decay=self.weight_decay)
+                    if self.unit_vector is not None:
+                        self.unit_vector = torch.ones(self.model.embedding_dim, dtype=TORCH_FLOAT).to(self.device) / np.sqrt(
+                            self.model.embedding_dim)
+                        self.unit_vector.requires_grad = True
+                        self.unit_vector_optimizer = torch.optim.SGD([self.unit_vector], lr=self.learning_rate)
+
+                self.model.train()
+                epoch_metrics = defaultdict(list)
+                # print(self.t+1, len(self.explorative_buffer))
+                # print(f"{self.number_glrt_step}")
+                max_updates = max(1, self.max_updates * int(len(self.buffer) / self.batch_size))
+                for _ in range(max_updates):
+                    exp_features, exp_rewards = self.explorative_buffer.sample(batch_size=self.batch_size) # change sample to guarantee that we always return batch_size data
+                    exp_features_tensor = torch.tensor(exp_features, dtype=TORCH_FLOAT, device=self.device)
+                    exp_rewards_tensor = torch.tensor(exp_rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
+                    features, rewards, all_features, steps, is_random_steps = self.buffer.sample(batch_size=self.batch_size)
+                    features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
+                    rewards_tensor = torch.tensor(rewards.reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
+                    all_features_tensor = torch.tensor(all_features, dtype=TORCH_FLOAT, device=self.device)
+                    weights_tensor = torch.ones((features.shape[0], 1)).to(self.device)
+                    if self.train_reweight:
+                        weights_tensor = torch.tensor(is_random_steps, dtype=TORCH_FLOAT, device=self.device)
+                    metrics = self._train_loss(exp_features_tensor, exp_rewards_tensor, features_tensor, rewards_tensor, weights_tensor, all_features_tensor)
+                    # update epoch metrics
+                    for key, value in metrics.items():
+                        epoch_metrics[key].append(value)
+                    self.writer.flush()
+                
+                self.model.eval()
+                self._post_train()
+                # log to tensorboard
+                if self.use_tb:
+                    for key, value in epoch_metrics.items():
+                        self.writer.add_scalar('epoch_' + key, np.mean(value[-100:]), self.t)
+                if self.use_wandb:
+                    wandb.log({'epoch_' + key: np.mean(value) for key, value in epoch_metrics.items()}, step=self.t)
+                avg_loss = np.mean(epoch_metrics['train_loss'])
+                return avg_loss
         return None
 
     # def train(self) -> float:
