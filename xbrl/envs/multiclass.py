@@ -93,6 +93,18 @@ class MCOneHot(MulticlassToBandit):
         super().__post_init__()
         self.eye = np.eye(self.action_space.n)
         self.feature_dim = self.X.shape[1] + self.action_space.n
+        #construct feature matrix and rewards
+        A = self.X.reshape((self.X.shape[0], 1, self.X.shape[1]))
+        A = np.tile(A, reps=(1, self.action_space.n, 1))
+        B = np.eye(self.action_space.n)
+        B = B.reshape((1, self.action_space.n, self.action_space.n))
+        B = np.tile(B, reps=(self.X.shape[0], 1, 1))
+        self.feature_matrix = np.concatenate((A, B), axis=-1)
+        assert self.feature_matrix.shape == (self.X.shape[0], self.action_space.n, self.feature_dim)
+        self.rewards = np.array([[1. if self.y[i]==j else 0. for j in range(self.action_space.n)]
+                            for i in range(self.X.shape[0])])
+        assert self.rewards.shape == (self.X.shape[0], self.action_space.n)
+        
 
     def __getitem__(self, idx):
         context = self.X[idx]
