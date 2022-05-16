@@ -248,6 +248,14 @@ class XBModule():
 
                 # step
                 self.t += 1
+                if self.t % 1000 == 0:
+                    metrics["optimal_arm"] = np.cumsum(np.array(metrics["expected_reward"]) == np.array(metrics["best_reward"])) / np.arange(1, len(
+                        metrics["best_reward"]) + 1)
+                    metrics['regret'] = np.cumsum(np.array(metrics["best_reward"]) - np.array(metrics["instant_reward"]))
+                    metrics["expected_regret"] = np.cumsum(np.array(metrics["best_reward"]) - np.array(metrics["expected_reward"]))
+                    with open(os.path.join(log_path, "latest_result.pkl"), 'wb') as f:
+                        pickle.dump(metrics, f)
+
         # convert metrics to numpy.array
         for key, value in metrics.items():
             metrics[key] = np.array(value)
@@ -256,7 +264,4 @@ class XBModule():
             metrics["best_reward"]) + 1)
         metrics['regret'] = np.cumsum(metrics["best_reward"] - metrics["instant_reward"])
         metrics["expected_regret"] = np.cumsum(metrics["best_reward"] - metrics["expected_reward"])
-        if self.t % 1000 == 0:
-            with open(os.path.join(log_path, "latest_result.pkl"), 'wb') as f:
-                pickle.dump(metrics, f)
         return metrics

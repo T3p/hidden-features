@@ -136,15 +136,15 @@ class MCExpanded(MulticlassToBandit):
     def __post_init__(self) -> None:
         super().__post_init__()
         self.feature_dim = self.X.shape[1] * self.action_space.n
-        #construct feature matrix and rewards
-        A = self.X.reshape((self.X.shape[0], 1, self.X.shape[1]))
-        nc = self.X.shape[0]
+        # construct feature matrix and rewards
         na = self.action_space.n
-        self.feature_matrix = np.tile(A, reps=(1,na,na))
-        assert self.feature_matrix.shape == (nc, na, self.feature_dim)
-        self.rewards = np.array([[self.rew_optimal if self.y[i]==j else self.rew_suboptimal for j in range(self.action_space.n)]
-                            for i in range(self.X.shape[0])])
-        assert self.rewards.shape == (self.X.shape[0], self.action_space.n)
+        feature_matrix = np.zeros((self.X.shape[0], na, self.feature_dim))
+        for a in range(na):
+            feature_matrix[:, a, a * self.X.shape[1]:(a + 1) * self.X.shape[1]] = self.X
+        rewards = self.rew_suboptimal * np.ones((self.X.shape[0], na))
+        rewards[range(rewards.shape[0]), self.y.ravel()] = self.rew_optimal
+        self.feature_matrix = feature_matrix
+        self.rewards = rewards
     
     def __getitem__(self, idx):
         context = self.X[idx]
