@@ -189,4 +189,26 @@ def make_reshaped_linrep(features, param, newdim, transform=True, normalize=True
     assert (nc,na,newdim) == new_feat.shape
     assert newdim == new_param.shape[0]
     return new_feat, new_param
+    
+
+def fuse_columns(features, param, cols):
+    nc, na, nd = features.shape
+    rewards = features @ param
+    f1 = np.array(features)
+    for i in range(nd):
+        f1[:, :, i] *= param[i]
+    p1 = 1. + 0. * np.array(param)
+    opt_arms = np.argmax(rewards, axis=1)
+    ss = np.arange(nc)
+    
+    v = np.zeros(nc)
+    for i in cols:
+        assert i >= 0 and i < nd
+        v += f1[ss, opt_arms, i] / len(cols)
+    
+    for i in cols:
+        f1[ss, opt_arms, i] = v
         
+    new_rewards = f1 @ p1
+    assert np.allclose(rewards, new_rewards)
+    return f1, p1
