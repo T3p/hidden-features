@@ -1,6 +1,6 @@
 type: dataset
 dataset: shuttle
-bandittype: onehot #[expanded, onehot]
+bandittype: expanded #[expanded, onehot]
 # noise problem
 noise_type: bernoulli
 rew_optimal: 0.9

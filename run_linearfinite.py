@@ -58,7 +58,7 @@ def my_app(cfg: DictConfig) -> None:
         ])
         wandb.init(
             # Set the project where this run will be logged
-            project="run_linearfinite",
+            project="dataset",
             group=cfg.algo,   # mode="disabled",
             # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
             name=exp_name,
@@ -229,7 +229,7 @@ def my_app(cfg: DictConfig) -> None:
                 if not isinstance(hid_dim, list):
                     hid_dim = [hid_dim]
                 print(hid_dim)
-                layers = [(el, nn.Tanh()) for el in hid_dim]
+                layers = [(el, nn.ReLU()) for el in hid_dim]
             else:
                 layers = None # linear in the features
             net = MLLinearNetwork(env.feature_dim, layers).to(device)

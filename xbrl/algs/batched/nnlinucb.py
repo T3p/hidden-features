@@ -118,7 +118,8 @@ class NNLinUCB(XBModule):
 
         if not np.isclose(self.weight_trace, 0):
             phi = self.model.embedding(b_features)
-            A = torch.matmul(phi.T, phi) / phi.shape[0]
+            A = torch.matmul(phi.T, phi)  + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
+            A /= phi.shape[0]
             trace_loss = - torch.trace(A) / self.features_bound**2
             loss = loss + self.weight_trace * trace_loss
             metrics['trace_loss'] = trace_loss.cpu().item()
