@@ -216,7 +216,7 @@ def my_app(cfg: DictConfig) -> None:
                 if not isinstance(hid_dim, list):
                     hid_dim = [hid_dim]
                 print(hid_dim)
-                layers = [(el, nn.Tanh()) for el in hid_dim]
+                layers = [(el, nn.ReLU() if cfg.use_relu else nn.Tanh()) for el in hid_dim]
             else:
                 layers = None # linear in the features
             net = MLLinearNetwork(env.feature_dim, layers).to(device)

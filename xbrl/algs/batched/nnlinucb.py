@@ -33,6 +33,9 @@ class NNLinUCB(XBModule):
         self.check_glrt = cfg.check_glrt
         self.weight_uncertainty = cfg.weight_uncertainty
         self.weight_trace = cfg.weight_trace
+        self.weight_min_features = cfg.weight_min_features
+        self.weight_min_random = cfg.weight_min_random
+        self.normalize_features = cfg.normalize_features
 
         self.weight_mse_log = torch.tensor(np.log(self.weight_mse), dtype=TORCH_FLOAT, device=self.device)
         self.weight_mse_log.requires_grad = True
@@ -84,14 +87,16 @@ class NNLinUCB(XBModule):
         #DETERMINANT or LOG_MINEIG LOSS
         if not np.isclose(self.weight_spectral, 0):
             phi = self.model.embedding(b_features)
+            if self.normalize_features:
+                phi = phi / torch.norm(phi, dim=1, keepdim=False).max()
             A = torch.matmul(phi.T, phi)  + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
             # det_loss = torch.logdet(A)
-            spectral_loss = - torch.log(torch.linalg.eigvalsh(A)[0])
+            spectral_loss = - torch.linalg.eigvalsh(A)[0] # TODO I have removed the log
             loss = loss + self.weight_spectral * spectral_loss
             metrics['spectral_loss'] = spectral_loss.cpu().item()
 
-        if not np.isclose(self.weight_certainty, 0):
+        if not np.isclose(self.weight_certainty, 0): # TODO not updated
             # phi = self.model.embedding(b_features)
             # A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             # A /= phi.shape[0]
@@ -104,7 +109,7 @@ class NNLinUCB(XBModule):
             metrics['certainty_loss'] = certainty_loss.cpu().item()
 
 
-        if not np.isclose(self.weight_uncertainty, 0):
+        if not np.isclose(self.weight_uncertainty, 0): # TODO not updated
             phi = self.model.embedding(b_features)
             A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
@@ -118,12 +123,14 @@ class NNLinUCB(XBModule):
 
         if not np.isclose(self.weight_trace, 0):
             phi = self.model.embedding(b_features)
+            if self.normalize_features:
+                phi = phi / torch.norm(phi, dim=1, keepdim=False).max()
             A = torch.matmul(phi.T, phi) / phi.shape[0]
-            trace_loss = - torch.trace(A) / self.features_bound**2
+            trace_loss = - torch.trace(A) # / self.features_bound**2
             loss = loss + self.weight_trace * trace_loss
             metrics['trace_loss'] = trace_loss.cpu().item()
 
-        if not np.isclose(self.weight_orth, 0):
+        if not np.isclose(self.weight_orth, 0): # TODO not updated
             batch_size = b_features.shape[0]
             phi = self.model.embedding(b_features)
             phi_1 = phi[: batch_size // 2]
@@ -139,6 +146,8 @@ class NNLinUCB(XBModule):
 
         if not np.isclose(self.weight_rayleigh, 0):
             phi = self.model.embedding(b_features)
+            if self.normalize_features:
+                phi = phi / torch.norm(phi, dim=1, keepdim=False).max()
             A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
             # compute loss to update the unit vector
@@ -149,6 +158,8 @@ class NNLinUCB(XBModule):
             self.unit_vector.data = F.normalize(self.unit_vector.data, dim=0)
             # recompute the loss to update embedding
             phi = self.model.embedding(b_features)
+            if self.normalize_features:
+                phi = phi / torch.norm(phi, dim=1, keepdim=False).max()
             A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
             rayleigh_loss = - torch.dot(self.unit_vector.detach(), torch.matmul(A, self.unit_vector.detach()))
@@ -162,6 +173,34 @@ class NNLinUCB(XBModule):
             # self.weight_rayleigh_log_optimizer.step()
             # metrics['weight_rayleigh'] = self.weight_rayleigh_log.exp().detach().cpu().item()
 
+        if not np.isclose(self.weight_min_features, 0):
+            phi = self.model.embedding(b_features)
+            if self.normalize_features:
+                phi = phi / torch.norm(phi, dim=1, keepdim=False).max()
+            A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
+            A /= phi.shape[0]
+            with torch.no_grad():
+                all_phi = self.model.embedding(exp_features_tensor.reshape((-1, self.env.feature_dim)))
+                all_phi = all_phi / torch.norm(all_phi, dim=1, keepdim=True)
+            sum_norms = (torch.matmul(all_phi.detach(), A) * all_phi.detach()).sum(axis=1)
+            min_feat_loss = - sum_norms.min() #.mean()
+            loss += self.weight_min_features * min_feat_loss
+            metrics['min_feat_loss'] = min_feat_loss.cpu().item()
+
+        if not np.isclose(self.weight_min_random, 0):
+            phi = self.model.embedding(b_features)
+            if self.normalize_features:
+                phi = phi / torch.norm(phi, dim=1, keepdim=False).max()
+            A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
+            A /= phi.shape[0]
+            N = 1000
+            with torch.no_grad():
+                unit_vec = torch.randn(N, phi.shape[1], dtype=TORCH_FLOAT)
+                unit_vec = unit_vec / torch.norm(unit_vec, dim=1, keepdim=True)
+            sum_norms = (torch.matmul(unit_vec.detach(), A) * unit_vec.detach()).sum(axis=1)
+            min_rnd_loss = - sum_norms.min()
+            loss += self.weight_min_random * min_rnd_loss
+            metrics['min_rnd_loss'] = min_rnd_loss.cpu().item()
 
         # FEATURES NORM LOSS
         if not np.isclose(self.weight_l2features, 0):
