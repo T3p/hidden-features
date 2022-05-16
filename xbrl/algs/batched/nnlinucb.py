@@ -36,6 +36,7 @@ class NNLinUCB(XBModule):
         self.weight_min_features = cfg.weight_min_features
         self.weight_min_random = cfg.weight_min_random
         self.normalize_features = cfg.normalize_features
+        self.use_maxnorm = cfg.use_maxnorm
 
         self.weight_mse_log = torch.tensor(np.log(self.weight_mse), dtype=TORCH_FLOAT, device=self.device)
         self.weight_mse_log.requires_grad = True
@@ -88,7 +89,8 @@ class NNLinUCB(XBModule):
         if not np.isclose(self.weight_spectral, 0):
             phi = self.model.embedding(b_features)
             if self.normalize_features:
-                phi = phi / torch.norm(phi, dim=1, keepdim=False).max()
+                norm = torch.norm(phi, dim=1, keepdim=False).max() if self.use_maxnorm else torch.norm(phi, dim=1, keepdim=True)
+                phi = phi / norm
             A = torch.matmul(phi.T, phi)  + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
             # det_loss = torch.logdet(A)
@@ -124,7 +126,8 @@ class NNLinUCB(XBModule):
         if not np.isclose(self.weight_trace, 0):
             phi = self.model.embedding(b_features)
             if self.normalize_features:
-                phi = phi / torch.norm(phi, dim=1, keepdim=False).max()
+                norm = torch.norm(phi, dim=1, keepdim=False).max() if self.use_maxnorm else torch.norm(phi, dim=1, keepdim=True)
+                phi = phi / norm
             A = torch.matmul(phi.T, phi) / phi.shape[0]
             trace_loss = - torch.trace(A) # / self.features_bound**2
             loss = loss + self.weight_trace * trace_loss
@@ -147,7 +150,8 @@ class NNLinUCB(XBModule):
         if not np.isclose(self.weight_rayleigh, 0):
             phi = self.model.embedding(b_features)
             if self.normalize_features:
-                phi = phi / torch.norm(phi, dim=1, keepdim=False).max()
+                norm = torch.norm(phi, dim=1, keepdim=False).max() if self.use_maxnorm else torch.norm(phi, dim=1, keepdim=True)
+                phi = phi / norm
             A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
             # compute loss to update the unit vector
@@ -159,7 +163,8 @@ class NNLinUCB(XBModule):
             # recompute the loss to update embedding
             phi = self.model.embedding(b_features)
             if self.normalize_features:
-                phi = phi / torch.norm(phi, dim=1, keepdim=False).max()
+                norm = torch.norm(phi, dim=1, keepdim=False).max() if self.use_maxnorm else torch.norm(phi, dim=1, keepdim=True)
+                phi = phi / norm
             A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
             rayleigh_loss = - torch.dot(self.unit_vector.detach(), torch.matmul(A, self.unit_vector.detach()))
@@ -176,7 +181,8 @@ class NNLinUCB(XBModule):
         if not np.isclose(self.weight_min_features, 0):
             phi = self.model.embedding(b_features)
             if self.normalize_features:
-                phi = phi / torch.norm(phi, dim=1, keepdim=False).max()
+                norm = torch.norm(phi, dim=1, keepdim=False).max() if self.use_maxnorm else torch.norm(phi, dim=1, keepdim=True)
+                phi = phi / norm
             A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
             with torch.no_grad():
@@ -190,7 +196,8 @@ class NNLinUCB(XBModule):
         if not np.isclose(self.weight_min_random, 0):
             phi = self.model.embedding(b_features)
             if self.normalize_features:
-                phi = phi / torch.norm(phi, dim=1, keepdim=False).max()
+                norm = torch.norm(phi, dim=1, keepdim=False).max() if self.use_maxnorm else torch.norm(phi, dim=1, keepdim=True)
+                phi = phi / norm
             A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
             N = 1000
