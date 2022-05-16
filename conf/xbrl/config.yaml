@@ -37,6 +37,7 @@ weight_min_features: 0
 weight_min_random: 0
 check_glrt: True
 normalize_features: True
+use_maxnorm: True
 use_relu: True
 
 # misc
