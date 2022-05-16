@@ -58,7 +58,7 @@ def my_app(cfg: DictConfig) -> None:
         ])
         wandb.init(
             # Set the project where this run will be logged
-            project="run_linearfinite",
+            project="dataset",
             group=cfg.algo,   # mode="disabled",
             # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
             name=exp_name,
@@ -177,6 +177,19 @@ def my_app(cfg: DictConfig) -> None:
         )
         print(f"min gap: {env.min_suboptimality_gap()}")
 
+    elif cfg.domain.type == "dataset":
+        env = bandits.make_from_dataset(
+            cfg.domain.dataset, bandit_model=cfg.domain.bandittype, 
+            rew_optimal=cfg.domain.rew_optimal, rew_suboptimal=cfg.domain.rew_suboptimal,
+            seed=cfg.seed, noise=cfg.domain.noise_type, noise_param=cfg.domain.noise_param)
+
+        print()
+        print("="*20)
+        print(env.description())
+        print("="*20,"\n")
+        log.info("="*20)
+        log.info(env.description())
+        log.info("="*20)
     elif cfg.domain.type == "nn":
         net_file = os.path.join(original_dir, cfg.domain.net)
         features_file = os.path.join(original_dir, cfg.domain.features)
@@ -247,7 +260,11 @@ def my_app(cfg: DictConfig) -> None:
         algo = incalg.NNEGInc(env, cfg, net)
     else:
         raise ValueError("Unknown algorithm {cfg.algo}")
-    print(type(algo).__name__)
+    log.info(f"running: {type(algo).__name__}")
+    with open(os.path.join(work_dir, "config.json"), 'w') as f:
+        json.dump(OmegaConf.to_container(cfg), f, indent=4, sort_keys=True)
+    log.info("Configuration has been saved")
+
     result = algo.run(horizon=cfg.horizon, log_path=work_dir)#cfg.log_dir)
 
     # if cfg.save_dir is not None:
@@ -257,18 +274,17 @@ def my_app(cfg: DictConfig) -> None:
     #         pickle.dump(result, f)
     
 
-    with open(os.path.join(work_dir, "config.json"), 'w') as f:
-        json.dump(OmegaConf.to_container(cfg), f, indent=4, sort_keys=True)
     with open(os.path.join(work_dir, "result.pkl"), 'wb') as f:
         pickle.dump(result, f)
-    payload = {'model': algo.model, 'features': algo.env.feature_matrix, 'rewards': algo.env.rewards}
-    with open(os.path.join(work_dir, "algo.pt"), 'wb') as f:
-        torch.save(payload, f)
+
+    if hasattr(algo.env, "feature_matrix"):
+        payload = {'model': algo.model, 'features': algo.env.feature_matrix, 'rewards': algo.env.rewards}
+        with open(os.path.join(work_dir, "algo.pt"), 'wb') as f:
+            torch.save(payload, f)
     
     if cfg.use_wandb:
         wandb.finish(quiet=True)
 
 
 if __name__ == "__main__":
-    # torch.set_default_dtype(TORCH_FLOAT)
     my_app()

@@ -278,6 +278,7 @@ class NNLinUCB(XBModule):
             self.is_random_step = 1
             return self.np_random.choice(self.env.action_space.n, size=1).item()
         else:
+            self.is_random_step = 1
             features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
 
             if self.model is not None:

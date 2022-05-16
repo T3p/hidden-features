@@ -7,7 +7,10 @@ import numpy as np
 from typing import Union
 
 
-def make_from_dataset(name:str, bandit_model:str=None, seed:int=0, noise:str=None, noise_param:float=None):
+def make_from_dataset(
+    name:str, bandit_model:str=None, seed:int=0, 
+    noise:str=None, noise_param:float=None,
+    rew_optimal:float=1, rew_suboptimal:float=0):
     # Fetch data
     if name in ['adult_num', 'adult_onehot']:
         X, y = fetch_openml('adult', version=1, return_X_y=True)
@@ -61,12 +64,18 @@ def make_from_dataset(name:str, bandit_model:str=None, seed:int=0, noise:str=Non
     else:
         raise RuntimeError('Dataset does not exist')
 
-    if bandit_model is None:
-        bandit = MulticlassToBandit(X, y, dataset_name=name, seed=seed, noise=noise, noise_param=noise_param)
+    if bandit_model in [None, "none", "None"]:
+        bandit = MulticlassToBandit(X, y, 
+        dataset_name=name, seed=seed, noise=noise, noise_param=noise_param,
+        rew_optimal=rew_optimal, rew_suboptimal=rew_suboptimal)
     elif bandit_model == "onehot":
-        bandit = MCOneHot(X, y, dataset_name=name, seed=seed, noise=noise, noise_param=noise_param)
+        bandit = MCOneHot(X, y, 
+        dataset_name=name, seed=seed, noise=noise, noise_param=noise_param,
+        rew_optimal=rew_optimal, rew_suboptimal=rew_suboptimal)
     elif bandit_model == "expanded":
-        bandit = MCExpanded(X, y, dataset_name=name, seed=seed, noise=noise, noise_param=noise_param)
+        bandit = MCExpanded(X, y, 
+        dataset_name=name, seed=seed, noise=noise, noise_param=noise_param,
+        rew_optimal=rew_optimal, rew_suboptimal=rew_suboptimal)
     else:
         raise RuntimeError('Bandit model does not exist')
     return bandit

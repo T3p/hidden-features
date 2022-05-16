@@ -5,13 +5,16 @@ import numpy as np
 
 from sklearn.preprocessing import OrdinalEncoder
 from .spaces import DiscreteFix
-from sklearn.utils import shuffle
+import sklearn
+import pdb
 
 @dataclass
 class MulticlassToBandit:
     
     X: np.ndarray
     y: np.ndarray
+    rew_optimal: Optional[float] = 1
+    rew_suboptimal: Optional[float] = 0
     dataset_name: Optional[str] = None
     seed: Optional[int] = 0
     noise: Optional[str] = None
@@ -24,27 +27,27 @@ class MulticlassToBandit:
         self.y = OrdinalEncoder(dtype=int).fit_transform(self.y.reshape((-1, 1)))
         self.action_space = DiscreteFix(n=np.unique(self.y).shape[0])
         self.np_random = np.random.RandomState(seed=self.seed)
-        if shuffle:
-            self.X, self.y = shuffle(self.X, self.y, random_state=self.seed)
-        assert self.noise in [None, "bernoulli", "gaussian"]
+        if self.shuffle:
+            self.X, self.y = sklearn.utils.shuffle(self.X, self.y, random_state=self.seed)
+        assert self.noise in [None, "bernoulli", "gaussian", "none", "None"]
         self.idx = -1
 
     def sample_context(self) -> np.ndarray:
         # self.idx = self.np_random.randint(0, self.__len__(), 1).item()
-        self.idx += 1
-        if self.idx == self.__len__():
-            self.idx = 0  
+        # self.idx += 1
+        # if self.idx == self.__len__():
+        #     self.idx = 0  
+        self.idx = self.np_random.choice(self.__len__(), 1).item()
         return self.X[self.idx]
 
     def step(self, action: int) -> float:
         """ Return a realization of the reward in the context for the selected action
         """
         assert self.action_space.contains(action), action
-        reward = 1. if self.y[self.idx] == action else 0.
-        if self.noise is not None:
+        reward = self.rew_optimal if self.y[self.idx] == action else self.rew_suboptimal
+        if self.noise not in [None, "none", "None"]:
             if self.noise == "bernoulli":
-                proba = reward + self.noise_param if reward == 0 else reward - self.noise_param
-                reward = self.np_random.binomial(n=1, p=proba).item()
+                reward = self.np_random.binomial(n=1, p=reward, size=1).item()
             else:
                 reward = reward + self.np_random.randn(1).item() * self.noise_param        
         return reward
@@ -53,11 +56,11 @@ class MulticlassToBandit:
         """ Best action and reward in the current context
         """
         action = self.y[self.idx]
-        return 1., action
+        return self.rew_optimal, action
     
     def expected_reward(self, action: int) -> float:
         assert self.action_space.contains(action)
-        return 1. if self.y[self.idx] == action else 0.
+        return self.rew_optimal if self.y[self.idx] == action else self.rew_suboptimal
 
     def __len__(self) -> int:
         return self.y.shape[0]
@@ -75,6 +78,16 @@ class MulticlassToBandit:
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
 
+    def description(self) -> str:
+        desc = f"{self.dataset_name}\n"
+        desc += f"n_contexts: {self.__len__()}\n"
+        desc += f"context_dim: {self.X.shape[1]}\n"
+        desc += f"n_actions: {self.action_space.n}\n"
+        desc += f"rewards[subopt, optimal]: [{self.rew_suboptimal}, {self.rew_optimal}]\n"
+        desc += f"noise type: {self.noise} (noise param: {self.noise_param})\n"
+        desc += f"seed: {self.seed}\n"
+        return desc
+
 @dataclass
 class MCOneHot(MulticlassToBandit):
 
@@ -82,6 +95,18 @@ class MCOneHot(MulticlassToBandit):
         super().__post_init__()
         self.eye = np.eye(self.action_space.n)
         self.feature_dim = self.X.shape[1] + self.action_space.n
+        #construct feature matrix and rewards
+        A = self.X.reshape((self.X.shape[0], 1, self.X.shape[1]))
+        A = np.tile(A, reps=(1, self.action_space.n, 1))
+        B = np.eye(self.action_space.n)
+        B = B.reshape((1, self.action_space.n, self.action_space.n))
+        B = np.tile(B, reps=(self.X.shape[0], 1, 1))
+        self.feature_matrix = np.concatenate((A, B), axis=-1)
+        assert self.feature_matrix.shape == (self.X.shape[0], self.action_space.n, self.feature_dim)
+        self.rewards = np.array([[self.rew_optimal if self.y[i]==j else self.rew_suboptimal for j in range(self.action_space.n)]
+                            for i in range(self.X.shape[0])])
+        assert self.rewards.shape == (self.X.shape[0], self.action_space.n)
+        
 
     def __getitem__(self, idx):
         context = self.X[idx]
@@ -89,8 +114,8 @@ class MCOneHot(MulticlassToBandit):
         tile_p = [na] + [1]*len(context.shape)
         x = np.tile(context, tile_p)
         x_y = np.hstack((x, self.eye))
-        rwd = np.zeros((self.action_space.n,))
-        rwd[self.y[idx]] = 1
+        rwd = np.ones((self.action_space.n,)) * self.rew_suboptimal
+        rwd[self.y[idx]] = self.rew_optimal
         return x_y, rwd
 
     def features(self) -> np.ndarray:
@@ -98,6 +123,12 @@ class MCOneHot(MulticlassToBandit):
             of the current context with a one-hot-encoding representation of the features
         """
         return self.__getitem__(self.idx)[0]
+        
+    def description(self) -> str:
+        desc = super().description()
+        desc += f"type: onehot\n"
+        desc += f"feat dim: {self.feature_dim}"
+        return desc
 
 @dataclass
 class MCExpanded(MulticlassToBandit):
@@ -113,8 +144,8 @@ class MCExpanded(MulticlassToBandit):
         F = np.zeros((na, self.feature_dim))
         for a in range(na):
             F[a, a * act_dim:a * act_dim + act_dim] = context
-        rwd = np.zeros((self.action_space.n,))
-        rwd[self.y[idx]] = 1
+        rwd = np.ones((self.action_space.n,)) * self.rew_suboptimal
+        rwd[self.y[idx]] = self.rew_optimal
         return F, rwd
 
     def features(self) -> np.ndarray:
@@ -122,3 +153,9 @@ class MCExpanded(MulticlassToBandit):
             of the current context with a one-hot-encoding representation of the features
         """
         return self.__getitem__(self.idx)[0]
+
+    def description(self) -> str:
+        desc = super().description()
+        desc += f"type: expanded\n"
+        desc += f"feat dim: {self.feature_dim}"
+        return desc
