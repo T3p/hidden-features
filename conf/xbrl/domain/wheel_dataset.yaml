@@ -1,0 +1,7 @@
+type: wheel_dataset
+datafile: problem_data/wheel_1000_0.05.pkl
+seed_problem: 3
+url: none
+# noise problem
+noise_type: gaussian
+noise_param: 0.2 #std

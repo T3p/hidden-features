@@ -70,7 +70,7 @@ def my_app(cfg: DictConfig) -> None:
     # Problem creation
     ########################################################################
     
-    if cfg.domain.type == "finite" or cfg.domain.type == "toy" or cfg.domain.type == "wheel":
+    if cfg.domain.type in ["finite", "toy", "wheel", "wheel_dataset"]:
         if cfg.domain.type == "finite":
             features, theta = bandits.make_synthetic_features(
                 n_contexts=cfg.domain.ncontexts, n_actions=cfg.domain.narms, dim=cfg.domain.dim,
@@ -94,8 +94,17 @@ def my_app(cfg: DictConfig) -> None:
             rewards[:, 0] = cfg.domain.mu_1
             rewards[:, 1:5] = cfg.domain.mu_2
 
-            import matplotlib.pyplot as plt
-            plt.figure()
+            np.random.seed(cfg.domain.seed_problem)
+            # import matplotlib.pyplot as plt
+            # fig, ax = plt.subplots()
+            # plt.plot([-1,-0.5],[0,0], color="black", alpha=0.5)
+            # plt.plot([0.5,1],[0,0], color="black", alpha=0.5)
+            # plt.plot([0,0],[-1,-0.5], color="black", alpha=0.5)
+            # plt.plot([0,0],[0.5,1], color="black", alpha=0.5)
+            # c1 = plt.Circle((0, 0), 1, color='black', fill=False, alpha=0.5)
+            # c2 = plt.Circle((0, 0), 0.5, color='black', fill=False, alpha=0.5)
+            # ax.add_patch(c1)
+            # ax.add_patch(c2)
             for i in range(ncontexts):
                 rho = np.random.rand()
                 theta = np.random.rand() * 2 * np.pi
@@ -107,23 +116,38 @@ def my_app(cfg: DictConfig) -> None:
                 if np.linalg.norm(x) > cfg.domain.radius:
                     if x[0] >= 0 and x[1] >= 0:
                         rewards[i, 1] = cfg.domain.mu_3
-                        plt.scatter(x[0],x[1],c="red",s=10,alpha=0.5)
+                        # plt.scatter(x[0],x[1],c="red",s=10,alpha=0.5)
                     elif x[0] >= 0 and x[1] < 0:
                         rewards[i, 2] = cfg.domain.mu_3
-                        plt.scatter(x[0],x[1],c="green",s=10,alpha=0.5)
+                        # plt.scatter(x[0],x[1],c="green",s=10,alpha=0.5)
                     elif x[0] < 0 and x[1] >= 0:
                         rewards[i, 3] = cfg.domain.mu_3
-                        plt.scatter(x[0],x[1],c="orange",s=10,alpha=0.5)
+                        # plt.scatter(x[0],x[1],c="orange",s=10,alpha=0.5)
                     else:
                         rewards[i, 4] = cfg.domain.mu_3
-                        plt.scatter(x[0],x[1],c="purple",s=10,alpha=0.5)
+                        # plt.scatter(x[0],x[1],c="purple",s=10,alpha=0.5)
                 else:
-                    plt.scatter(x[0],x[1],c="blue",s=10,alpha=0.5)
+                    pass
+                    # plt.scatter(x[0],x[1],c="blue",s=10,alpha=0.5)
             # plt.show()
+        elif cfg.domain.type == "wheel_dataset":
+            if os.path.exists(os.path.join(original_dir, cfg.domain.datafile)):
+                with open(os.path.join(original_dir, cfg.domain.datafile), "rb") as f:
+                    features, rewards = pickle.load(f)
+            else:
+                print(cfg.domain.url)
+                if cfg.domain.url is not None:
+                    print('-'*20)
+                    print(f"please download the file using the following link: {cfg.domain.url}")
+                    print(f"and save it into : {os.path.join(original_dir, cfg.domain.datafile)}")
+                    print('-'*20)
+                    exit(9)
+                else:
+                    raise ValueError(f"Unable to open the file {cfg.domain.datafile}")
         else:
             raise NotImplementedError
         
-        if cfg.domain.type != "wheel":
+        if cfg.domain.type not in ["wheel", "wheel_dataset"]:
             rewards = features @ theta
 
         print(f"Original rep -> HLS rank: {hlsutils.hls_rank(features, rewards)} / {features.shape[2]}")
