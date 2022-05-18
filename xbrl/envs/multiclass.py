@@ -96,16 +96,16 @@ class MCOneHot(MulticlassToBandit):
         self.eye = np.eye(self.action_space.n)
         self.feature_dim = self.X.shape[1] + self.action_space.n
         #construct feature matrix and rewards
-        A = self.X.reshape((self.X.shape[0], 1, self.X.shape[1]))
-        A = np.tile(A, reps=(1, self.action_space.n, 1))
-        B = np.eye(self.action_space.n)
-        B = B.reshape((1, self.action_space.n, self.action_space.n))
-        B = np.tile(B, reps=(self.X.shape[0], 1, 1))
-        self.feature_matrix = np.concatenate((A, B), axis=-1)
-        assert self.feature_matrix.shape == (self.X.shape[0], self.action_space.n, self.feature_dim)
-        self.rewards = np.array([[self.rew_optimal if self.y[i]==j else self.rew_suboptimal for j in range(self.action_space.n)]
-                            for i in range(self.X.shape[0])])
-        assert self.rewards.shape == (self.X.shape[0], self.action_space.n)
+        # A = self.X.reshape((self.X.shape[0], 1, self.X.shape[1]))
+        # A = np.tile(A, reps=(1, self.action_space.n, 1))
+        # B = np.eye(self.action_space.n)
+        # B = B.reshape((1, self.action_space.n, self.action_space.n))
+        # B = np.tile(B, reps=(self.X.shape[0], 1, 1))
+        # self.feature_matrix = np.concatenate((A, B), axis=-1)
+        # assert self.feature_matrix.shape == (self.X.shape[0], self.action_space.n, self.feature_dim)
+        # self.rewards = np.array([[self.rew_optimal if self.y[i]==j else self.rew_suboptimal for j in range(self.action_space.n)]
+        #                     for i in range(self.X.shape[0])])
+        # assert self.rewards.shape == (self.X.shape[0], self.action_space.n)
         
 
     def __getitem__(self, idx):
@@ -137,14 +137,14 @@ class MCExpanded(MulticlassToBandit):
         super().__post_init__()
         self.feature_dim = self.X.shape[1] * self.action_space.n
         # construct feature matrix and rewards
-        na = self.action_space.n
-        feature_matrix = np.zeros((self.X.shape[0], na, self.feature_dim))
-        for a in range(na):
-            feature_matrix[:, a, a * self.X.shape[1]:(a + 1) * self.X.shape[1]] = self.X
-        rewards = self.rew_suboptimal * np.ones((self.X.shape[0], na))
-        rewards[range(rewards.shape[0]), self.y.ravel()] = self.rew_optimal
-        self.feature_matrix = feature_matrix
-        self.rewards = rewards
+        # na = self.action_space.n
+        # feature_matrix = np.zeros((self.X.shape[0], na, self.feature_dim))
+        # for a in range(na):
+        #     feature_matrix[:, a, a * self.X.shape[1]:(a + 1) * self.X.shape[1]] = self.X
+        # rewards = self.rew_suboptimal * np.ones((self.X.shape[0], na))
+        # rewards[range(rewards.shape[0]), self.y.ravel()] = self.rew_optimal
+        # self.feature_matrix = feature_matrix
+        # self.rewards = rewards
     
     def __getitem__(self, idx):
         context = self.X[idx]
