@@ -181,13 +181,17 @@ class NNLinUCB(XBModule):
         if not np.isclose(self.weight_min_features, 0):
             phi = self.model.embedding(b_features)
             if self.normalize_features:
-                norm = torch.norm(phi, dim=1, keepdim=False).max() if self.use_maxnorm else torch.norm(phi, dim=1, keepdim=True)
-                phi = phi / norm
+                if self.use_maxnorm:
+                    norm = torch.norm(phi, dim=1, keepdim=False).max()
+                    phi = phi / norm
+                else:
+                    phi = F.normalize(phi, dim=1)
             A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
             with torch.no_grad():
                 all_phi = self.model.embedding(exp_features_tensor.reshape((-1, self.env.feature_dim)))
-                all_phi = all_phi / torch.norm(all_phi, dim=1, keepdim=True)
+                # all_phi = all_phi / torch.norm(all_phi, dim=1, keepdim=True)
+                all_phi = F.normalize(all_phi, dim=1)
             sum_norms = (torch.matmul(all_phi.detach(), A) * all_phi.detach()).sum(axis=1)
             min_feat_loss = - sum_norms.min() #.mean()
             loss += self.weight_min_features * min_feat_loss
