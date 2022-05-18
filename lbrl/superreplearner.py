@@ -15,6 +15,7 @@ class SuperRepLearner:
     MINEIG_NORM=1
     AVG_QUAD=2
     AVG_QUAD_NORM=3
+    MIN_FEAT_NORM=4
 
     def __init__(
         self, env, representations,
@@ -215,7 +216,7 @@ class SuperRepLearner:
                         rep_scores[i] = rep_scores[i] / (self.features_bounds[i]**2)
                 else:
                     rep_scores[i] = -999
-        else:
+        elif self.cfg.select_method in [self.AVG_QUAD, self.AVG_QUAD_NORM]:
             # \min_\phi \sum_t \sum_a phi(x_t, a) V phi(x_t,a)
             if len(self.buffer) > 0:
                 obs_context_idxs, _ = self.buffer.get_all()
@@ -231,6 +232,25 @@ class SuperRepLearner:
                                     rep_scores[i] += phi.dot(self.Amtx[i] @ phi)
                     else:
                         rep_scores[i] = -999
+        elif self.cfg.select_method in [self.MIN_FEAT_NORM]:
+            # \min_\phi \sum_t \sum_a phi(x_t, a) V phi(x_t,a)
+            if len(self.buffer) > 0:
+                for i in range(M):
+                    rep_scores[i] = np.inf
+                    obs_context_idxs, obs_action_idxs = self.buffer.get_all()
+                    if self.active_reps[i]:
+                        Lsq = self.features_bounds[i]**2
+                        for tmp_idx in range(obs_context_idxs.shape[0]):
+                            cidx = obs_context_idxs[tmp_idx]
+                            aidx = obs_action_idxs[tmp_idx]
+                            phi = self.reps[i].get_features(cidx, aidx).squeeze()
+                            tmp = phi.dot(self.Amtx[i] @ phi) / Lsq
+                            rep_scores[i] = min(rep_scores[i], tmp)
+                            # rep_scores[i] += tmp
+                    else:
+                        rep_scores[i] = -999
+        else:
+            raise ValueError()
         # logging
         if self.cfg.use_tb:
             self.tb_writer.add_scalars('rep_score', {f"rep{i}": rep_scores[i] for i in range(M)}, self.t)
@@ -262,7 +282,7 @@ class SuperRepLearner:
             log_path = log_path
             self.tb_writer = SummaryWriter(log_path)
 
-        if self.cfg.select_method in [self.AVG_QUAD, self.AVG_QUAD_NORM]:
+        if self.cfg.select_method in [self.AVG_QUAD, self.AVG_QUAD_NORM, self.MIN_FEAT_NORM]:
             self.buffer = SimpleBuffer(capacity=horizon)
         instant_reward = np.zeros(horizon)
         best_reward = np.zeros(horizon)
@@ -280,12 +300,13 @@ class SuperRepLearner:
             while self.t < horizon:
                 context_id = self.env.sample_context()
                 # avail_actions = self.env.get_available_actions()
-                if self.cfg.select_method in [self.AVG_QUAD, self.AVG_QUAD_NORM]:
-                    self.buffer.append((context_id, None))
         
                 action = self.play_action_meta(context_id=context_id)
                 reward = self.env.step(action)
                 self.update(context_id=context_id, action=action, reward=reward)
+
+                if self.cfg.select_method in [self.AVG_QUAD, self.AVG_QUAD_NORM, self.MIN_FEAT_NORM]:
+                    self.buffer.append((context_id, action))
 
                 if M > 1 and self.t == self.update_time:
                     if self.cfg.update_every < 1:
