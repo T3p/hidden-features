@@ -13,6 +13,7 @@ update_every: 2
 exp_name: default
 bonus_scale: 1
 eps_decay: cbrt
+reg_matrix_rl: false
 
 # glrt
 mingap_clip: 0.01

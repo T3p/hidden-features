@@ -54,7 +54,10 @@ class SuperRepLearner:
         for i in range(M):
             dim = self.reps[i].features_dim()
             self.inv_A.append(np.eye(dim) / self.cfg.reg_val)
-            self.Amtx.append(self.cfg.reg_val * np.eye(dim))
+            if self.reg_matrix_rl:
+                self.Amtx.append(self.cfg.reg_val * np.eye(dim))
+            else:
+                self.Amtx.append(np.zeros(dim))
             self.b_vec.append(np.zeros(dim))
             self.A_logdet.append(np.log(self.cfg.reg_val) * dim)
             self.theta.append(self.inv_A[i] @ self.b_vec[i])
