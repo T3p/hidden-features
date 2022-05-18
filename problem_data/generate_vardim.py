@@ -2,13 +2,14 @@ import numpy as np
 import sys
 sys.path.insert(0, '..')
 from lbrl.linearenv import LinearEnv, LinearRepresentation
-from lbrl.hlsutils import derank_hls, hls_lambda, is_hls, reduce_dim, make_reshaped_linrep
+from lbrl.hlsutils import derank_hls, hls_lambda, hls_rank, is_hls, reduce_dim, make_reshaped_linrep, rank
 import json
 from lbrl.utils import make_synthetic_features
 
 out_file = "vardimtest_icml_nonrealizable.npy"
 # out_file = "vardimtest_icml_realizable.npy"
 # out_file = "vardimtest_icml_real_nohls.npy"
+out_file = "vardim_weakhls.npy"
 seed_problem = 99
 
 # in_features_file = "basic_features.npy"
@@ -28,7 +29,10 @@ problem_gen = np.random.RandomState(seed_problem)
 
 rep_list = []
 param_list = []
-if out_file == "vardimtest_icml_realizable.npy":
+
+
+
+if out_file in ["vardimtest_icml_realizable.npy", "vardim_weakhls.npy"]:
     rep_list.append(features)
     param_list.append(theta)
 for i in range(2, dim+1):
@@ -36,6 +40,22 @@ for i in range(2, dim+1):
     fi, pi = derank_hls(features=fi, param=pi, newrank=1, transform=True, normalize=True, seed=seed_problem)
     rep_list.append(fi)
     param_list.append(pi)
+
+
+if out_file == "vardim_weakhls.npy":
+    new_rep_list = []
+    new_parm_list = []
+    for i in range(len(rep_list)):
+        fi, pi = rep_list[i], param_list[i]
+        const_feat = np.ones((fi.shape[0], fi.shape[1], 5))
+        fnew = np.concatenate((fi, const_feat), axis=-1)
+        pnew = np.concatenate((pi, np.zeros(5)))
+        new_rep_list.append(fnew)
+        new_parm_list.append(pnew)
+
+        print(f"dim: {pnew.shape}")
+        print(f"hls_rank: {hls_rank(fnew, fnew @ pnew)}")
+        print(f"tot rank: {rank(fnew)}")
 
 reference_rep = 0
 if out_file == "vardimtest_icml_nonrealizable.npy":
