@@ -56,6 +56,8 @@ if out_file == "vardim_weakhls.npy":
         print(f"dim: {pnew.shape}")
         print(f"hls_rank: {hls_rank(fnew, fnew @ pnew)}")
         print(f"tot rank: {rank(fnew)}")
+    rep_list = new_rep_list
+    param_list = new_parm_list
 
 reference_rep = 0
 if out_file == "vardimtest_icml_nonrealizable.npy":
