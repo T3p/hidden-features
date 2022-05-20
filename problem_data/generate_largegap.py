@@ -2,9 +2,10 @@ import numpy as np
 import sys
 sys.path.insert(0, '..')
 from lbrl.linearenv import LinearEnv, LinearRepresentation
-from lbrl.hlsutils import derank_hls, hls_lambda, is_hls, reduce_dim, make_reshaped_linrep, hls_rank, normalize_linrep, is_cmb
+from lbrl.hlsutils import derank_hls, hls_lambda, is_hls, optimal_features, reduce_dim, make_reshaped_linrep, hls_rank, normalize_linrep, is_cmb
 import json
 from lbrl.utils import make_synthetic_features
+import pdb
 
 
 def print_info_wrt_rep(fi, pi, features, param, min_gap):
@@ -49,6 +50,9 @@ while min_gap < 0.1 and count<2000:
     true_reward=features @ param
 
     features, param = derank_hls(features, param, 2, True, True)
+
+    opt_features = optimal_features(features=features, rewards=features@param)
+    pdb.set_trace()
 
     # compute gap
     min_gap = np.inf
@@ -110,10 +114,10 @@ if MULTI:
     rep_list.append(fi)
     param_list.append(pi)
 
-print(len(rep_list))
-np.save(out_file, np.array([rep_list, param_list, position_reference_rep], dtype=object), allow_pickle=True)
-a,b,c = np.load(out_file, allow_pickle=True)
+# print(len(rep_list))
+# np.save(out_file, np.array([rep_list, param_list, position_reference_rep], dtype=object), allow_pickle=True)
+# a,b,c = np.load(out_file, allow_pickle=True)
 
-assert np.all([np.allclose(rep_list[i], a[i]) for i in range(len(rep_list))])
-assert np.all([np.allclose(param_list[i], b[i]) for i in range(len(param_list))])
-assert c == position_reference_rep
+# assert np.all([np.allclose(rep_list[i], a[i]) for i in range(len(rep_list))])
+# assert np.all([np.allclose(param_list[i], b[i]) for i in range(len(param_list))])
+# assert c == position_reference_rep
