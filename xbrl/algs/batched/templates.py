@@ -64,6 +64,19 @@ class XBModule():
 
     def add_sample(self, feature: np.ndarray, reward: float, all_features: np.ndarray) -> None:
         pass
+
+    def compute_linear_error(self, features: np.ndarray, reward: np.ndarray):
+        assert len(features.shape) == 2 and len(reward.shape) == 1
+        features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
+        rewards_tensor = torch.tensor(reward, dtype=TORCH_FLOAT).to(self.device)
+        if self.model is not None:
+            with torch.no_grad():
+                phi = self.model.embedding(features_tensor)
+        else:
+            phi = features_tensor
+        prediction = torch.matmul(phi, self.theta)
+        error = prediction - rewards_tensor
+        return error, phi
         # exp = (feature, reward, all_features.reshape( (1, self.env.action_space.n, self.env.feature_dim)))
         # self.buffer.append(exp)
 
@@ -182,7 +195,42 @@ class XBModule():
                 if self.use_wandb:
                     wandb.log({'epoch_' + key: np.mean(value) for key, value in epoch_metrics.items()}, step=self.t)
                 avg_loss = np.mean(epoch_metrics['train_loss'])
-                return avg_loss
+
+                # debug metric
+                aux_metrics = {}
+                aux_metrics["train_loss"] = avg_loss
+
+                if hasattr(self.env, 'feature_matrix'):
+
+                    num_context, num_action, dim = self.env.feature_matrix.shape
+                    all_features = self.env.feature_matrix.reshape(-1, dim)
+                    all_rewards = self.env.rewards.reshape(-1)
+                    error, phi = self.compute_linear_error(all_features, all_rewards)
+                    aux_metrics["max_err"] = torch.abs(error).max().item()
+                    aux_metrics["mean_abs_err"] = torch.abs(error).mean().item()
+
+                    # IS HLS
+                    rank_phi = torch.linalg.matrix_rank(phi, tol=1e-4, hermitian=False).item()  # this works when # contexts > embedding dim
+                    rows, cols = np.where((self.env.rewards.max(axis=1).reshape(-1, 1) - self.env.rewards) < 1e-4)
+                    opt_phi = phi.reshape((num_context, num_action, self.model.embedding_dim))[rows, cols, :]
+                    opt_A = torch.matmul(opt_phi.T, opt_phi) / opt_phi.shape[0]
+                    aux_metrics["hls_rank"] = torch.linalg.matrix_rank(opt_A, tol=1e-4, hermitian=True).item()
+                    aux_metrics["hls_lambda"] = torch.linalg.eigvalsh(opt_A).min().item()
+                    aux_metrics["rank_phi"] = rank_phi
+
+                    #
+                    norm_opt_phi = F.normalize(opt_phi, dim=1)
+                    norm_opt_A = torch.matmul(norm_opt_phi.T, norm_opt_phi) / norm_opt_phi.shape[0]
+                    norm_phi = F.normalize(phi, dim=1)
+                    aux_metrics["min_feat"] = (torch.matmul(norm_phi, norm_opt_A) * norm_phi).sum(axis=1).min().item()
+                    # log to tensorboard
+                    if self.use_tb:
+                        for key, value in aux_metrics.items():
+                            self.writer.add_scalar( key, value, self.t)
+                    if self.use_wandb:
+                        wandb.log({key: value for key, value in aux_metrics.items()}, step=self.t)
+
+                return aux_metrics
         return None
 
     def run(self, horizon: int, throttle: int=100, log_path: str=None) -> None:
@@ -206,7 +254,12 @@ class XBModule():
                 reward = self.env.step(action)
                 # update
                 self.add_sample(features[action], reward, features)
-                train_loss = self.train()
+                aux_metrics = self.train()
+
+                # update metrics
+                if aux_metrics:
+                    for key, value in aux_metrics.items():
+                        metrics[key].append(value)
 
                 # update metrics
                 metrics['runtime'].append(time.time() - start)
@@ -227,9 +280,9 @@ class XBModule():
                     np.abs(np.array(metrics['expected_reward'][max(0,self.t-100):self.t+1]) - np.array(metrics['best_reward'][max(0,self.t-100):self.t+1]) ) < 1e-6
                 )
                 postfix['% optimal arm (last 100 steps)'] = '{:.2%}'.format(p_optimal_arm)
-                if train_loss:
-                    postfix['train loss'] = train_loss
-                    metrics['train_loss'].append(train_loss)
+                if aux_metrics:
+                    if "train_loss" in aux_metrics.keys():
+                        postfix['train loss'] = aux_metrics["train_loss"]
 
                 # log to tensorboard
                 # self.writer.add_scalar("regret", postfix['total regret'], self.t)

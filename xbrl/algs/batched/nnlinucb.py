@@ -367,19 +367,6 @@ class NNLinUCB(XBModule):
         #     if self.use_wandb:
         #         wandb.log({'mse_linear': mse_loss}, step=self.t)
 
-    def compute_linear_error(self, features: np.ndarray, reward: np.ndarray):
-        assert len(features.shape) == 2 and len(reward.shape) == 1
-        features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
-        rewards_tensor = torch.tensor(reward, dtype=TORCH_FLOAT).to(self.device)
-        if self.model is not None:
-            with torch.no_grad():
-                phi = self.model.embedding(features_tensor)
-        else:
-            phi = features_tensor
-        prediction = torch.matmul(phi, self.theta)
-        error = prediction - rewards_tensor
-        return error, phi
-
 
     def _post_train(self, loader=None) -> None:
         if self.model is None:
@@ -410,21 +397,35 @@ class NNLinUCB(XBModule):
         self.writer.add_scalar('mse_linear', mse_loss.item(), self.t)
 
         # debug metric
-        if hasattr(self.env, 'feature_matrix'):
-            num_context, num_action, dim = self.env.feature_matrix.shape
-            all_features = self.env.feature_matrix.reshape(-1, dim)
-            all_rewards = self.env.rewards.reshape(-1)
-            error, phi = self.compute_linear_error(all_features, all_rewards)
-            max_err = torch.abs(error).max()
-            mean_abs_err = torch.abs(error).mean()
-
-            # IS HLS
-            new_phi = phi.reshape(num_context, num_action, self.model.embedding_dim)
-            new_phi = new_phi.cpu().numpy()
-            hls_rank = hlsutils.hls_rank(new_phi, self.env.rewards, tol=1e-4)
-            ishls = 1 if hlsutils.is_hls(new_phi, self.env.rewards, tol=1e-4) else 0
-            hls_lambda = hlsutils.hls_lambda(new_phi, self.env.rewards)
-            rank_phi = hlsutils.rank(new_phi, tol=1e-4)
+        # if hasattr(self.env, 'feature_matrix'):
+        #     num_context, num_action, dim = self.env.feature_matrix.shape
+        #     all_features = self.env.feature_matrix.reshape(-1, dim)
+        #     all_rewards = self.env.rewards.reshape(-1)
+        #     error, phi = self.compute_linear_error(all_features, all_rewards)
+        #     max_err = torch.abs(error).max()
+        #     mean_abs_err = torch.abs(error).mean()
+        #
+        #     # IS HLS
+        #     new_phi = phi.reshape(num_context, num_action, self.model.embedding_dim)
+        #     new_phi = new_phi.cpu().numpy()
+        #     hls_rank = hlsutils.hls_rank(new_phi, self.env.rewards, tol=1e-4)
+        #     ishls = 1 if hlsutils.is_hls(new_phi, self.env.rewards, tol=1e-4) else 0
+        #     hls_lambda = hlsutils.hls_lambda(new_phi, self.env.rewards)
+        #     rank_phi = hlsutils.rank(new_phi, tol=1e-4)
+        #     if self.use_tb:
+        #         self.writer.add_scalar('max miss-specification', max_err.cpu().item(), self.t)
+        #         self.writer.add_scalar('mean abs miss-specification', mean_abs_err.cpu().item(), self.t)
+        #         self.writer.add_scalar('hls_lambda', hls_lambda, self.t)
+        #         self.writer.add_scalar('hls_rank', hls_rank, self.t)
+        #         self.writer.add_scalar('hls?', ishls, self.t)
+        #         self.writer.add_scalar('total rank', rank_phi, self.t)
+        #     if self.use_wandb:
+        #         wandb.log({'max miss-specification': max_err.cpu().item(),
+        #                    'mean abs miss-specification': mean_abs_err.cpu().item(),
+        #                    'hls_lambda': hls_lambda,
+        #                    'hls_rank': hls_rank,
+        #                    'hls?': ishls,
+        #                    'total rank': rank_phi}, step=self.t)
 
 
             #span
@@ -455,20 +456,6 @@ class NNLinUCB(XBModule):
             # if self.use_wandb:
             #     wandb.log({'weak HLS':min_v}, step=self.t)
 
-            if self.use_tb:
-                self.writer.add_scalar('max miss-specification', max_err.cpu().item(), self.t)
-                self.writer.add_scalar('mean abs miss-specification', mean_abs_err.cpu().item(), self.t)
-                self.writer.add_scalar('hls_lambda', hls_lambda, self.t)
-                self.writer.add_scalar('hls_rank', hls_rank, self.t)
-                self.writer.add_scalar('hls?', ishls, self.t)
-                self.writer.add_scalar('total rank', rank_phi, self.t)
-            if self.use_wandb:
-                wandb.log({'max miss-specification': max_err.cpu().item(),
-                           'mean abs miss-specification': mean_abs_err.cpu().item(),
-                           'hls_lambda': hls_lambda,
-                           'hls_rank': hls_rank,
-                           'hls?': ishls,
-                           'total rank': rank_phi}, step=self.t)
 
 
     # def _post_train(self, loader=None):
