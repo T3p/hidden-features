@@ -36,6 +36,15 @@ hydra:
   sweep:
     dir: ./lbrl_multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}_${algo}
     subdir: ${hydra.job.num}
+#  launcher:
+#    timeout_min: 4000
+#    cpus_per_task: 4
+#    gpus_per_node: 0
+#    tasks_per_node: 1
+#    mem_gb: 160
+#    nodes: 1
+#    submitit_folder: ./lbrl_multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}_${algo}/.slurm
+#    partition: learnfair
   job_logging :
     formatters:
       simple:
