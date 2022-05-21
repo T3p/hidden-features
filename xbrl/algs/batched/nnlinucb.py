@@ -11,6 +11,7 @@ from ...envs import hlsutils
 from ... import TORCH_FLOAT
 from omegaconf import DictConfig
 import wandb
+import os
 
 
 class NNLinUCB(XBModule):
@@ -37,6 +38,8 @@ class NNLinUCB(XBModule):
         self.weight_min_random = cfg.weight_min_random
         self.normalize_features = cfg.normalize_features
         self.use_maxnorm = cfg.use_maxnorm
+        self.adaptive_bonus_linucb = cfg.adaptive_bonus_linucb
+        self.save_model_attrain = cfg.save_model_attrain
 
         self.weight_mse_log = torch.tensor(np.log(self.weight_mse), dtype=TORCH_FLOAT, device=self.device)
         self.weight_mse_log.requires_grad = True
@@ -299,12 +302,14 @@ class NNLinUCB(XBModule):
             else:
                 dim = self.env.feature_dim
                 phi = features_tensor
-            # beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
-            #                                               *self.t/self.ucb_regularizer)/self.delta))\
-            #        + self.param_bound * np.sqrt(self.ucb_regularizer)
-            val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
-            beta = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.ucb_regularizer)
-            # beta = np.sqrt(np.log(self.t+1))
+
+            if self.adaptive_bonus_linucb == False:
+                val = - 2 * np.log(self.delta) + dim * np.log(1 + 2 * self.t * self.features_bound / (self.ucb_regularizer * dim))
+                # val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
+                beta = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.ucb_regularizer)
+            else:
+                val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
+                beta = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.ucb_regularizer)
             #https://stackoverflow.com/questions/18541851/calculate-vt-a-v-for-a-matrix-of-vectors-v/18542314#18542314
             bonus = (torch.matmul(phi, self.inv_A) * phi).sum(axis=1)
             bonus = self.bonus_scale * beta * torch.sqrt(bonus)
@@ -395,6 +400,10 @@ class NNLinUCB(XBModule):
         prediction = torch.matmul(phi, self.theta)
         mse_loss = (prediction - rewards_tensor).pow(2).mean()
         self.writer.add_scalar('mse_linear', mse_loss.item(), self.t)
+
+        if self.save_model_attrain and self.model:
+            path = os.path.join(self.log_path, f"model_state_dict_n{self.t}.pt")
+            torch.save(self.model.state_dict(), path)
 
         # debug metric
         # if hasattr(self.env, 'feature_matrix'):
