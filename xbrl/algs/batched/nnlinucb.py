@@ -39,7 +39,10 @@ class NNLinUCB(XBModule):
         self.normalize_features = cfg.normalize_features
         self.use_maxnorm = cfg.use_maxnorm
         self.adaptive_bonus_linucb = cfg.adaptive_bonus_linucb
+<<<<<<< HEAD
         self.save_model_attrain = cfg.save_model_attrain
+=======
+>>>>>>> 19f20d604de53cdeabf5662dbf9bfaf8017458e1
 
         self.weight_mse_log = torch.tensor(np.log(self.weight_mse), dtype=TORCH_FLOAT, device=self.device)
         self.weight_mse_log.requires_grad = True
