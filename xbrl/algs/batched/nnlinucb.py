@@ -37,6 +37,7 @@ class NNLinUCB(XBModule):
         self.weight_min_random = cfg.weight_min_random
         self.normalize_features = cfg.normalize_features
         self.use_maxnorm = cfg.use_maxnorm
+        self.adaptive_bonus_linucb = cfg.adaptive_bonus_linucb
 
         self.weight_mse_log = torch.tensor(np.log(self.weight_mse), dtype=TORCH_FLOAT, device=self.device)
         self.weight_mse_log.requires_grad = True
@@ -299,12 +300,14 @@ class NNLinUCB(XBModule):
             else:
                 dim = self.env.feature_dim
                 phi = features_tensor
-            # beta = self.noise_std * np.sqrt(dim * np.log((1+self.features_bound**2
-            #                                               *self.t/self.ucb_regularizer)/self.delta))\
-            #        + self.param_bound * np.sqrt(self.ucb_regularizer)
-            val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
-            beta = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.ucb_regularizer)
-            # beta = np.sqrt(np.log(self.t+1))
+
+            if self.adaptive_bonus_linucb == False:
+                val = - 2 * np.log(self.delta) + dim * np.log(1 + 2 * self.t * self.features_bound / (self.ucb_regularizer * dim))
+                # val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
+                beta = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.ucb_regularizer)
+            else:
+                val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
+                beta = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.ucb_regularizer)
             #https://stackoverflow.com/questions/18541851/calculate-vt-a-v-for-a-matrix-of-vectors-v/18542314#18542314
             bonus = (torch.matmul(phi, self.inv_A) * phi).sum(axis=1)
             bonus = self.bonus_scale * beta * torch.sqrt(bonus)

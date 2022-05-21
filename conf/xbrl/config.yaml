@@ -39,6 +39,7 @@ check_glrt: True
 normalize_features: True
 use_maxnorm: True
 use_relu: True
+adaptive_bonus_linucb: True
 
 # misc
 seed: 1
