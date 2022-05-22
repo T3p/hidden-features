@@ -39,10 +39,7 @@ class NNLinUCB(XBModule):
         self.normalize_features = cfg.normalize_features
         self.use_maxnorm = cfg.use_maxnorm
         self.adaptive_bonus_linucb = cfg.adaptive_bonus_linucb
-<<<<<<< HEAD
-        self.save_model_attrain = cfg.save_model_attrain
-=======
->>>>>>> 19f20d604de53cdeabf5662dbf9bfaf8017458e1
+        self.save_model_at_train = cfg.save_model_at_train
 
         self.weight_mse_log = torch.tensor(np.log(self.weight_mse), dtype=TORCH_FLOAT, device=self.device)
         self.weight_mse_log.requires_grad = True
@@ -404,7 +401,7 @@ class NNLinUCB(XBModule):
         mse_loss = (prediction - rewards_tensor).pow(2).mean()
         self.writer.add_scalar('mse_linear', mse_loss.item(), self.t)
 
-        if self.save_model_attrain and self.model:
+        if self.save_model_at_train and self.model:
             path = os.path.join(self.log_path, f"model_state_dict_n{self.t}.pt")
             torch.save(self.model.state_dict(), path)
 
