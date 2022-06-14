@@ -13,6 +13,8 @@ python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml al
 python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srlegreedy_minfeat_norm seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
 python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srllinucb_mineig_norm seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
 python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srlegreedy_mineig_norm seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
+python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srllinucb_minfeat_norm_adaptive seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
+python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srlegreedy_minfeat_norm_adaptive seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
 
 DOMAIN=vardim_icml_nonrealizable
 # vardim_icml_realizable
@@ -23,6 +25,8 @@ python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml al
 python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srlegreedy_minfeat_norm seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
 python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srllinucb_mineig_norm seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
 python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srlegreedy_mineig_norm seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
+python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srllinucb_minfeat_norm_adaptive seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
+python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srlegreedy_minfeat_norm_adaptive seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
 
 
 DOMAIN=vardim_icml_realizable
@@ -33,6 +37,8 @@ python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml al
 python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srlegreedy_minfeat_norm seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
 python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srllinucb_mineig_norm seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
 python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srlegreedy_mineig_norm seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
+python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srllinucb_minfeat_norm_adaptive seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
+python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srlegreedy_minfeat_norm_adaptive seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
 
 DOMAIN=vardim_icml_real_nohls
 
@@ -41,3 +47,5 @@ python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml al
 python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srlegreedy_minfeat_norm seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
 python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srllinucb_mineig_norm seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
 python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srlegreedy_mineig_norm seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
+python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srllinucb_minfeat_norm_adaptive seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
+python new_lbrl_runner.py --multirun horizon=${HORIZON} domain=${DOMAIN}.yaml algo=srlegreedy_minfeat_norm_adaptive seed=${SEEDS} hydra.sweep.dir=new_${DOMAIN}_${TODAY}/\${algo} use_wandb=false use_tb=true eps_decay=cbrt glrt_scale=1 forcedexp=false reg_matrix_rl=false
