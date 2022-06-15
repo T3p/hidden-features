@@ -32,8 +32,8 @@ class SquareCB(NNLinUCB):
             predicted_rewards = self.model(features_tensor).squeeze()
         predicted_rewards = predicted_rewards.cpu().numpy()
         gap = predicted_rewards.max() - predicted_rewards
-        opt_arms = np.where(gap < self.mingap_clip)[0]
-        subopt_arms = np.where(gap >= self.mingap_clip)[0]
+        opt_arms = np.where(gap <= self.mingap_clip)[0]
+        subopt_arms = np.where(gap > self.mingap_clip)[0]
         prob = np.zeros(self.env.action_space.n)
         prob[subopt_arms] = 1. / (self.exploration_param + self.gamma * gap[subopt_arms])
         prob[opt_arms] = (1 - prob[subopt_arms].sum()) / len(opt_arms)
