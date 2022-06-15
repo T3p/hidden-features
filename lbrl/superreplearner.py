@@ -16,6 +16,7 @@ class SuperRepLearner:
     AVG_QUAD=2
     AVG_QUAD_NORM=3
     MIN_FEAT_NORM=4
+    MIN_FEAT_NORM_ADAPTIVE=5
 
     def __init__(
         self, env, representations,
@@ -235,7 +236,7 @@ class SuperRepLearner:
                                     rep_scores[i] += phi.dot(self.Amtx[i] @ phi)
                     else:
                         rep_scores[i] = -999
-        elif self.cfg.select_method in [self.MIN_FEAT_NORM]:
+        elif self.cfg.select_method in [self.MIN_FEAT_NORM, self.MIN_FEAT_NORM_ADAPTIVE]:
             # \min_\phi \sum_t \sum_a phi(x_t, a) V phi(x_t,a)
             if len(self.buffer) > 0:
                 for i in range(M):
@@ -247,7 +248,10 @@ class SuperRepLearner:
                             cidx = obs_context_idxs[tmp_idx]
                             aidx = obs_action_idxs[tmp_idx]
                             phi = self.reps[i].get_features(cidx, aidx).squeeze()
-                            tmp = phi.dot(self.Amtx[i] @ phi) / Lsq
+                            if self.cfg.select_method == self.MIN_FEAT_NORM:
+                                tmp = phi.dot(self.Amtx[i] @ phi) / Lsq
+                            else:
+                                tmp = phi.dot(self.Amtx[i] @ phi) / (np.linalg.norm(phi, ord=2)**2)
                             rep_scores[i] = min(rep_scores[i], tmp)
                             # rep_scores[i] += tmp
                     else:
@@ -285,7 +289,7 @@ class SuperRepLearner:
             log_path = log_path
             self.tb_writer = SummaryWriter(log_path)
 
-        if self.cfg.select_method in [self.AVG_QUAD, self.AVG_QUAD_NORM, self.MIN_FEAT_NORM]:
+        if self.cfg.select_method in [self.AVG_QUAD, self.AVG_QUAD_NORM, self.MIN_FEAT_NORM, self.MIN_FEAT_NORM_ADAPTIVE]:
             self.buffer = SimpleBuffer(capacity=horizon)
         instant_reward = np.zeros(horizon)
         best_reward = np.zeros(horizon)
