@@ -17,8 +17,11 @@ import xbrl.envs as bandits
 import xbrl.envs.hlsutils as hlsutils
 # from xbrl.algs.linear import LinUCB
 from xbrl.algs.batched.nnlinucb import NNLinUCB
+from xbrl.algs.batched.neuralucb import NeuralUCB
 from xbrl.algs.batched.linucb import LinUCB
 from xbrl.algs.batched.nnepsilongreedy import NNEpsGreedy
+from xbrl.algs.batched.squarecb import SquareCB
+from xbrl.algs.batched.gradientucb import GradientUCB
 import xbrl.algs.incremental as incalg
 # import xbrl.algs.nnleaderinc as incalg
 import pickle
@@ -271,6 +274,9 @@ def my_app(cfg: DictConfig) -> None:
         algo = NNLinUCB(env, cfg, net)
     elif cfg.algo == "nnegreedy":
         algo = NNEpsGreedy(env, cfg, net)
+    elif cfg.algo == "neuralucb":
+        assert cfg.weight_mse == 1
+        algo = NeuralUCB(env, cfg, net)
     elif cfg.algo == "egreedy":
         algo = NNEpsGreedy(env, cfg)
     elif cfg.algo == "linucb":
@@ -282,6 +288,10 @@ def my_app(cfg: DictConfig) -> None:
         algo = incalg.NNLeaderInc(env, cfg, net)
     elif cfg.algo == "nneginc":
         algo = incalg.NNEGInc(env, cfg, net)
+    elif cfg.algo == "squarecb":
+        algo = SquareCB(env, cfg, net)
+    elif cfg.algo == "gradientucb":
+        algo = GradientUCB(env, cfg, net)
     else:
         raise ValueError("Unknown algorithm {cfg.algo}")
     log.info(f"running: {type(algo).__name__}")

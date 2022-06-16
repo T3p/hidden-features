@@ -35,6 +35,8 @@ class NNEpsGreedy(NNLinUCB):
             self.epsilon = 1. / np.cbrt(self.t + 1)
         elif self.epsilon_decay == "sqrt":
             self.epsilon = 1. / np.sqrt(self.t + 1)
+        elif self.epsilon_decay == "zero":
+            self.epsilon = 0
         else:
             raise NotImplementedError()
         

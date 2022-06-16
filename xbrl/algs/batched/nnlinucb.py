@@ -102,6 +102,7 @@ class NNLinUCB(XBModule):
             metrics['spectral_loss'] = spectral_loss.cpu().item()
 
         if not np.isclose(self.weight_certainty, 0): # TODO not updated
+
             # phi = self.model.embedding(b_features)
             # A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             # A /= phi.shape[0]
@@ -112,7 +113,6 @@ class NNLinUCB(XBModule):
             certainty_loss = - certainty.mean() / self.features_bound**4
             loss = loss + self.weight_certainty * certainty_loss
             metrics['certainty_loss'] = certainty_loss.cpu().item()
-
 
         if not np.isclose(self.weight_uncertainty, 0): # TODO not updated
             phi = self.model.embedding(b_features)
