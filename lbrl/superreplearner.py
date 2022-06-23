@@ -251,7 +251,7 @@ class SuperRepLearner:
                             if self.cfg.select_method == self.MIN_FEAT_NORM:
                                 tmp = phi.dot(self.Amtx[i] @ phi) / Lsq
                             else:
-                                tmp = phi.dot(self.Amtx[i] @ phi) / (np.linalg.norm(phi, ord=2)**2)
+                                tmp = phi.dot(self.Amtx[i] @ phi) / (np.linalg.norm(phi, ord=2)**2 * Lsq)
                             rep_scores[i] = min(rep_scores[i], tmp)
                             # rep_scores[i] += tmp
                     else:
