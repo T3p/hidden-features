@@ -41,6 +41,8 @@ use_maxnorm: True
 use_relu: True
 adaptive_bonus_linucb: True
 save_model_at_train: False
+gamma_exponent: cbrt
+gamma_scale: 10
 
 # misc
 seed: 1
@@ -65,7 +67,7 @@ hydra:
     mem_gb: 160
     nodes: 1
     submitit_folder: ./multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}_${algo}/.slurm
-    partition: devlab
+    partition: learnlab
   job_logging :
       formatters:
         simple:
