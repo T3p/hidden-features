@@ -200,6 +200,8 @@ def my_app(cfg: DictConfig) -> None:
             select_method = SRL.SuperRepLearner.MIN_FEAT_NORM
         elif cfg.algo.endswith("minfeat_norm_adaptive"):
             select_method = SRL.SuperRepLearner.MIN_FEAT_NORM_ADAPTIVE
+        elif cfg.algo.endswith("minfeat_norm_adaptive2"):
+            select_method = SRL.SuperRepLearner.MIN_FEAT_NORM_ADAPTIVE2
         else:
             raise ValueError(f"unknown algo {cfg.algo}")
         cfg.select_method = select_method
