@@ -3,15 +3,13 @@
 
 Do not look into tmp_code
 
-### Running experiments in XBRL (ie deep)
+# How to Replicate the Experiments
 
-    python run_multiclass.py --dataset magic --bandittype extended --algo nnlinucb  --max_epochs 50 --update_every 500 --lr 0.001 --batch_size 256 --config_name _incremental
+For the experiments in the main paper, you can run the following commands
+
+### wheel
+
+    python run_linearfinite.py -m domain=wheel.yaml horizon=200000 algo=nnlinucb check_glrt=True epsilon_decay=none bonus_scale=3 glrt_scale=5 layers=\"100,100,50,20,10\" weight_mse=1 weight_rayleigh=0 weight_min_features=0,1 weight_min_random=0 weight_l2features=0 weight_trace=0 weight_spectral=0 seed=713,464,777,879,660,608,773,919,591,229 use_tb=true use_maxnorm=False hydra.sweep.dir=expmain/wheel/ hydra.sweep.subdir=\${algo}_weak\${weight_min_features}_\${seed} hydra.launcher.submitit_folder=expmain/wheel/.slurm
 
 
-### Running experiments in LBRL (ie linear problem) with 50 repetitions (see seed parameters)
-
-    python lbrl_runner.py --multirun horizon=100000 domain=vardimtest.yaml algo=leader,leaderselectlb seed=3072810,4961752,6429502,10459894,12082893,3278453,9512236,8456663,10318982,6442460,7669135,7335931,9585688,4692096,649642,7309948,5022585,6452796,6622844,5555361,5150257,7302292,10384878,11726365,9568168,6034637,3179151,11584587,11135058,6379609,724596,11930566,7232031,5035706,11396216,12125598,1293540,1481462,3157563,11618527,4811025,4567359,5134366,4074432,592797,1098404,4937790,2811825,10062358,8725858 hydra.sweep.dir=vardimtest_\${now:%Y-%m-%d}/\${algo}
-
-    python lbrl_runner.py --multirun horizon=100000 domain=vardimtest.yaml algo=leaderselect normalize_mineig=true,false seed=3072810,4961752,6429502,10459894,12082893,3278453,9512236,8456663,10318982,6442460,7669135,7335931,9585688,4692096,649642,7309948,5022585,6452796,6622844,5555361,5150257,7302292,10384878,11726365,9568168,6034637,3179151,11584587,11135058,6379609,724596,11930566,7232031,5035706,11396216,12125598,1293540,1481462,3157563,11618527,4811025,4567359,5134366,4074432,592797,1098404,4937790,2811825,10062358,8725858 hydra.sweep.dir=vardimtest_\${now:%Y-%m-%d}/\${algo}_norm-\${normalize_mineig}
-
-    python lbrl_runner.py --multirun horizon=100000 domain=vardimtest.yaml algo=linucb linucb_rep=0,1,2,3,4,5 seed=3072810,4961752,6429502,10459894,12082893,3278453,9512236,8456663,10318982,6442460,7669135,7335931,9585688,4692096,649642,7309948,5022585,6452796,6622844,5555361,5150257,7302292,10384878,11726365,9568168,6034637,3179151,11584587,11135058,6379609,724596,11930566,7232031,5035706,11396216,12125598,1293540,1481462,3157563,11618527,4811025,4567359,5134366,4074432,592797,1098404,4937790,2811825,10062358,8725858 hydra.sweep.dir=vardimtest_\${now:%Y-%m-%d}/\${algo}_\${linucb_rep}
+    python run_linearfinite.py -m domain=wheel.yaml horizon=200000 algo=nnegreedy check_glrt=True epsilon_decay=cbrt bonus_scale=3 glrt_scale=5 layers=\"100,100,50,20,10\" weight_mse=1 weight_rayleigh=0 weight_min_features=0,1 weight_min_random=0 weight_l2features=0 weight_trace=0 weight_spectral=0 seed=713,464,777,879,660,608,773,919,591,229 use_tb=true use_maxnorm=False hydra.sweep.dir=expmain/wheel/ hydra.sweep.subdir=\${algo}_weak\${weight_min_features}_\${seed} hydra.launcher.submitit_folder=expmain/wheel/.slurm
