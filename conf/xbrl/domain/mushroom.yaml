@@ -1,0 +1,8 @@
+type: dataset
+dataset: mushroom_num
+bandittype: expanded #[expanded, onehot]
+# noise problem
+noise_type: bernoulli
+rew_optimal: 0.9
+rew_suboptimal: 0.1
+noise_param: 0.5 #std

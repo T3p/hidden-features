@@ -37,7 +37,7 @@ def make_from_dataset(
         # now apply the transformation to all the columns:
         for col in X.columns:
             X[col] = encoder.fit_transform(X[col])
-        X = X.drop(["veil-type"],axis=1)
+        # X = X.drop(["veil-type"],axis=1)
         y = encoder.fit_transform(y)
         if name == 'mushroom_onehot':
             X = OneHotEncoder(sparse=False).fit_transform(X)
