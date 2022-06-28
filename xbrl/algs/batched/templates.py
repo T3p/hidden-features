@@ -301,7 +301,7 @@ class XBModule():
 
                 # step
                 self.t += 1
-                if self.t % 1000 == 0:
+                if self.t % 10000 == 0:
                     metrics["optimal_arm"] = np.cumsum(np.array(metrics["expected_reward"]) == np.array(metrics["best_reward"])) / np.arange(1, len(
                         metrics["best_reward"]) + 1)
                     metrics['regret'] = np.cumsum(np.array(metrics["best_reward"]) - np.array(metrics["instant_reward"]))
