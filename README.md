@@ -29,4 +29,6 @@ python run_linearfinite.py -m domain=statlog.yaml horizon=300000 algo=nnegreedy 
 
 # last set of params
 
-python run_linearfinite.py -m domain=statlog.yaml algo=nnegreedy epsilon_decay=frt check_glrt=true layers=\"50,50,50,50,10\" horizon=200000 weight_min_features=0,1 seed=1,48121,6598,90144,44310,88361,43482,74508,32279,93111,30145,80831,88824,54953,5967,11579,46670,31024,56024,62782 hydra.sweep.dir=ablation/statlog_50/run1 hydra.launcher.submitit_folder=ablation/statlog_50/run1/.slurm
+python run_linearfinite.py -m domain=statlog.yaml algo=nnegreedy epsilon_decay=frt check_glrt=true layers=\"50,50,50,50,10\" horizon=200000 weight_min_features=0,1 seed=1,48121,6598,90144,44310,88361,43482,74508,32279,93111,30145,80831,88824,54953,5967,11579,46670,31024,56024,62782 glrt_scale=1 hydra.sweep.dir=ablation/statlog_50/run1 hydra.launcher.submitit_folder=ablation/statlog_50/run1/.slurm
+
+python run_linearfinite.py -m domain=statlog.yaml algo=nnlinucb epsilon_decay=none check_glrt=true layers=\"50,50,50,50,10\" horizon=200000 weight_min_features=0,1 seed=1,48121,6598,90144,44310,88361,43482,74508,32279,93111,30145,80831,88824,54953,5967,11579,46670,31024,56024,62782 bonus_scale=1 glrt_scale=1 hydra.sweep.dir=ablation/statlog_50/run2 hydra.launcher.submitit_folder=ablation/statlog_50/run2/.slurm
