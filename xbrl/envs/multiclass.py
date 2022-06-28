@@ -38,6 +38,7 @@ class MulticlassToBandit:
         # if self.idx == self.__len__():
         #     self.idx = 0  
         self.idx = self.np_random.choice(self.__len__(), 1).item()
+        # print("idx: ", self.idx)
         return self.X[self.idx]
 
     def step(self, action: int) -> float:
@@ -45,6 +46,7 @@ class MulticlassToBandit:
         """
         assert self.action_space.contains(action), action
         reward = self.rew_optimal if self.y[self.idx] == action else self.rew_suboptimal
+        # print("reward ", reward, self.seed, self.noise)
         if self.noise not in [None, "none", "None"]:
             if self.noise == "bernoulli":
                 reward = self.np_random.binomial(n=1, p=reward, size=1).item()
@@ -122,6 +124,7 @@ class MCOneHot(MulticlassToBandit):
         """Return a feature representation obtained from the concatenation
             of the current context with a one-hot-encoding representation of the features
         """
+        self.sample_context()
         return self.__getitem__(self.idx)[0]
         
     def description(self) -> str:
@@ -161,6 +164,7 @@ class MCExpanded(MulticlassToBandit):
         """Return a feature representation obtained from the concatenation
             of the current context with a one-hot-encoding representation of the features
         """
+        self.sample_context()
         return self.__getitem__(self.idx)[0]
 
     def description(self) -> str:

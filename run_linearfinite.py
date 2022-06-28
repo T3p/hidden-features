@@ -1,6 +1,7 @@
 import pdb
 from turtle import pd
 from omegaconf import DictConfig, OmegaConf
+import omegaconf
 import hydra
 from hydra.utils import to_absolute_path, get_original_cwd
 
@@ -253,7 +254,7 @@ def my_app(cfg: DictConfig) -> None:
                     print(cfg.layers.split(","))
                     hid_dim = cfg.layers.split(",")
                     hid_dim = [int(el) for el in hid_dim]
-                if not isinstance(hid_dim, list):
+                if not (isinstance(hid_dim, list) or isinstance(hid_dim, omegaconf.listconfig.ListConfig)):
                     hid_dim = [hid_dim]
                 print(hid_dim)
                 layers = [(el, nn.ReLU() if cfg.use_relu else nn.Tanh()) for el in hid_dim]
@@ -265,7 +266,7 @@ def my_app(cfg: DictConfig) -> None:
             print("randomly initializing weights of algorithm network")
             initialize_weights(net)
         print(net)
-
+    
     if cfg.algo == "nnlinucb":
         assert cfg.weight_spectral == 0 or cfg.weight_rayleigh == 0 or cfg.weight_orth == 0
         algo = NNLinUCB(env, cfg, net)
