@@ -17,7 +17,9 @@ def make_from_dataset(
         is_NaN = X.isna()
         row_has_NaN = is_NaN.any(axis=1)
         X = X[~row_has_NaN]
-        y = y[~row_has_NaN]
+        # y = y[~row_has_NaN]
+        y = X["occupation"]
+        X = X.drop(["occupation"],axis=1)
         cat_ix = X.select_dtypes(include=['category']).columns
         num_ix = X.select_dtypes(include=['int64', 'float64']).columns
         encoder = LabelEncoder()
