@@ -209,7 +209,7 @@ def my_app(cfg: DictConfig) -> None:
         env = bandits.make_from_dataset(
             cfg.domain.dataset, bandit_model=cfg.domain.bandittype, 
             rew_optimal=cfg.domain.rew_optimal, rew_suboptimal=cfg.domain.rew_suboptimal,
-            seed=cfg.seed, noise=cfg.domain.noise_type, noise_param=cfg.domain.noise_param)
+            seed=cfg.seed, noise=cfg.domain.noise_type, noise_param=cfg.domain.noise_param, shuffle=cfg.domain.shuffle)
 
         print()
         print("="*20)
@@ -299,6 +299,9 @@ def my_app(cfg: DictConfig) -> None:
     with open(os.path.join(work_dir, "config.json"), 'w') as f:
         json.dump(OmegaConf.to_container(cfg), f, indent=4, sort_keys=True)
     log.info("Configuration has been saved")
+
+    # for param in algo.model.parameters():
+    #     print(param.data)
 
     result = algo.run(horizon=cfg.horizon, log_path=work_dir)#cfg.log_dir)
 

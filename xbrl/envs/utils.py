@@ -10,7 +10,7 @@ from typing import Union
 def make_from_dataset(
     name:str, bandit_model:str=None, seed:int=0, 
     noise:str=None, noise_param:float=None,
-    rew_optimal:float=1, rew_suboptimal:float=0):
+    rew_optimal:float=1, rew_suboptimal:float=0, shuffle:bool=True):
     # Fetch data
     if name in ['adult_num', 'adult_onehot']:
         X, y = fetch_openml('adult', version=1, return_X_y=True)
@@ -69,15 +69,15 @@ def make_from_dataset(
     if bandit_model in [None, "none", "None"]:
         bandit = MulticlassToBandit(X, y, 
         dataset_name=name, seed=seed, noise=noise, noise_param=noise_param,
-        rew_optimal=rew_optimal, rew_suboptimal=rew_suboptimal)
+        rew_optimal=rew_optimal, rew_suboptimal=rew_suboptimal, shuffle=shuffle)
     elif bandit_model == "onehot":
         bandit = MCOneHot(X, y, 
         dataset_name=name, seed=seed, noise=noise, noise_param=noise_param,
-        rew_optimal=rew_optimal, rew_suboptimal=rew_suboptimal)
+        rew_optimal=rew_optimal, rew_suboptimal=rew_suboptimal, shuffle=shuffle)
     elif bandit_model == "expanded":
         bandit = MCExpanded(X, y, 
         dataset_name=name, seed=seed, noise=noise, noise_param=noise_param,
-        rew_optimal=rew_optimal, rew_suboptimal=rew_suboptimal)
+        rew_optimal=rew_optimal, rew_suboptimal=rew_suboptimal, shuffle=shuffle)
     else:
         raise RuntimeError('Bandit model does not exist')
     return bandit

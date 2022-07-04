@@ -256,6 +256,12 @@ class XBModule():
                 self.add_sample(features[action], reward, features)
                 aux_metrics = self.train()
 
+                # print()
+                # print(f"time: {self.t}")
+                # print(f"feat: {features}")
+                # print(f"action: {action}")
+                # print(f"rew: {reward}")
+
                 # update metrics
                 if aux_metrics:
                     for key, value in aux_metrics.items():

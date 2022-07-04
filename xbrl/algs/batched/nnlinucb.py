@@ -260,8 +260,8 @@ class NNLinUCB(XBModule):
             phi_diff = phi[subopt_arms] - phi[action]
             weighted_norm = (torch.matmul(phi_diff, self.inv_A) * phi_diff).sum(axis=1)
             likelihood_ratio = (prediction_diff) ** 2 / (2 * weighted_norm.clamp_min(1e-10))
-            min_ratio = likelihood_ratio.min()
-        is_active = min_ratio > self.glrt_scale * beta**2
+            min_ratio = likelihood_ratio.min().cpu().detach().numpy()
+        is_active = bool(min_ratio > self.glrt_scale * beta**2)
         return is_active, min_ratio, beta, action
 
     def play_action(self, features: np.ndarray):
@@ -311,9 +311,13 @@ class NNLinUCB(XBModule):
                 val = self.A_logdet - dim * np.log(self.ucb_regularizer) - 2 * np.log(self.delta)
                 beta = self.noise_std * np.sqrt(val) + self.param_bound * np.sqrt(self.ucb_regularizer)
             #https://stackoverflow.com/questions/18541851/calculate-vt-a-v-for-a-matrix-of-vectors-v/18542314#18542314
+            # print("Alog:", self.A_logdet)
+            # print("beta:", beta)
             bonus = (torch.matmul(phi, self.inv_A) * phi).sum(axis=1)
             bonus = self.bonus_scale * beta * torch.sqrt(bonus)
+            # print("bonus: ", bonus)
             ucb = torch.matmul(phi, self.theta) + bonus
+            # print("ucb: ", ucb)
             action = torch.argmax(ucb).item()
             if self.use_tb:
                 self.writer.add_scalar('bonus selected action', bonus[action].item(), self.t)
