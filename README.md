@@ -17,6 +17,9 @@ For the experiments in the main paper, you can run the following commands
 
     python run_linearfinite.py -m domain=wheel.yaml domain.ncontexts=100 algo=nnlinucb epsilon_decay=none check_glrt=false layers=\"50,50,50,50,10\" horizon=500000 weight_min_features=0,1 seed=1,48121,6598,90144,44310,88361,43482,74508,32279,93111,30145,80831,88824,54953,5967,11579,46670,31024,56024,62782 bonus_scale=1,2 glrt_scale=1 use_maxnorm=False hydra.sweep.dir=expablation/wheel100_5010/run4 hydra.launcher.submitit_folder=expablation/wheel100_5010/run4/.slurm
 
+    python run_linearfinite.py -m domain=wheel.yaml domain.ncontexts=100 algo=squarecb epsilon_decay=none check_glrt=false gamma_exponent=sqrt,cbrt gamma_scale=10,50,100 layers=\"50,50,50,50,10\" horizon=500000 seed=1,48121,6598,90144,44310,88361,43482,74508,32279,93111,30145,80831,88824,54953,5967,11579,46670,31024,56024,62782 hydra.sweep.dir=expablation/wheel100_5010/run9 hydra.launcher.submitit_folder=expablation/wheel100_5010/run9/.slurm
+
+    python run_linearfinite.py -m domain=wheel.yaml domain.ncontexts=100 algo=gradientucb epsilon_decay=none check_glrt=false bonus_scale=1,2,5 layers=\"50,50,50,50,10\" horizon=500000 seed=1,48121,6598,90144,44310,88361,43482,74508,32279,93111,30145,80831,88824,54953,5967,11579,46670,31024,56024,62782 hydra.sweep.dir=expablation/wheel100_5010/run10 hydra.launcher.submitit_folder=expablation/wheel100_5010/run10/.slurm
 
 # statlog, mushroom, magic
 
@@ -30,7 +33,7 @@ For the experiments in the main paper, you can run the following commands
 
     python run_linearfinite.py -m domain=statlog.yaml algo=squarecb epsilon_decay=none check_glrt=false gamma_exponent=sqrt,cbrt gamma_scale=10,50,100 layers=\"50,50,50,50,10\" horizon=500000 seed=1,48121,6598,90144,44310,88361,43482,74508,32279,93111,30145,80831,88824,54953,5967,11579,46670,31024,56024,62782 hydra.sweep.dir=expablation/statlog_5010/run9 hydra.launcher.submitit_folder=expablation/statlog_5010/run9/.slurm
 
-    python run_linearfinite.py -m domain=statlog.yaml algo=gradientucb epsilon_decay=none check_glrt=false bonus_scale=1,2,5 layers=\"50,50,50,50,10\" horizon=500000 seed=1,48121,6598,90144,44310,88361,43482,74508,32279,93111,30145,80831,88824,54953,5967,11579,46670,31024,56024,62782 hydra.sweep.dir=expablation/statlog_5010/run10 hydra.launcher.submitit_folder=expablation~/statlog_5010/run10/.slurm
+    python run_linearfinite.py -m domain=statlog.yaml algo=gradientucb epsilon_decay=none check_glrt=false bonus_scale=1,2,5 layers=\"50,50,50,50,10\" horizon=500000 seed=1,48121,6598,90144,44310,88361,43482,74508,32279,93111,30145,80831,88824,54953,5967,11579,46670,31024,56024,62782 hydra.sweep.dir=expablation/statlog_5010/run10 hydra.launcher.submitit_folder=expablation/statlog_5010/run10/.slurm
 
 
 # covertype
