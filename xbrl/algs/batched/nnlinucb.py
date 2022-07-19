@@ -246,7 +246,7 @@ class NNLinUCB(XBModule):
         predicted_rewards = torch.matmul(phi, self.theta)
         opt_arms = torch.where(predicted_rewards > predicted_rewards.max() - self.mingap_clip)[0]
         subopt_arms = torch.where(predicted_rewards <= predicted_rewards.max() - self.mingap_clip)[0]
-        action = opt_arms[torch.randint(len(opt_arms), (1, ))].cpu().item()
+        action = self.np_random.choice(opt_arms.cpu().detach().numpy().flatten()).item()
         # Generalized Likelihood Ratio Test
         val = - 2 * np.log(self.delta) + dim * np.log(
             1 + 2 * self.t * self.features_bound / (self.ucb_regularizer * dim))
@@ -288,7 +288,7 @@ class NNLinUCB(XBModule):
         if glrt_active:
             self.number_glrt_step += 1
             return action
-        elif self.np_random.rand() <= self.epsilon:
+        elif self.epsilon > 0 and self.np_random.rand() <= self.epsilon:
             self.is_random_step = 1
             return self.np_random.choice(self.env.action_space.n, size=1).item()
         else:

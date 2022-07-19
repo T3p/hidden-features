@@ -59,5 +59,14 @@ class NNEpsGreedy(NNLinUCB):
             return self.np_random.choice(self.env.action_space.n, size=1).item()
         else:
             self.is_random_step = 1
+            features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
+            if self.model is not None:
+                with torch.no_grad():
+                    phi = self.model.embedding(features_tensor)
+            else:
+                phi = features_tensor
+            predicted_rewards = torch.matmul(phi, self.theta)
+            opt_arms = torch.where(predicted_rewards > predicted_rewards.max() - self.mingap_clip)[0]
+            action = self.np_random.choice(opt_arms.cpu().detach().numpy().flatten()).item()
             return action
 

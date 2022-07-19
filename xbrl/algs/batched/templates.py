@@ -50,8 +50,8 @@ class XBModule():
             self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate,
                                              weight_decay=self.weight_decay)
         self.t = 0
-        self.buffer = SimpleBuffer(capacity=self.buffer_capacity)
-        self.explorative_buffer = SimpleBuffer(capacity=self.buffer_capacity)
+        self.buffer = SimpleBuffer(capacity=self.buffer_capacity, seed=cfg.seed)
+        self.explorative_buffer = SimpleBuffer(capacity=self.buffer_capacity, seed=cfg.seed+1)
         # TODO: check the following lines: with initialization to 0 the training code is never called
         self.update_time = 2
         # self.update_time = 2**np.ceil(np.log2(self.batch_size)) + 1
@@ -161,7 +161,7 @@ class XBModule():
                 exp_features, exp_rewards = self.explorative_buffer.get_all()
                 features, rewards, all_features, steps, is_random_steps = self.buffer.get_all()
                 nelem = features.shape[0]
-                idxs = np.random.choice(exp_features.shape[0], size=nelem)
+                idxs = self.np_random.choice(exp_features.shape[0], size=nelem)
                 exp_features_tensor = torch.tensor(exp_features[idxs], dtype=TORCH_FLOAT, device=self.device)
                 exp_rewards_tensor = torch.tensor(exp_rewards[idxs].reshape(-1, 1), dtype=TORCH_FLOAT, device=self.device)
                 features_tensor = torch.tensor(features, dtype=TORCH_FLOAT, device=self.device)
@@ -173,7 +173,7 @@ class XBModule():
                     # print(f"reweighting: avg: {weights_tensor.mean().cpu().item()} - min/max: {weights_tensor.min().cpu().item(), weights_tensor.max().cpu().item()}")
 
                 torch_dataset = torch.utils.data.TensorDataset(exp_features_tensor,exp_rewards_tensor,features_tensor, rewards_tensor, weights_tensor, all_features_tensor)
-                loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=True)
+                loader = torch.utils.data.DataLoader(dataset=torch_dataset, batch_size=self.batch_size, shuffle=False)
                 self.model.train()
 
                 for epoch in range(self.max_updates):
@@ -264,6 +264,7 @@ class XBModule():
 
                 # update metrics
                 if aux_metrics:
+                    print("train_loss", aux_metrics["train_loss"])
                     for key, value in aux_metrics.items():
                         metrics[key].append(value)
 
