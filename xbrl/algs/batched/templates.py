@@ -284,7 +284,7 @@ class XBModule():
                 sum_pull_optimal_arm += tmp_is_opt
                 p_optimal_arm = np.mean(is_opt_arm_limcap)
 
-                if self.t+1 % log_every_t == 0:
+                if (self.t+1) % log_every_t == 0:
                     metrics['runtime'].append(time.time() - start)
                     # log regret
                     metrics['instant_reward'].append(reward)
@@ -325,7 +325,7 @@ class XBModule():
 
                 # step
                 self.t += 1
-                if self.t % 10000 == 0:
+                if self.t % 50000 == 0:
                     with open(os.path.join(log_path, "latest_result.pkl"), 'wb') as f:
                         pickle.dump(metrics, f)
 
