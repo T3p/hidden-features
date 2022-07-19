@@ -271,7 +271,6 @@ class XBModule():
 
                 # update metrics
                 if aux_metrics:
-                    print("train_loss", aux_metrics["train_loss"])
                     for key, value in aux_metrics.items():
                         metrics[key].append(value)
 
