@@ -50,6 +50,7 @@ device: cpu
 use_tb: true
 use_wandb: false
 exp_name: "default_name"
+log_every_t: 1000
 
 hydra:
   run:

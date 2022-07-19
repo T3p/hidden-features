@@ -303,7 +303,7 @@ def my_app(cfg: DictConfig) -> None:
     # for param in algo.model.parameters():
     #     print(param.data)
 
-    result = algo.run(horizon=cfg.horizon, log_path=work_dir)#cfg.log_dir)
+    result = algo.run(horizon=cfg.horizon, log_path=work_dir, log_every_t=cfg.log_every_t)#cfg.log_dir)
 
     # if cfg.save_dir is not None:
     #     with open(os.path.join(cfg.save_dir, "config.json"), 'w') as f:

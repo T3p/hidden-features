@@ -11,7 +11,7 @@ from ..replaybuffer import SimpleBuffer
 from ..nnmodel import initialize_weights
 import time
 from ... import TORCH_FLOAT
-from collections import defaultdict
+from collections import defaultdict, deque
 import logging
 from omegaconf import DictConfig
 import os
@@ -233,12 +233,19 @@ class XBModule():
                 return aux_metrics
         return None
 
-    def run(self, horizon: int, throttle: int=100, log_path: str=None) -> None:
+    def run(self, horizon: int, throttle: int=100, log_path: str=None, log_every_t:int=1) -> None:
         metrics = defaultdict(list)
         if log_path is None:
             log_path = f"tblogs/{type(self).__name__}_{self.env.dataset_name}"
         self.log_path = log_path
         self.writer = SummaryWriter(log_path)
+        metrics["time"] = [0]
+        metrics["regret"] = [0]
+        metrics["expected_regret"] = [0]
+        metrics["optimal_arm"] = [0]
+        regret, exp_regret = 0, 0
+        sum_pull_optimal_arm = 0
+        is_opt_arm_limcap = deque(maxlen=100)
 
         postfix = {
             # 'total regret': 0.0,
@@ -269,23 +276,33 @@ class XBModule():
                         metrics[key].append(value)
 
                 # update metrics
-                metrics['runtime'].append(time.time() - start)
-                # log regret
-                metrics['instant_reward'].append(reward)
                 expected_reward = self.env.expected_reward(action)
-                metrics['expected_reward'].append(expected_reward)
-                metrics['action'].append(action)
                 best_reward, best_action = self.env.best_reward_and_action()
-                metrics['best_reward'].append(best_reward)
-                metrics['best_action'].append(best_action)
+                exp_regret += best_reward - expected_reward
+                regret += best_reward - reward
+                tmp_is_opt = np.abs(expected_reward - best_reward)<1e-6
+                is_opt_arm_limcap.append(tmp_is_opt)
+                sum_pull_optimal_arm += tmp_is_opt
+                p_optimal_arm = np.mean(is_opt_arm_limcap)
+
+                if self.t+1 % log_every_t == 0:
+                    metrics['runtime'].append(time.time() - start)
+                    # log regret
+                    metrics['instant_reward'].append(reward)
+                    metrics['expected_reward'].append(expected_reward)
+                    metrics['action'].append(action)
+                    metrics['best_reward'].append(best_reward)
+                    metrics['best_action'].append(best_action)
+                    metrics["time"].append(self.t+1)
+                    metrics['regret'].append(regret)
+                    metrics["expected_regret"].append(exp_regret)
+                    metrics["optimal_arm"].append(p_optimal_arm/(self.t+1))
                 # metrics['instant_regret'].append(best_reward - reward)
                 # metrics["instant_expected_regret"].append(best_reward - expected_reward)
 
                 # update postfix
-                postfix['expected regret'] += best_reward - expected_reward
-                p_optimal_arm = np.mean(
-                    np.abs(np.array(metrics['expected_reward'][max(0,self.t-100):self.t+1]) - np.array(metrics['best_reward'][max(0,self.t-100):self.t+1]) ) < 1e-6
-                )
+                postfix['expected regret'] = exp_regret
+                p_optimal_arm = np.mean(is_opt_arm_limcap)
                 postfix['% optimal arm (last 100 steps)'] = '{:.2%}'.format(p_optimal_arm)
                 if aux_metrics:
                     if "train_loss" in aux_metrics.keys():
@@ -293,14 +310,15 @@ class XBModule():
 
                 # log to tensorboard
                 # self.writer.add_scalar("regret", postfix['total regret'], self.t)
-                if self.use_tb:
-                    self.writer.add_scalar("expected regret", postfix['expected regret'], self.t)
-                    self.writer.add_scalar('perc optimal pulls (last 100 steps)', p_optimal_arm, self.t)
-                    self.writer.add_scalar('optimal arm?', 1 if action == best_action else 0, self.t)
-                if self.use_wandb:
-                    wandb.log({'expected regret': postfix['expected regret'],
-                               'perc optimal pulls (last 100 steps)': p_optimal_arm,
-                               'optimal arm?': int(expected_reward == best_reward)}, step=self.t)
+                if (self.t+1) % log_every_t == 0:
+                    if self.use_tb:
+                        self.writer.add_scalar("expected regret", postfix['expected regret'], self.t)
+                        self.writer.add_scalar('perc optimal pulls (last 100 steps)', p_optimal_arm, self.t)
+                        self.writer.add_scalar('optimal arm?', 1 if action == best_action else 0, self.t)
+                    if self.use_wandb:
+                        wandb.log({'expected regret': postfix['expected regret'],
+                                'perc optimal pulls (last 100 steps)': p_optimal_arm,
+                                'optimal arm?': int(expected_reward == best_reward)}, step=self.t)
 
                 if self.t % throttle == 0:
                     pbar.set_postfix(postfix)
@@ -309,10 +327,6 @@ class XBModule():
                 # step
                 self.t += 1
                 if self.t % 10000 == 0:
-                    metrics["optimal_arm"] = np.cumsum(np.array(metrics["expected_reward"]) == np.array(metrics["best_reward"])) / np.arange(1, len(
-                        metrics["best_reward"]) + 1)
-                    metrics['regret'] = np.cumsum(np.array(metrics["best_reward"]) - np.array(metrics["instant_reward"]))
-                    metrics["expected_regret"] = np.cumsum(np.array(metrics["best_reward"]) - np.array(metrics["expected_reward"]))
                     with open(os.path.join(log_path, "latest_result.pkl"), 'wb') as f:
                         pickle.dump(metrics, f)
 
@@ -320,8 +334,4 @@ class XBModule():
         for key, value in metrics.items():
             metrics[key] = np.array(value)
         # compute extra metrics
-        metrics["optimal_arm"] = np.cumsum(metrics["expected_reward"] == metrics["best_reward"]) / np.arange(1, len(
-            metrics["best_reward"]) + 1)
-        metrics['regret'] = np.cumsum(metrics["best_reward"] - metrics["instant_reward"])
-        metrics["expected_regret"] = np.cumsum(metrics["best_reward"] - metrics["expected_reward"])
         return metrics
