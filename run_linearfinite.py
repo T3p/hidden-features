@@ -325,6 +325,8 @@ def my_app(cfg: DictConfig) -> None:
             wandb.finish(quiet=True)
     except Exception as exc:
         log.error("="*20)
+        log.error("EXCEPTION")
+        log.error("-"*20)
         log.exception(exc)
         log.error("="*20)
         raise exc
