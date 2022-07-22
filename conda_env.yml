@@ -6,17 +6,16 @@ dependencies:
   - pip==21.2.4
   - numpy==1.21.2
   - jupyterlab>=3.0.14
-  - scikit-learn>=1.0.2
-  - nvidia::cudatoolkit=11.1
-  - pytorch::pytorch
-  - pytorch::torchvision
+  - scikit-learn==1.0.2
+  - nvidia::cudatoolkit=11.3
+  - pytorch::pytorch=1.11.0
+  - pytorch::torchvision=0.12.0
   - pip:
-    - hydra-core==1.1.0
+    - hydra-core==1.1.2
     - hydra-submitit-launcher==1.1.5
     - hydra-joblib-launcher==1.1.5
     - matplotlib==3.5.1
     - pandas==1.4.0
     - tqdm==4.62.3
-    - tensorboard==2.8.0
-    - cvxpy
-    - wandb
+    - tensorboard==2.9.1
+    - celluloid
