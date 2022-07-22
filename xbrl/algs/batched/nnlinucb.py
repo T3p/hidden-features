@@ -153,8 +153,13 @@ class NNLinUCB(XBModule):
         if not np.isclose(self.weight_rayleigh, 0):
             phi = self.model.embedding(b_features)
             if self.normalize_features:
-                norm = torch.norm(phi, dim=1, keepdim=False).max() if self.use_maxnorm else torch.norm(phi, dim=1, keepdim=True)
-                phi = phi / norm
+                # norm = torch.norm(phi, dim=1, keepdim=False).max() if self.use_maxnorm else torch.norm(phi, dim=1, keepdim=True)
+                # phi = phi / norm
+                if self.use_maxnorm:
+                    norm = torch.norm(phi, dim=1, keepdim=False).max()
+                    phi = phi / norm
+                else:
+                    phi = F.normalize(phi, dim=1)
             A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
             # compute loss to update the unit vector
@@ -166,8 +171,13 @@ class NNLinUCB(XBModule):
             # recompute the loss to update embedding
             phi = self.model.embedding(b_features)
             if self.normalize_features:
-                norm = torch.norm(phi, dim=1, keepdim=False).max() if self.use_maxnorm else torch.norm(phi, dim=1, keepdim=True)
-                phi = phi / norm
+                # norm = torch.norm(phi, dim=1, keepdim=False).max() if self.use_maxnorm else torch.norm(phi, dim=1, keepdim=True)
+                # phi = phi / norm
+                if self.use_maxnorm:
+                    norm = torch.norm(phi, dim=1, keepdim=False).max()
+                    phi = phi / norm
+                else:
+                    phi = F.normalize(phi, dim=1)
             A = torch.matmul(phi.T, phi) + self.ucb_regularizer * torch.eye(phi.shape[1], device=self.device)
             A /= phi.shape[0]
             rayleigh_loss = - torch.dot(self.unit_vector.detach(), torch.matmul(A, self.unit_vector.detach()))
