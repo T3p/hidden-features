@@ -315,7 +315,7 @@ def my_app(cfg: DictConfig) -> None:
         
 
         with open(os.path.join(work_dir, "result.pkl"), 'wb') as f:
-            pickle.dump(result, f)
+            pickle.dump(result, f, protocol=pickle.HIGHEST_PROTOCOL)
 
         if hasattr(algo.env, "feature_matrix"):
             payload = {'model': algo.model, 'features': algo.env.feature_matrix, 'rewards': algo.env.rewards}

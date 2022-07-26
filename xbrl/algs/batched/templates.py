@@ -328,7 +328,7 @@ class XBModule():
                 self.t += 1
                 if self.t % 50000 == 0:
                     with open(os.path.join(log_path, "latest_result.pkl"), 'wb') as f:
-                        pickle.dump(metrics, f)
+                        pickle.dump(metrics, f, protocol=pickle.HIGHEST_PROTOCOL)
 
         # convert metrics to numpy.array
         for key, value in metrics.items():
