@@ -37,6 +37,7 @@ import logging
 log = logging.getLogger(__name__)
 
 def set_seed_everywhere(seed):
+    # torch.autograd.set_detect_anomaly(True)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
