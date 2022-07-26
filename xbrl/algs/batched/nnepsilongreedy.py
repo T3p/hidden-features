@@ -43,7 +43,7 @@ class NNEpsGreedy(NNLinUCB):
             raise NotImplementedError()
         
         glrt_active, min_ratio, beta, action = self.glrt(features)
-        glrt_active = glrt_active and self.check_glrt
+        glrt_active = glrt_active and self.check_glrt and (len(self.explorative_buffer)>10)
 
         if self.use_tb:
             self.writer.add_scalar('epsilon', self.epsilon, self.t)
